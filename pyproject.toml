@@ -1,0 +1,193 @@
+[project]
+name = "SECQUOIA"
+dynamic = ["version"]
+description = "A GUI for timeseries quantification and curation using napari."
+readme = "README.md"
+license = {file = "LICENSE"}
+authors = [
+  {name = "Daniel Schirmacher", email = "dschirethz@gmail.com"},
+  {name = "Markus Auler", email = "mmkauler@gmail.com"},
+]
+classifiers = [
+    "Development Status :: 2 - Pre-Alpha",
+    "Framework :: napari",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: BSD License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3 :: Only",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Scientific/Engineering :: Image Processing",
+]
+requires-python = ">=3.10"
+# SECQUOIA ships as a standalone application, not a napari plugin, so pulling
+# a Qt backend in here is intentional: end users get a working install without
+# extra steps.
+dependencies = [
+    "matplotlib>=3.10,<4",
+    "pyqtgraph>=0.14,<0.15",
+    "qtawesome>=1.4,<2",
+    "napari[bermuda,optional-base,optional-numba,pyside6]>=0.6,<0.7",
+    "markdown>=3.10,<4",
+    "Pillow>=12.1,<13",
+    "imageio-ffmpeg>=0.6,<0.7",
+    "imagecodecs>=2025.3.30; python_version < '3.11'",
+    "imagecodecs>=2026.3.6; python_version >= '3.11' and python_version < '3.12'",
+    "imagecodecs>=2026.6.26; python_version >= '3.12'",
+]
+
+[project.optional-dependencies]
+
+# Allow easily installation with the full, default napari installation
+# (including Qt backend) using SECQUOIA[all].
+testing = [
+    "tox>=4.44,<5",
+    "pre-commit>=4.0,<5",
+    "pytest>=9.0,<10",  # https://docs.pytest.org/en/latest/contents.html
+    "pytest-cov>=7.0,<8",  # https://pytest-cov.readthedocs.io/en/latest/
+    "pytest-qt>=4.5,<5",  # qtbot/qapp fixtures for the widget tests
+    "pytest-timeout>=2.4,<3",  # a stray modal dialog must not hang CI
+    "pytest-xdist>=3.8,<4",  # parallel runs; each worker gets its own QApplication
+    "pytest-regressions>=2.11,<3",  # golden-file dataframe/array comparisons
+    "ipdb>=0.13,<0.14",
+]
+
+# Not needed for now as we won't use it as plugin
+# [project.entry-points."napari.manifest"]
+# SECQUOIA = "SECQUOIA:napari.yaml"
+
+[project.scripts]
+SECQUOIA = "SECQUOIA.cli.run_app:main"
+
+
+[build-system]
+requires = ["setuptools>=42.0.0", "wheel", "setuptools_scm"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools]
+include-package-data = true
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+"*" = ["*.yaml"]
+"SECQUOIA.resources" = ["icons/*.png", "icons/*.ico", "icons/*.icns", "images/*.png"]
+
+[tool.setuptools_scm]
+write_to = "src/SECQUOIA/_version.py"
+fallback_version = "0.0.1+nogit"
+
+[tool.black]
+line-length = 79
+target-version = ['py310', 'py311', 'py312', 'py313']
+
+[tool.ruff]
+line-length = 79
+lint.select = [
+    "E", "F", "W", #flake8
+    "UP", # pyupgrade
+    "I", # isort
+    "BLE", # flake8-blind-exception
+    "B", # flake8-bugbear
+    "A", # flake8-builtins
+    "C4", # flake8-comprehensions
+    "ISC", # flake8-implicit-str-concat
+    "G", # flake8-logging-format
+    "PIE", # flake8-pie
+    "SIM", # flake8-simplify
+]
+lint.ignore = [
+    "E501", # line too long. let black handle this
+    "UP006", "UP007", # type annotation. As using magicgui require runtime type annotation then we disable this.
+]
+
+exclude = [
+    ".bzr",
+    ".direnv",
+    ".eggs",
+    ".git",
+    ".mypy_cache",
+    ".pants.d",
+    ".ruff_cache",
+    ".svn",
+    ".tox",
+    ".venv",
+    "__pypackages__",
+    "_build",
+    "buck-out",
+    "build",
+    "dist",
+    "node_modules",
+    "venv",
+    "*vendored*",
+    "*_vendor*",
+]
+
+target-version = "py310"
+fix = true
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = [
+    "-ra",
+    "--strict-markers",
+    "--strict-config",
+]
+
+# No test here needs a minute. A modal box nobody clicks would otherwise
+# hold the whole CI job until the runner gives up on it.
+timeout = 60
+
+qt_api = "pyside6"
+markers = [
+    "smoke: quick import or setup tests",
+    "gui: tests that require Qt, napari, or GUI interaction",
+    "slow: slow integration tests",
+]
+filterwarnings = [
+    "default",
+    # Raised from inside CPython's copy module by a dependency, not by us.
+    "ignore:Pickle, copy, and deepcopy support will be removed from itertools:DeprecationWarning",
+]
+
+[tool.coverage.run]
+source = ["SECQUOIA"]
+# Lines only. Branch coverage roughly halves the number on Qt setup code,
+# which would leave the gate below saying nothing. Worth turning on later.
+branch = false
+# Every process writes its own file, so xdist runs and the subprocess test
+# do not overwrite each other.
+parallel = true
+# Generated by setuptools_scm, so there is nothing here to test.
+omit = [
+    "*/_version.py",
+]
+
+[tool.coverage.paths]
+# tox installs into a virtualenv, so CI records a different path than we do
+# here. This maps them onto one set of names when the reports are combined.
+source = [
+    "src/SECQUOIA",
+    "*/site-packages/SECQUOIA",
+    ".tox/*/lib/python*/site-packages/SECQUOIA",
+]
+
+[tool.coverage.report]
+skip_covered = false
+show_missing = true
+# The gate. Raise it as coverage lands, never lower it. We sit at 49% now,
+# with room left for the branches that only run on one platform.
+fail_under = 46
+# Lines that cannot be run in a test, so they should not count as missing.
+exclude_also = [
+    "if TYPE_CHECKING:",
+    "raise NotImplementedError",
+    "if __name__ == .__main__.:",
+    "@(typing\\.)?overload",
+    "class .*\\(Protocol\\):",
+]
