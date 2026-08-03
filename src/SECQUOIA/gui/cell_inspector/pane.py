@@ -1,4 +1,4 @@
-"""One view: the control row from the viewers, above a tile."""
+"""The control row are located above ."""
 
 from __future__ import annotations
 
@@ -54,7 +54,7 @@ class InspectorPane(QWidget):
         self.rebuild_controls()
 
     def rebuild_controls(self) -> None:
-        """Rebuild the control row from the channels and masks now loaded."""
+        """Rebuild the control row from the channels and masks."""
         keep_channel = self.current_channel()
         keep_mask = self.current_mask_selection()
         keep_opacity = self.current_opacity()
@@ -107,7 +107,7 @@ class InspectorPane(QWidget):
             return QWidget(), None
 
     def _build_opacity_widgets(self):
-        """Build the opacity slider, then point it at this view's mask."""
+        """Build the opacity slider."""
         try:
             container = ViewerContrast._build_opacity_control(
                 self._widget_source, None
@@ -159,7 +159,7 @@ class InspectorPane(QWidget):
         self.masks_changed.emit(self.current_masks())
 
     def _mask_count(self) -> int:
-        """How many masks the main window has loaded."""
+        """Loaded masks."""
         try:
             return max(0, int(getattr(self._widget_source, "n_masks", 0) or 0))
         except (TypeError, ValueError):
@@ -185,7 +185,7 @@ class InspectorPane(QWidget):
             return None
 
     def current_masks(self) -> tuple[int, ...]:
-        """The 1-based mask numbers to draw. ALL means all of them."""
+        """The 1-based mask numbers to draw."""
         number = self.current_mask_selection()
         if number is None:
             return ()
@@ -194,7 +194,7 @@ class InspectorPane(QWidget):
         return (number,)
 
     def current_opacity(self) -> float:
-        """How opaque the mask is, from 0 to 1."""
+        """Current opacity from 0 to 1."""
         if self.opacity_slider is None:
             return 1.0
         return float(self.opacity_slider.value()) / 100.0

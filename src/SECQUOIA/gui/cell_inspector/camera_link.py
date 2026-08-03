@@ -70,7 +70,7 @@ class NapariCameraLink(QObject):
         self._timer.timeout.connect(self.camera_changed)
 
     def attach(self, viewer) -> None:
-        """Start watching a viewer's camera, dropping any earlier one."""
+        """Start following a viewer's camera."""
         self.detach()
         if viewer is None:
             return
@@ -103,7 +103,7 @@ class NapariCameraLink(QObject):
             LOG.warning("cell inspector: camera exposes no center/zoom events")
 
     def detach(self) -> None:
-        """Stop watching and disconnect everything this put in place."""
+        """Stop watching and disconnect."""
         self._timer.stop()
         for emitter, callback in self._connections:
             with contextlib.suppress(
@@ -119,7 +119,7 @@ class NapariCameraLink(QObject):
         return bool(self._connections)
 
     def _on_camera_event(self, _event=None) -> None:
-        """Remember that the camera moved. The timer decides when to report it."""
+        """Remember that the camera moved."""
         if not self._timer.isActive():
             self._timer.start()
 

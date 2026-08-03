@@ -80,7 +80,7 @@ class CellInspectorController(QObject):
             self._adopt_pane(pane)
 
     def _adopt_pane(self, pane: InspectorPane) -> None:
-        """Set a new view up and start listening to its controls."""
+        """Set a new view up."""
         dispatcher = CropDispatcher(self._source, self, pool=self._pool)
         state = PaneState(pane=pane, dispatcher=dispatcher)
         self._states[pane] = state
@@ -100,7 +100,6 @@ class CellInspectorController(QObject):
         self.render_pane(pane)
 
     def _release_pane(self, pane: InspectorPane) -> None:
-        """Stop the background work for a view that was removed."""
         state = self._states.pop(pane, None)
         if state is not None:
             state.dispatcher.shutdown()
@@ -146,7 +145,7 @@ class CellInspectorController(QObject):
                     )
 
     def detach_viewers(self) -> None:
-        """Stop following the camera, the time slider and the mask edits."""
+        """Stop following the camera."""
         self._camera.detach()
         if self._time_connection is not None:
             with contextlib.suppress(RuntimeError, AttributeError, TypeError):
@@ -159,11 +158,9 @@ class CellInspectorController(QObject):
         self._label_connections = []
 
     def _viewer(self):
-        """The viewer the camera and time slider are taken from."""
         return getattr(self._main_window, "viewer_1", None)
 
     def _all_viewers(self) -> list:
-        """Every viewer that exists, so mask edits are caught in all of them."""
         viewers = getattr(self._main_window, "viewer_fluorescence", None)
         if not viewers:
             viewers = [
@@ -188,7 +185,7 @@ class CellInspectorController(QObject):
             self.render_pane(pane)
 
     def render_pane(self, pane: InspectorPane) -> None:
-        """Ask for the region the viewer is showing, in this view's channel."""
+        """Ask for the region the viewer is showing."""
         state = self._states.get(pane)
         if state is None or not self._panel.isVisible():
             return
@@ -221,7 +218,6 @@ class CellInspectorController(QObject):
 
     @staticmethod
     def _prefetch_requests(request: CropRequest) -> list[CropRequest]:
-        """The time points either side, in the order you would step through them."""
         ahead: list[CropRequest] = []
         for offset in range(1, PREFETCH_RADIUS + 1):
             for step in (offset, -offset):
@@ -270,7 +266,7 @@ class CellInspectorController(QObject):
             )
 
     def _on_tile_unavailable(self, pane: InspectorPane) -> None:
-        """Say that the frame that was asked for is not there."""
+        """Report missing frame."""
         state = self._states.get(pane)
         if state is not None:
             state.last_result = None
@@ -279,7 +275,7 @@ class CellInspectorController(QObject):
     def _channel_range(
         self, state: PaneState, channel_id: str
     ) -> tuple[float, float] | None:
-        """The intensity range the sliders cover for a channel. Set once."""
+        """The intensity range the sliders cover for a channel."""
         channel_id = str(channel_id)
         known = state.ranges.get(channel_id)
         if known is not None:
@@ -316,7 +312,7 @@ class CellInspectorController(QObject):
         return (low, high) if high > low else None
 
     def _sync_levels_ui(self, state: PaneState, channel_id: str) -> None:
-        """Set the sliders to this channel's range and put the handles in place."""
+        """Set the sliders to this channel's range."""
         channel_id = str(channel_id)
         span = self._channel_range(state, channel_id)
         if span is None:
@@ -353,7 +349,6 @@ class CellInspectorController(QObject):
         return (low, high) if high > low else None
 
     def _watch_levels(self, state: PaneState) -> None:
-        """Start remembering this view's black/white changes. Only connects once."""
         if getattr(state, "_watching", False):
             return
         state.pane.levels_bar.levels_changed.connect(
@@ -373,7 +368,7 @@ class CellInspectorController(QObject):
         self.render()
 
     def _on_labels_edited(self, _event=None) -> None:
-        """A mask was painted. Redraw once the stroke is over."""
+        """A mask was painted."""
         if not self._edit_timer.isActive():
             self._edit_timer.start()
 
@@ -403,7 +398,7 @@ class CellInspectorController(QObject):
         self.render()
 
     def shutdown(self) -> None:
-        """Stop all background work and let go of the viewers."""
+        """Stop all background work."""
         self.detach_viewers()
         for state in self._states.values():
             state.dispatcher.shutdown()

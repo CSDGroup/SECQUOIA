@@ -46,7 +46,7 @@ def open_cell_inspector(main_window):
 
 
 def _put_away_if_in_front(main_window) -> bool:
-    """Close the window if it is open and active, and say whether it was."""
+    """Close the window if it is open and active."""
     panel = getattr(main_window, "cell_inspector_panel", None)
     if panel is None:
         return False

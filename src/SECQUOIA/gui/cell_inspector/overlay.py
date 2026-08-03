@@ -1,4 +1,4 @@
-"""Colours a mask crop the same way Napari does."""
+"""Colours a mask crop as in the viewers."""
 
 from __future__ import annotations
 

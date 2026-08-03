@@ -37,7 +37,7 @@ _BEFORE_SIDES = (LEFT, ABOVE)
 
 
 class CellInspectorPanel(QWidget):
-    """The window that holds the views."""
+    """The Cell Inspector window."""
 
     pane_added = Signal(object)
     pane_removed = Signal(object)
@@ -65,7 +65,7 @@ class CellInspectorPanel(QWidget):
         self.add_pane()
 
     def _new_pane(self) -> InspectorPane:
-        """Make a view and hook up its right-click menu."""
+        """Make right-click menu."""
         pane = InspectorPane(self._widget_source)
         pane.context_menu_requested.connect(
             lambda position, p=pane: self._show_pane_menu(p, position)
@@ -76,7 +76,7 @@ class CellInspectorPanel(QWidget):
     def add_pane(
         self, relative_to: InspectorPane | None = None, side: str = RIGHT
     ) -> InspectorPane | None:
-        """Add a view on one side of another one, or None if the limit is hit."""
+        """Add a view on one side."""
         if len(self.panes) >= MAX_PANES:
             LOG.info("cell inspector: pane limit of %d reached", MAX_PANES)
             return None
@@ -96,7 +96,7 @@ class CellInspectorPanel(QWidget):
     def _insert_beside(
         self, neighbour: InspectorPane, side: str
     ) -> InspectorPane | None:
-        """Put a new view next to another one, on the given side."""
+        """Put a new view next to another one."""
         parent = neighbour.parentWidget()
         if not isinstance(parent, QSplitter):
             LOG.warning("cell inspector: pane is not in a splitter")
@@ -151,7 +151,6 @@ class CellInspectorPanel(QWidget):
         return True
 
     def _collapse(self, splitter) -> None:
-        """Dissolve splitters left with only one thing in them, working upwards."""
         while (
             isinstance(splitter, QSplitter)
             and splitter is not self.splitter
@@ -199,7 +198,6 @@ class CellInspectorPanel(QWidget):
             pane.rebuild_controls()
 
     def closeEvent(self, event) -> None:
-        """Say the window was closed, so the controller can stop working."""
         self.closed.emit()
         super().closeEvent(event)
 

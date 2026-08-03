@@ -1,4 +1,4 @@
-"""The black and white point sliders, same as above the Napari viewers."""
+"""The black and white point sliders."""
 
 from __future__ import annotations
 
@@ -98,11 +98,11 @@ class LevelsBar(QWidget):
 
     @property
     def range(self) -> tuple[float, float]:
-        """The intensity range the sliders cover."""
+        """The intensity range."""
         return self._range
 
     def levels(self) -> tuple[float, float] | None:
-        """The black and white points, as real intensity values."""
+        """The black and white points values."""
         low, high = self._range
         return (
             float(_to_real(self.black_slider.value(), low, high)),
@@ -110,7 +110,6 @@ class LevelsBar(QWidget):
         )
 
     def set_levels(self, low: float, high: float) -> None:
-        """Move the handles without telling anyone they moved."""
         range_low, range_high = self._range
         black = _to_slider(low, range_low, range_high)
         white = _to_slider(high, range_low, range_high)
@@ -127,7 +126,7 @@ class LevelsBar(QWidget):
         self._update_readout()
 
     def _on_slider_moved(self, which: str) -> None:
-        """Keep black below white, then report the new values."""
+        """Keep black points value below white point values."""
         if self._updating:
             return
 

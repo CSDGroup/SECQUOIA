@@ -16,12 +16,12 @@ class Rect:
 
     @property
     def width(self) -> int:
-        """Width in pixels. Never negative."""
+        """Width in pixels."""
         return max(0, self.right - self.left)
 
     @property
     def height(self) -> int:
-        """Height in pixels. Never negative."""
+        """Height in pixels."""
         return max(0, self.bottom - self.top)
 
     @property
@@ -36,7 +36,6 @@ class Rect:
 
 @dataclass(frozen=True)
 class CropWindow:
-    """A crop that was asked for, plus the part of it that really exists."""
 
     requested: Rect
     valid: Rect

@@ -18,7 +18,7 @@ DEFAULT_CACHE_ENTRIES = 256
 
 @dataclass(frozen=True)
 class CropRequest:
-    """Everything needed to make one tile."""
+    """Infos needed to make one tile."""
 
     channel_id: str
     time_index: int
@@ -39,10 +39,7 @@ class CropResult:
 
 
 def _plane(stack, time_index: int) -> np.ndarray | None:
-    """Return one frame of a stack, or None if it is not there.
-
-    Takes a 3D array or a list of 2D frames, since the loaders produce both.
-    """
+    """Return one frame of a stack, or None if it is not there."""
     if stack is None:
         return None
     try:
@@ -69,8 +66,6 @@ class FrameSource:
         self._main_window = main_window
         self._cache_entries = max(1, int(cache_entries))
         self._cache: OrderedDict[CropRequest, CropResult] = OrderedDict()
-        # read() runs on a background thread while invalidate() is called
-        # from the GUI thread, so the cache is locked whenever it is used.
         self._lock = threading.Lock()
 
     def channel_ids(self) -> list[str]:
@@ -180,7 +175,7 @@ class FrameSource:
         return tile
 
     def _cache_get(self, request: CropRequest) -> CropResult | None:
-        """Get a tile from the cache and mark it as just used."""
+        """Get a tile from the cache."""
         with self._lock:
             result = self._cache.get(request)
             if result is not None:
