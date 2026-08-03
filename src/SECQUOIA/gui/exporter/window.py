@@ -559,7 +559,7 @@ class _Window:
             lambda *_: self._stop_play(main_window)
         )
 
-        # selection/advanced wiring
+        # Selection/advanced wiring
         self._wire_sidebar_to_active(main_window)
         self._wire_selection_to_active(main_window)
 
@@ -615,7 +615,6 @@ class _Window:
 
             act = getattr(main_window, "active_panel", None)
             if act:
-                # Use the same highlight path you use on selection change
                 self._highlight_panel(act, True)
 
         main_window.tile_w_input.valueChanged.connect(

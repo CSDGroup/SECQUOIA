@@ -1,4 +1,4 @@
-"""Panel/tile data model and the draggable preview-canvas grid layout."""
+"""Draggable preview grid layout."""
 
 import logging
 import math
@@ -32,7 +32,7 @@ LOG = logging.getLogger(__name__)
 
 
 class _Panels:
-    """Panel/tile data model and the draggable preview canvas grid layout."""
+    """Draggable preview grid layout."""
 
     class SnapProxy(QGraphicsProxyWidget):
         """Graphics proxy that keeps preview panels aligned to the layout grid."""

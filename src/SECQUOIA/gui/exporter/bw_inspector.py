@@ -86,7 +86,7 @@ class _BWInspector:
             LOG.debug("B/W Inspector retarget skipped", exc_info=True)
 
     def _open_bw_inspector(self, main_window):
-        """Open (or retarget/raise) the interactive B/W level histogram tool."""
+        """Open the interactive B/W level histogram tool."""
         p = getattr(main_window, "active_panel", None)
         if not p:
             self._info(

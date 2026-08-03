@@ -44,13 +44,7 @@ class _Rendering:
         )
 
     def _gif_safe_duration_ms(self, fps: int) -> tuple[int, bool]:
-        """Return (duration_ms, was_clamped) for a GIF-safe per frame delay.
-
-        GIF only stores delays in 1/100 s steps, rounded down by Pillow, and
-        most viewers additionally force a ~10 fps floor below ~20 ms/frame.
-        Requesting a higher fps than that plays back slower than expected
-        once saved, regardless of what the UI asked for.
-        """
+        """Return (duration_ms, was_clamped) for a GIF-safe per frame delay."""
         safe_fps = min(max(1, int(fps)), EXPORT.GIF_SAFE_MAX_FPS)
         duration_cs = max(1, round(100.0 / safe_fps))
         return duration_cs * 10, safe_fps < fps
@@ -210,12 +204,7 @@ class _Rendering:
         return None
 
     def _extract_centroid(self, row) -> tuple[float, float]:
-        """Return the (x, y) centroid from a track row, preferring M1 columns.
-
-        Raises ``ValueError`` if neither the M1 nor the fallback columns
-        hold a usable (non-missing, non-NaN) value. A legitimate centroid
-        of exactly 0 is not treated as missing.
-        """
+        """Return the (x, y) centroid from a track row, preferring M1 columns."""
         x = self._pick_coord(row, "XMorphologyM1", "XMorphology")
         y = self._pick_coord(row, "YMorphologyM1", "YMorphology")
         if x is None or y is None:
@@ -284,7 +273,7 @@ class _Rendering:
     def _draw_time_indicator(
         self, draw, main_window, st: dict, t_index: int, sec_per_frame: float
     ) -> int:
-        """Draw the elapsed-time progress bar; return its pixel height (0 if hidden)."""
+        """Draw the time progress bar; return its pixel height (0 if hidden)."""
         y_ind = 0
         with suppress(Exception):
             y_ind = (
@@ -309,7 +298,7 @@ class _Rendering:
     def _draw_time_text(
         self, draw, st: dict, t_index: int, sec_per_frame: float, line_y: int
     ) -> None:
-        """Draw the elapsed-time HH:MM:SS label if enabled."""
+        """Draw the time HH:MM:SS label if enabled."""
         if not st.get("time_text_chk", False):
             return
         font_t = self._get_font(st["time_font_size"], st.get("font_name"))
@@ -325,7 +314,7 @@ class _Rendering:
             )
 
     def _draw_channel_label(self, draw, st: dict, line_y: int) -> None:
-        """Draw the right-aligned channel label if enabled."""
+        """Draw the right aligned channel label if enabled."""
         if not st.get("show_ch_lbl_chk", False):
             return
         font_ch = self._get_font(st["ch_font_size"], st.get("font_name"))
@@ -396,7 +385,7 @@ class _Rendering:
         return cropped
 
     def _update_single_panel_preview(self, main_window, panel):
-        """Render and update the on-canvas preview pixmap for a panel."""
+        """Render and update the on-canvas preview for a panel."""
         if not panel:
             return
         try:

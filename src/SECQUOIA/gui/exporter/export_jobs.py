@@ -16,7 +16,7 @@ LOG = logging.getLogger(__name__)
 
 
 class _ExportJobs:
-    """The file writing exporters: GIF/animation, TIFF stack, video, PNG."""
+    """Exporters: GIF/animation, TIFF stack, video, PNG."""
 
     def _export_animation_multi(self, main_window):
         """Export the canvas as an animated GIF/MP4/AVI sequence."""

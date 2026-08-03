@@ -83,14 +83,14 @@ class _Common:
 
     @staticmethod
     def _compact_combo(cb: QComboBox, minlen=8, fixed_w=130):
-        """Make a compact, fixed-width combo box."""
+        """Make a compact, fixed width combo box."""
         cb.setMinimumContentsLength(minlen)
         cb.setSizeAdjustPolicy(QComboBox.AdjustToMinimumContentsLengthWithIcon)
         cb.setFixedWidth(fixed_w)
 
     @staticmethod
     def _compact_spin(sp: QSpinBox | QDoubleSpinBox, fixed_w=72):
-        """Make a compact, fixed-width spin box."""
+        """Make a compact, fixed width spin box."""
         sp.setFixedWidth(fixed_w)
 
     @staticmethod
