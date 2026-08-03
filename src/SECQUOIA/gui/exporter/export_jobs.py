@@ -351,7 +351,7 @@ class _ExportJobs:
                 fpath = os.path.join(
                     panel_dir, f"{ident_safe}_t{t:05d}_{ch_safe}.{ext}"
                 )
-                if fmt == "TIFF":
+                if fmt == "TIF":
                     img.save(fpath, format="TIFF", compression="tiff_deflate")
                 else:
                     img.save(fpath, format="PNG")
@@ -392,7 +392,7 @@ class _ExportJobs:
                 comp_dir,
                 f"{self._active_ident_token(main_window)}_canvas_t{ti:05d}.{ext}",
             )
-            if fmt == "TIFF":
+            if fmt == "TIF":
                 canvas.save(fpath, format="TIFF", compression="tiff_deflate")
             else:
                 canvas.save(fpath, format="PNG")

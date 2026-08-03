@@ -631,9 +631,9 @@ class _Window:
             with self.blocked(main_window.export_fmt_combo):
                 main_window.export_fmt_combo.clear()
                 main_window.export_fmt_combo.addItems(
-                    ["PNG", "TIFF"]
+                    ["PNG", "TIF"]
                     if typ == "Single image"
-                    else ["GIF", "MP4", "AVI", "TIFF stack"]
+                    else ["GIF", "MP4", "AVI", "TIF stack"]
                 )
                 main_window.export_fmt_combo.setCurrentIndex(0)
 
@@ -651,7 +651,7 @@ class _Window:
                 main_window.single_img_fmt_combo = main_window.export_fmt_combo
                 self._export_single_images(main_window)
             else:
-                if fmt == "TIFF stack":
+                if fmt == "TIF stack":
                     self._export_tiff_stack(main_window)
                 else:
                     main_window.anim_fmt_combo = main_window.export_fmt_combo
