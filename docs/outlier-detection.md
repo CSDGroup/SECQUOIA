@@ -24,7 +24,7 @@ If a value lies outside the defined thresholds, it is marked as an outlier.
 3. Optionally, a second operator (`Op2`) can be used together with `Op1` to define both a minimum and a maximum threshold.
 4. Click the `+` button to add a new row and define additional threshold rules.
 5. Click the `X` button to remove the corresponding threshold rule.
-6. (Optional) To skip running a threshold rule, deselect the checkbox associated with that rule.
+6. If no values are entered for a threshold rule, that rule is not applied. A row keeping the default value `0` for `Val1` (and `Val2`, when `Op2` is used) is ignored, so you can leave unused rows in place instead of deleting them.
 7. After defining your threshold rules, click `Next` to switch to the `Sliding window` tab.
 
 

@@ -20,6 +20,7 @@ from SECQUOIA.core.outlier_detection.detection import (
     compare_series_op,
     load_outlier_rules_from_disk,
     resolve_feature_columns,
+    rule_is_active,
     run_outlier_pipeline,
     run_sliding_windows,
     run_threshold_rules,
@@ -212,19 +213,34 @@ class TestRunThresholdRules:
 
         assert (out["Outlier_detection"] == "OK").all()
 
-    def test_a_disabled_rule_does_nothing(self):
+    def test_a_rule_without_values_is_not_active(self):
         rule = Rule(
-            feat="AreaMorphology",
-            masks=[1],
-            channels=[],
-            op1=">",
-            val1=0.0,
-            enabled=False,
+            feat="AreaMorphology", masks=[1], channels=[], op1="<", val1=0.0
         )
 
-        out = run_threshold_rules(threshold_df(), pack([rule]))
+        assert not rule_is_active(rule)
 
-        assert (out["Outlier_detection"] == "OK").all()
+    def test_legacy_disabled_rules_are_dropped_on_load(self):
+        loaded = RulesPack.from_dict(
+            {
+                "version": 1,
+                "m_n": 1,
+                "ch_n": 0,
+                "rules": [
+                    {
+                        "feat": "AreaMorphology",
+                        "masks": [1],
+                        "channels": [],
+                        "op1": ">",
+                        "val1": 120.0,
+                        "enabled": False,
+                    }
+                ],
+                "sliding_windows": [],
+            }
+        )
+
+        assert loaded.rules == []
 
     def test_two_operands_combined_with_and(self):
         """A band: flagged only between the two thresholds."""

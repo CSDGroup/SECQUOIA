@@ -6,7 +6,7 @@ import json
 import logging
 import os
 import re
-from dataclasses import asdict, dataclass
+from dataclasses import asdict, dataclass, fields
 from datetime import datetime
 
 import numpy as np
@@ -59,11 +59,17 @@ class RulesPack:
     @staticmethod
     def from_dict(d: dict) -> RulesPack:
         """Create a RulesPack from a saved rules dictionary."""
+        rule_fields = {f.name for f in fields(Rule)}
+        rules = [
+            Rule(**{k: v for k, v in r.items() if k in rule_fields})
+            for r in d.get("rules", [])
+            if r.get("enabled", True)
+        ]
         return RulesPack(
             version=int(d.get("version", 1)),
             m_n=int(d.get("m_n", 0)),
             ch_n=int(d.get("ch_n", 0)),
-            rules=[Rule(**r) for r in d.get("rules", [])],
+            rules=[r for r in rules if rule_is_active(r)],
             sliding_windows=[
                 SlidingWindow(**s)
                 for s in d.get("sliding_windows", [])
@@ -248,6 +254,18 @@ def compare_series_op(series, op: str, val: float) -> pd.Series:
     return pd.Series(False, index=series.index)
 
 
+def threshold_values_set(val1, op2, val2) -> bool:
+    """True once a threshold row carries a non-zero limit."""
+    if float(val1 or 0.0) != 0.0:
+        return True
+    return op2 is not None and float(val2 or 0.0) != 0.0
+
+
+def rule_is_active(rule: Rule) -> bool:
+    """True if a threshold rule has values and should be applied."""
+    return threshold_values_set(rule.val1, rule.op2, rule.val2)
+
+
 def run_threshold_rules(
     df, pack: RulesPack, outcol="Outlier_detection", on_rule_done=None
 ) -> pd.DataFrame:
@@ -255,30 +273,25 @@ def run_threshold_rules(
     if outcol not in df.columns:
         df[outcol] = "OK"
     for r in pack.rules:
-        if r.enabled:
-            cols = resolve_feature_columns(
-                df, r.feat, (r.masks or None), (r.channels or None)
-            )
-            if cols:
-                m1 = pd.Series(False, index=df.index)
+        cols = resolve_feature_columns(
+            df, r.feat, (r.masks or None), (r.channels or None)
+        )
+        if cols:
+            m1 = pd.Series(False, index=df.index)
+            for c in cols:
+                m1 |= compare_series_op(df[c], r.op1, r.val1)
+
+            if r.op2 is None:
+                mask = m1
+            else:
+                m2 = pd.Series(False, index=df.index)
                 for c in cols:
-                    m1 |= compare_series_op(df[c], r.op1, r.val1)
-
-                if r.op2 is None:
-                    mask = m1
-                else:
-                    m2 = pd.Series(False, index=df.index)
-                    for c in cols:
-                        m2 |= compare_series_op(
-                            df[c],
-                            r.op2,
-                            (r.val2 if r.val2 is not None else 0.0),
-                        )
-                    mask = (
-                        (m1 & m2) if r.combine.upper() == "AND" else (m1 | m2)
+                    m2 |= compare_series_op(
+                        df[c], r.op2, (r.val2 if r.val2 is not None else 0.0)
                     )
+                mask = (m1 & m2) if r.combine.upper() == "AND" else (m1 | m2)
 
-                df.loc[mask, outcol] = "Outlier"
+            df.loc[mask, outcol] = "Outlier"
         if on_rule_done is not None:
             on_rule_done()
     return df

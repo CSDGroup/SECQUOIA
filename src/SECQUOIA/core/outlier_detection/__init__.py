@@ -7,10 +7,12 @@ from SECQUOIA.core.outlier_detection.detection import (
     _outlier_rules_dir,
     load_outlier_rules_from_disk,
     resolve_feature_columns,
+    rule_is_active,
     run_outlier_pipeline,
     run_sliding_windows,
     run_threshold_rules,
     save_outlier_rules_to_disk,
+    threshold_values_set,
 )
 from SECQUOIA.core.outlier_detection.recheck import (
     _normalize_unique_ids,
@@ -30,10 +32,12 @@ __all__ = [
     "load_outlier_rules_from_disk",
     "resolve_current_ident",
     "resolve_feature_columns",
+    "rule_is_active",
     "run_outlier_pipeline",
     "run_sliding_windows",
     "run_threshold_rules",
     "save_outlier_rules_to_disk",
+    "threshold_values_set",
     "update_outlier_detection_in_track_df",
     "update_unique_outliers_ids",
 ]

@@ -71,7 +71,6 @@ _PLOTS_DIALOG_SIZE = (1200, 860)
 
 _RULE_COLUMNS = [
     "#",
-    "Enabled",
     "Feature",
     "Masks",
     "Channels",
@@ -157,7 +156,6 @@ def unpack_rule(rule: dict, m_n: int, channel_ids) -> dict:
         "op2": rule.get("op2"),
         "val2": rule.get("val2"),
         "combine": str(rule.get("combine", "OR")).upper(),
-        "enabled": bool(rule.get("enabled", True)),
     }
 
 
@@ -336,8 +334,6 @@ class OutlierPlotsDialog(QDialog):
             if cfg["op2"] is not None and cfg["val2"] is not None:
                 title += f"  {cfg['combine']}  {cfg['op2']} {cfg['val2']}"
             title += ")"
-        if not cfg.get("enabled", True):
-            title += "  [DISABLED]"
         return title
 
     def _build_button_row(self) -> QHBoxLayout:
@@ -510,7 +506,6 @@ class OutlierParametersDialog(QDialog):
                 i - 1,
                 [
                     str(i),
-                    "Yes" if rule.get("enabled", True) else "No",
                     str(rule.get("feat", "")),
                     format_selection(
                         rule.get("masks_raw", []),

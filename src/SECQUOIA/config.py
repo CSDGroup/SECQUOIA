@@ -360,9 +360,6 @@ class TOOLTIPSTEXT:
     APPLY_BTN: str = "Run outlier detection."
     EXIT_BTN: str = "Close this window."
     RM_BTN: str = "Remove this rule."
-    RULE_ENABLED_CB: str = (
-        "Enable or disable this threshold rule without deleting it. "
-    )
     FEAT_OUT: str = "Select a feature for outlier detection."
     M_OUT: str = "Select the mask used for intensity."
     CH_OUT: str = "Select a channel for outlier detection."
@@ -840,7 +837,6 @@ class Rule:
     op2: str | None = None
     val2: float | None = None
     combine: str = "OR"
-    enabled: bool = True
     masks_raw: list[int] = field(default_factory=list)
     channels_raw: list[str] = field(default_factory=list)
 

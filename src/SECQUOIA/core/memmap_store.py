@@ -38,18 +38,9 @@ _MEMMAP_DIR_GLOB = "SECQUOIA_memmaps_*"
 
 
 def acquire_dir_lock(dir_path: str):
-    """Take a non-blocking exclusive lock proving this process owns ``dir_path``.
-
-    The OS releases the lock the instant the owning process's file handles
-    close, including on a crash — unlike a PID or marker file, it can never
-    outlive the process that created it. Returns the open file object
-    holding the lock (keep it referenced for as long as ownership should
-    last), or None if another live process already holds it.
-    """
+    """Take a non-blocking exclusive lock."""
     lock_path = os.path.join(dir_path, _LOCK_FILENAME)
     try:
-        # Deliberately left open on success: the caller holds this handle for
-        # as long as it owns the lock, so a `with` block would close it here.
         fh = open(lock_path, "a+b")  # noqa: SIM115
     except OSError:
         return None

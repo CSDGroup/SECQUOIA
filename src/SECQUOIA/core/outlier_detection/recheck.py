@@ -292,9 +292,7 @@ def _apply_outlier_status_updates(
     changed_any = False
     for idx in target_idxs:
         prev = df_all.at[idx, outcol]
-        threshold_hit = any(
-            _row_hits_rule(df_all, idx, r) for r in rules if r.enabled
-        )
+        threshold_hit = any(_row_hits_rule(df_all, idx, r) for r in rules)
         new_val = (
             "Outlier"
             if (threshold_hit or sliding_hits.get(idx, False))

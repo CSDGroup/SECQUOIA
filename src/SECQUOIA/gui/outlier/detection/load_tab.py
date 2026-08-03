@@ -121,7 +121,6 @@ class LoadTab:
                     channels=[
                         x for x in r.get("channels", []) if isinstance(x, str)
                     ],
-                    enabled=bool(r.get("enabled", True)),
                 )
 
         sw_list = [

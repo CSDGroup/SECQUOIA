@@ -5,7 +5,7 @@ from __future__ import annotations
 import logging
 
 from SECQUOIA.config import Rule, SlidingWindow
-from SECQUOIA.core.outlier_detection import RulesPack
+from SECQUOIA.core.outlier_detection import RulesPack, rule_is_active
 
 LOG = logging.getLogger(__name__)
 
@@ -18,7 +18,7 @@ def snapshot_outlier_ui_to_pack(main_window) -> RulesPack:
     ch_n = int(getattr(main_window, "n_channels", 0) or 0)
 
     rules = []
-    for w in getattr(main_window, "_rows_widgets", []):
+    for i, w in enumerate(getattr(main_window, "_rows_widgets", []), 1):
         masks_raw = list(w["m_multi"].selected_values())
         chans_raw = list(w["ch_multi"].selected_values())
         masks = (
@@ -32,29 +32,33 @@ def snapshot_outlier_ui_to_pack(main_window) -> RulesPack:
             else chans_raw
         )
 
-        rules.append(
-            Rule(
-                feat=str(w["feat"].currentText()),
-                masks=[int(x) for x in masks],
-                channels=channels,
-                masks_raw=[int(x) for x in masks_raw],
-                channels_raw=list(chans_raw),
-                op1=str(w["op1"].currentText()),
-                val1=float(w["val1"].value()),
-                op2=(
-                    w["op2"].currentData()
-                    if w["op2"].currentData() is not None
-                    else None
-                ),
-                val2=(
-                    float(w["val2"].value())
-                    if w["op2"].currentData() is not None
-                    else None
-                ),
-                combine=str(w["combine"].currentText()).upper(),
-                enabled=bool(w["enabled"].isChecked()),
-            )
+        rule = Rule(
+            feat=str(w["feat"].currentText()),
+            masks=[int(x) for x in masks],
+            channels=channels,
+            masks_raw=[int(x) for x in masks_raw],
+            channels_raw=list(chans_raw),
+            op1=str(w["op1"].currentText()),
+            val1=float(w["val1"].value()),
+            op2=(
+                w["op2"].currentData()
+                if w["op2"].currentData() is not None
+                else None
+            ),
+            val2=(
+                float(w["val2"].value())
+                if w["op2"].currentData() is not None
+                else None
+            ),
+            combine=str(w["combine"].currentText()).upper(),
         )
+        if not rule_is_active(rule):
+            LOG.info(
+                "[Rules] Threshold row %d skipped: no threshold value set.",
+                i,
+            )
+            continue
+        rules.append(rule)
 
     sliding = []
     for i, sw in enumerate(

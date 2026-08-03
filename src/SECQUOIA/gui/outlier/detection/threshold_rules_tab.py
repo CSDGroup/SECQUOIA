@@ -6,7 +6,6 @@ import contextlib
 
 from qtpy.QtCore import Qt
 from qtpy.QtWidgets import (
-    QCheckBox,
     QComboBox,
     QDoubleSpinBox,
     QGridLayout,
@@ -18,6 +17,7 @@ from qtpy.QtWidgets import (
 )
 
 from SECQUOIA.config import TOOLTIPSTEXT
+from SECQUOIA.core.outlier_detection import threshold_values_set
 from SECQUOIA.gui.common.grid_rows import (
     remove_grid_row,
     reposition_grid_rows,
@@ -41,7 +41,6 @@ class ThresholdRulesTab:
     """Static threshold-rule builder: one row per feature/mask/channel comparison."""
 
     _FIELD_KEYS = (
-        "enabled",
         "feat",
         "m_multi",
         "ch_multi",
@@ -74,7 +73,6 @@ class ThresholdRulesTab:
         self.rows_grid.setContentsMargins(0, 0, 0, 0)
 
         header_labels = [
-            ("On", TOOLTIPSTEXT.RULE_ENABLED_CB),
             ("Feature", ""),
             ("Mask(s)", ""),
             ("Channel(s)", ""),
@@ -112,14 +110,23 @@ class ThresholdRulesTab:
 
         preview_btn.clicked.connect(self._on_preview)
 
+    @staticmethod
+    def row_is_active(w) -> bool:
+        """True if a threshold-rule row has values and will be applied."""
+        return threshold_values_set(
+            w["val1"].value(), w["op2"].currentData(), w["val2"].value()
+        )
+
     def summary_lines(self):
         """Build summary lines for threshold outlier rules."""
         lines = []
-        if not self.rows_widgets:
+        if not any(self.row_is_active(w) for w in self.rows_widgets):
             lines.append("  (no static threshold rules)")
             return lines
         for i, w in enumerate(self.rows_widgets, 1):
-            status = "" if w["enabled"].isChecked() else "[DISABLED] "
+            status = (
+                "" if self.row_is_active(w) else "[NOT APPLIED - no values] "
+            )
             feat = w["feat"].currentText()
             masks = w["m_multi"].selected_values()
             chans = w["ch_multi"].selected_values()
@@ -142,10 +149,6 @@ class ThresholdRulesTab:
 
     def _make_row_widgets(self):
         """Create widgets for one threshold-based outlier rule row."""
-        enabled_cb = QCheckBox()
-        enabled_cb.setChecked(True)
-        enabled_cb.setToolTip(TOOLTIPSTEXT.RULE_ENABLED_CB)
-
         feat_combo = compact_combo(
             use_qt_drawn_popup(QComboBox()), min_chars=10, max_w=170
         )
@@ -195,7 +198,7 @@ class ThresholdRulesTab:
         val2_spin.setRange(-1e12, 1e12)
         val2_spin.setDecimals(2)
         val2_spin.setSingleStep(10)
-        val2_spin.setValue(5.0)
+        val2_spin.setValue(0.0)
         val2_spin.setMinimumWidth(70)
         compact_spin(val2_spin, max_w=90)
         val2_spin.setEnabled(False)
@@ -237,7 +240,6 @@ class ThresholdRulesTab:
         hb.addStretch(1)
 
         row = {
-            "enabled": enabled_cb,
             "feat": feat_combo,
             "m_multi": m_combo,
             "ch_multi": ch_combo,
@@ -274,13 +276,10 @@ class ThresholdRulesTab:
         combine,
         masks=None,
         channels=None,
-        enabled=True,
     ):
         """Append a threshold-rule row initialized with saved values."""
         widgets = self._make_row_widgets()
         self.rows_widgets.append(widgets)
-
-        widgets["enabled"].setChecked(bool(enabled))
 
         # Set feature
         idx = widgets["feat"].findText(str(feat))
@@ -330,7 +329,6 @@ class ThresholdRulesTab:
             return
         src = self.rows_widgets[int(idx)]
         widgets = self._make_row_widgets()
-        widgets["enabled"].setChecked(src["enabled"].isChecked())
         widgets["feat"].setCurrentIndex(src["feat"].currentIndex())
         with contextlib.suppress(Exception):
             set_combo_checks(

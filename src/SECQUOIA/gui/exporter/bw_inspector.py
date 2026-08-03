@@ -83,10 +83,6 @@ class _BWInspector:
             )
             dlg.setWindowTitle(self._bw_inspector_title(panel))
         except (ValueError, TypeError, IndexError, KeyError, RuntimeError):
-            # RuntimeError covers a dialog whose underlying Qt widget was
-            # already deleted; the other errors mean this panel has no
-            # renderable frame yet (e.g. missing track data) — leave the
-            # histogram showing the previous panel rather than erroring out.
             LOG.debug("B/W Inspector retarget skipped", exc_info=True)
 
     def _open_bw_inspector(self, main_window):
