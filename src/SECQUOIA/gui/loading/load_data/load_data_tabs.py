@@ -3,7 +3,6 @@ Channel Selection, and Loading."""
 
 from __future__ import annotations
 
-import contextlib
 import os
 from functools import partial
 
@@ -55,6 +54,7 @@ from SECQUOIA.gui.loading.load_data.load_data_handlers import (
     _on_load_data_clicked,
     _on_run_clicked,
 )
+from SECQUOIA.gui.loading.load_data.load_data_signals import reconnect
 from SECQUOIA.gui.loading.load_data.load_data_summary import _update_summary
 from SECQUOIA.gui.loading.load_data.load_data_tracking_tree import (
     _select_all_tracking_tree,
@@ -256,9 +256,6 @@ def build_tracking_tab(main_window, UiSize):
 
     def _wire_tracking_controls(fmt: str):
         """Configure tracking controls for the selected tracking format."""
-        with contextlib.suppress(TypeError, RuntimeError):
-            main_window.tracking_button.clicked.disconnect()
-
         # Will be included in the future
         # main_window.cp_tracking_chk.setVisible(fmt == "tTt")
         main_window.tracking_path = None
@@ -269,13 +266,15 @@ def build_tracking_tab(main_window, UiSize):
 
         _set_btn_icon(main_window.tracking_button, "mdi.folder-open-outline")
         main_window.tracking_button.setToolTip(f"Select {dialog_fmt} folder")
-        main_window.tracking_button.clicked.connect(
+        reconnect(
+            main_window.tracking_button,
+            "clicked",
             partial(
                 _select_tracking_folder,
                 main_window,
                 dialog_fmt,
                 f"Select {dialog_fmt} folder",
-            )
+            ),
         )
         main_window.tracking_selector_label.setText(selector_label)
 

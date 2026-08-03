@@ -11,6 +11,7 @@ from SECQUOIA.gui.loading.experiment_paths import (
     _add_seg_tree_item,
     _find_analysis_dir,
 )
+from SECQUOIA.gui.loading.load_data.load_data_signals import reconnect
 from SECQUOIA.gui.loading.load_data.load_data_summary import _update_summary
 
 __all__ = [
@@ -32,9 +33,9 @@ def _populate_segmentation_ui(main_window, seg_names):
         _add_seg_tree_item(tree, name, analysis_dir)
 
     tree.blockSignals(False)
-    with contextlib.suppress(TypeError, RuntimeError):
-        tree.itemChanged.disconnect()
-    tree.itemChanged.connect(lambda _i, _c: _on_seg_checkbox(main_window))
+    reconnect(
+        tree, "itemChanged", lambda _i, _c: _on_seg_checkbox(main_window)
+    )
     _on_seg_checkbox(main_window)
 
 
@@ -82,10 +83,10 @@ def _populate_channels_ui(main_window, channel_names):
         )
 
     tree.blockSignals(False)
-    with contextlib.suppress(TypeError, RuntimeError):
-        tree.itemChanged.disconnect()
-    tree.itemChanged.connect(
-        lambda _i, _c: _sync_channels_selected(main_window)
+    reconnect(
+        tree,
+        "itemChanged",
+        lambda _i, _c: _sync_channels_selected(main_window),
     )
     _sync_channels_selected(main_window)
 

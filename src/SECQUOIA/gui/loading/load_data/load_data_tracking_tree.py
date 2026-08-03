@@ -7,6 +7,7 @@ import contextlib
 from qtpy.QtCore import Qt
 from qtpy.QtWidgets import QTreeWidgetItem
 
+from SECQUOIA.gui.loading.load_data.load_data_signals import reconnect
 from SECQUOIA.gui.loading.load_data.load_data_summary import _update_summary
 
 __all__ = [
@@ -101,16 +102,13 @@ def _build_tracking_tree(main_window):
     _fit_lineage_column(tree)
     main_window.tracking_tree_group.setVisible(True)
 
-    with contextlib.suppress(TypeError, RuntimeError):
-        tree.itemChanged.disconnect()
-        tree.itemExpanded.disconnect()
-        tree.itemCollapsed.disconnect()
-
-    tree.itemChanged.connect(
-        lambda _i, _c: _sync_tracking_selection(main_window)
+    reconnect(
+        tree,
+        "itemChanged",
+        lambda _i, _c: _sync_tracking_selection(main_window),
     )
-    tree.itemExpanded.connect(lambda _i: _fit_lineage_column(tree))
-    tree.itemCollapsed.connect(lambda _i: _fit_lineage_column(tree))
+    reconnect(tree, "itemExpanded", lambda _i: _fit_lineage_column(tree))
+    reconnect(tree, "itemCollapsed", lambda _i: _fit_lineage_column(tree))
     _sync_tracking_selection(main_window)
     _update_summary(main_window)
 

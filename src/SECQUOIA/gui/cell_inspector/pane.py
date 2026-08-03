@@ -118,7 +118,6 @@ class InspectorPane(QWidget):
 
         slider = getattr(container, "_slider", None)
         if slider is not None:
-            # Raises when there was nothing connected, which is fine.
             with contextlib.suppress(TypeError, RuntimeError):
                 slider.valueChanged.disconnect()
         return container, slider
@@ -137,13 +136,7 @@ class InspectorPane(QWidget):
     def _restore(
         self, channel: str | None, mask: int | None, opacity: float
     ) -> None:
-        """Put back the settings a rebuild would otherwise have thrown away.
-
-        The mask is put back as the value the dropdown holds, not as the list
-        of masks it stands for. ALL with a single mask loaded reads back as
-        "mask 1", so restoring from the list would quietly turn ALL into mask
-        1, and a mask added afterwards would never show up.
-        """
+        """Put back the settings a rebuild would otherwise have thrown away."""
         if self.channel_combo is not None and channel is not None:
             index = self.channel_combo.findData(channel[1:])
             if index >= 0:
