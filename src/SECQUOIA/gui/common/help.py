@@ -92,8 +92,9 @@ class HelpDocs:
         "- **Split Tree** button → Split lineage at current time point\n"
         "- **Fuse Tree** button → Merge two Tree-IDs\n"
         "- **Ctrl+Right-click** → Add Tree-ID to Fuse dialog\n"
-        "- **Undo** button → Undo last tracking edit (New ID/Division/Remove Division/Split/Fuse)\n"
-        "- **Redo** button → Redo last undone tracking edit\n"
+        # TODO: enable once tracking undo/redo is tested and added
+        # "- **Undo** button → Undo last tracking edit (New ID/Division/Remove Division/Split/Fuse)\n"
+        # "- **Redo** button → Redo last undone tracking edit\n"
         "\n"
         "## **View Menu Shortcuts**\n"
         "- **Ctrl+I** → Open the Cell Inspector\n"

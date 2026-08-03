@@ -15,10 +15,10 @@ from SECQUOIA.config import STYLE, TOOLTIPSTEXT, TracksViewConfig
 from SECQUOIA.core.tracking import (
     on_division_clicked,
     on_new_id_clicked,
-    on_redo_tracking_clicked,
+    # on_redo_tracking_clicked, # TODO: tracking undo/redo hidden until further testing
     on_remove_division_clicked,
     on_split_tree,
-    on_undo_tracking_clicked,
+    # on_undo_tracking_clicked, # TODO: tracking undo/redo hidden until further testing
 )
 from SECQUOIA.gui.dialogs.track_fuse_dialog import open_track_fuse_window
 
@@ -101,8 +101,10 @@ class TracksLayer:
         btn_remove = _mk_btn("Remove Division")
         btn_split = _mk_btn("Split Tree")
         btn_fuse = _mk_btn("Fuse Tree")
-        btn_undo_track = _mk_icon_btn("fa5s.undo")
-        btn_redo_track = _mk_icon_btn("fa5s.redo")
+        # TODO: Undo/Redo for tracking edits — hidden for now, will be tested
+        # further before it is added back to the tracking bar.
+        # btn_undo_track = _mk_icon_btn("fa5s.undo")
+        # btn_redo_track = _mk_icon_btn("fa5s.redo")
 
         # Wire signals
         btn_new_id.clicked.connect(partial(on_new_id_clicked, self))
@@ -110,24 +112,24 @@ class TracksLayer:
         btn_remove.clicked.connect(partial(on_remove_division_clicked, self))
         btn_split.clicked.connect(partial(on_split_tree, self))
         btn_fuse.clicked.connect(partial(open_track_fuse_window, self))
-        btn_undo_track.clicked.connect(partial(on_undo_tracking_clicked, self))
-        btn_redo_track.clicked.connect(partial(on_redo_tracking_clicked, self))
+        # btn_undo_track.clicked.connect(partial(on_undo_tracking_clicked, self))
+        # btn_redo_track.clicked.connect(partial(on_redo_tracking_clicked, self))
 
         btn_new_id.setToolTip(TOOLTIPSTEXT.NEW_ID)
         btn_div.setToolTip(TOOLTIPSTEXT.DIVISION)
         btn_remove.setToolTip(TOOLTIPSTEXT.REMOVE_DIVISION)
         btn_split.setToolTip(TOOLTIPSTEXT.SPLIT_TREE)
         btn_fuse.setToolTip(TOOLTIPSTEXT.FUSE_TREE)
-        btn_undo_track.setToolTip(TOOLTIPSTEXT.UNDO_TRACKING)
-        btn_redo_track.setToolTip(TOOLTIPSTEXT.REDO_TRACKING)
+        # btn_undo_track.setToolTip(TOOLTIPSTEXT.UNDO_TRACKING)
+        # btn_redo_track.setToolTip(TOOLTIPSTEXT.REDO_TRACKING)
 
         h.addWidget(btn_new_id, 1)
         h.addWidget(btn_div, 1)
         h.addWidget(btn_remove, 1)
         h.addWidget(btn_split, 1)
         h.addWidget(btn_fuse, 1)
-        h.addWidget(btn_undo_track, 0)
-        h.addWidget(btn_redo_track, 0)
+        # h.addWidget(btn_undo_track, 0)
+        # h.addWidget(btn_redo_track, 0)
         container.setVisible(False)
 
         self._tracking_edit_buttons = (
