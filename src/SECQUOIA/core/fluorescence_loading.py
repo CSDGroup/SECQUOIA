@@ -295,19 +295,6 @@ def _reader_for_format(image_format: str):
             return tifffile.imread, False
         except ImportError:
             pass
-    else:
-        try:
-            import cv2
-
-            def _cv2_read(fp):
-                arr = cv2.imread(fp, cv2.IMREAD_UNCHANGED)
-                if arr is None:
-                    raise OSError(f"cv2 could not read {fp}")
-                return arr
-
-            return _cv2_read, True
-        except ImportError:
-            pass
 
     return imageio.imread, False
 
