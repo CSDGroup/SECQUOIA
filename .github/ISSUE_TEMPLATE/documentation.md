@@ -1,6 +1,6 @@
 ---
 name: "\U0001F4DA Documentation"
-about: Report an issue with pytfy documentation
+about: Report an issue with SECQUOIA documentation
 title: ''
 labels: documentation
 assignees: ''

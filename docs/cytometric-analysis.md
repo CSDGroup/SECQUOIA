@@ -4,7 +4,7 @@ Cytometric analysis uses one or more segmentation masks to extract fluorescence 
 
 ## How to use the Cytometric Analysis GUI
 
-1. Select the experiment folder following the [tTt folder structure](https://github.com/CSDGroup/pytfy/blob/main/docs/data-formats.md).
+1. Select the experiment folder following the [tTt folder structure](https://github.com/CSDGroup/SECQUOIA/blob/main/docs/data-formats.md).
 2. Click `Load Experiment Data`. The segmentation path and BaSiC background correction (if present) are detected automatically.
 3. Select the image format (e.g., `.png`).
 4. Select one or more segmentation folders.

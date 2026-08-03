@@ -1,6 +1,6 @@
 ---
 name: "\U0001F680 Feature Request"
-about: Submit a proposal/request for a new pytfy feature
+about: Submit a proposal/request for a new SECQUOIA feature
 title: ''
 labels: feature
 assignees: ''
