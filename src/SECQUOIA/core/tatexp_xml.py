@@ -49,7 +49,7 @@ def extract_channel_comments_from_xml(xml_path: str | None) -> dict[str, str]:
 
 
 def extract_position_comments_from_xml(xml_path: str | None) -> dict[int, str]:
-    """Read  position comments from a TATexp XML file."""
+    """Read per position comments from a TATexp XML file."""
     mapping: dict[int, str] = {}
     if not xml_path or not os.path.isfile(xml_path):
         return mapping
@@ -226,7 +226,6 @@ class TATParser:
         if len(hits) == 1:
             return hits[0]["index"]
 
-        # tie-break: closest centroid
         best = min(
             hits, key=lambda r: (r["cx"] - x_um) ** 2 + (r["cy"] - y_um) ** 2
         )
@@ -234,18 +233,18 @@ class TATParser:
 
 
 def _harvest_all_metadata(root: ET.Element) -> dict[str, Any]:
-    """Flatten the XML into a nested dict."""
+    """Convert the whole XML tree into a nested dict."""
 
     def flat(node: ET.Element) -> dict[str, Any]:
         d: dict[str, Any] = {}
-        # attributes + text
+        # Attributes + text
         if node.attrib:
             for k, v in node.attrib.items():
                 d[f"@{k}"] = v
         txt = (node.text or "").strip()
         if txt:
             d["#text"] = txt
-        # children
+        # Children
         children = list(node)
         if children:
             bucket: dict[str, list[dict[str, Any]]] = {}

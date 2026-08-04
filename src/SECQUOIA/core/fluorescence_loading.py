@@ -1,4 +1,4 @@
-"""Loading fluorescence images into per-channel numpy.memmap stacks."""
+"""Loading fluorescence images into per channel numpy.memmap stacks."""
 
 from __future__ import annotations
 
@@ -26,12 +26,14 @@ __all__ = ["load_fl_channels"]
 
 
 def load_fl_channels(main_window, progress_cb=None) -> None:
-    """Load FL images into per channel np.memmap stacks (uint8) over the selected t range.
+    """Load FL images into one np.memmap stack per channel over the selected t range.
 
-    Missing frames remain 0 (black) but are also tracked via main_window.image_present.
+    Missing frames are left as zeros and recorded in
+    ``main_window.image_present``, so a black frame can be told apart from a
+    frame that was genuinely measured as zero.
 
-    Frames are decoded in parallel across all channels by a bounded thread pool;
-    each frame owns its own row of its channel's memmap.
+    Frames are decoded in parallel across all channels by a bounded thread
+    pool; each frame owns its own row of its channel's memmap.
     """
     progress = _resolve_progress_callback(progress_cb)
     t_file_min, t_file_max, _, _ = _current_t_range(main_window)
@@ -82,7 +84,7 @@ def load_fl_channels(main_window, progress_cb=None) -> None:
             entry.mm_path,
         )
 
-    # Ensure the step reaches 100% (no matter what)
+    # Ensure the step reaches 100%
     if callable(progress):
         if total_frames > 0:
             progress(1.0, f"Loading FL… {done_frames}/{total_frames}")
@@ -257,7 +259,7 @@ def _decode_frames(tasks, read_fn, is_bgr, max_workers, progress) -> int:
             return
         if arr.dtype != dtype:
             arr = arr.astype(dtype, copy=False)
-        out[row] = arr  # distinct row per task -> no lock needed here
+        out[row] = arr
 
     progress_lock = threading.Lock()
     progress_step = max(1, total_frames // 100)
@@ -300,7 +302,7 @@ def _reader_for_format(image_format: str):
 
 
 def _to_2d(arr, is_bgr: bool):
-    """Collapse a possibly-multichannel image to a single 2-D plane."""
+    """Collapse a possibly multichannel image to a single 2-D plane."""
     if arr.ndim <= 2:
         return arr
     if is_bgr and arr.shape[-1] >= 3:
@@ -312,7 +314,8 @@ def _worker_count(main_window=None) -> int:
     """Number of reader threads for FL loading.
 
     Scales with the machine but never exceeds 8, and never drops below 1.
-    An explicit ``main_window.fl_max_workers`` overrides the heuristic."""
+    An explicit ``main_window.fl_max_workers`` overrides the heuristic.
+    """
     override = getattr(main_window, "fl_max_workers", None)
     if override:
         try:

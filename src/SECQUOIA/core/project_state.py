@@ -109,7 +109,11 @@ def save_track_df(main_window, label_entries=None) -> None:
 
 
 def _measurements_output_path(main_window, position, n_masks: int) -> str:
-    """Build ``…/Analysis/SECQUOIA_files_<fmt>/<project>/SECQUOIA_pXXXX_….csv``."""
+    """Build the per position measurements path under the project folder.
+
+    ``SECQUOIA_p<pos>_t<min>-<max>_m<n_masks>_ch<n_channels>.csv``, created
+    inside ``Analysis/SECQUOIA_files_<fmt>/<project>/``.
+    """
     save_folder = project_analysis_dir(main_window)
     os.makedirs(save_folder, exist_ok=True)
 
@@ -183,7 +187,7 @@ def save_project_state(main_window) -> None:
         "project_name": getattr(main_window, "project_name", None),
         "experiment_name": getattr(main_window, "experiment_name", None),
         "experiment_root": experiment_root,
-        # formats & modes
+        # Formats and modes
         "image_format": _combo_text(
             main_window, "image_format_combo", "image_format"
         ),
@@ -204,7 +208,7 @@ def save_project_state(main_window) -> None:
             main_window, "background_correction_path", None
         ),
         "import_rt_path": getattr(main_window, "import_rt_path", None),
-        # Time & positions
+        # Time and positions
         "time_min_selected": getattr(main_window, "time_min_selected", None),
         "time_max_selected": getattr(main_window, "time_max_selected", None),
         "dt_seconds": getattr(main_window, "dt_seconds", None),
@@ -227,7 +231,7 @@ def save_project_state(main_window) -> None:
         ),
         "n_masks": getattr(main_window, "n_masks", None),
         "FL_inputs": list(fl_inputs_text),
-        # Metric Calculations
+        # Metric calculations
         "metric_calculations": {
             "derived_features": getattr(main_window, "_derived_features", {}),
             "last_run_config": getattr(main_window, "last_run_config", {}),
@@ -253,7 +257,7 @@ def save_project_state(main_window) -> None:
 
 
 def _rehydrate_after_project_load(main_window, s: dict) -> None:
-    """Restore attributes after loading project metadata."""
+    """Rebuild the channel widgets and position bookkeeping from saved state."""
     fl_names = list(s.get("FL_inputs") or []) or list(
         s.get("ids_channels") or []
     )
@@ -291,7 +295,7 @@ def _rehydrate_after_project_load(main_window, s: dict) -> None:
 
     main_window.position_folders = position_folders
     main_window.folder_list = (
-        list(os.listdir(folder)) if folder and os.path.isdir(folder) else []
+        os.listdir(folder) if folder and os.path.isdir(folder) else []
     )
 
     if position_indices:
@@ -435,7 +439,7 @@ def load_project_state(main_window, json_path=None) -> bool:
         int(k): v
         for k, v in metric_state.get("selected_feature_by_row", {}).items()
     }
-    # make restored calculated features visible to plot/dropdown logic
+    # Make restored calculated features visible to dynamics plots
     main_window._feature_defs = getattr(main_window, "_feature_defs", {}) or {}
     main_window._feature_defs.update(main_window._derived_features)
     _rehydrate_after_project_load(main_window, s)

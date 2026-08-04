@@ -23,7 +23,7 @@ _BASIC_PREFIX = "BaSiC"
 
 
 def find_analysis_dir(folder: str | None) -> str | None:
-    """Return the ``Analysis`` sub-directory of an experiment folder."""
+    """Return the ``Analysis`` subdirectory of an experiment folder."""
     if not folder or not os.path.isdir(folder):
         return None
 
@@ -104,7 +104,7 @@ def detect_unique_w_channels(
         )
 
     count = int(n_channels_fallback or 0)
-    return [f"w0{i + 1}" for i in range(count)]
+    return [f"w{i + 1:02d}" for i in range(count)]
 
 
 def detect_time_max(position_folder: str | None) -> int:

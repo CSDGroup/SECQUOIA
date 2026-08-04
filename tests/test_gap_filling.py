@@ -21,36 +21,11 @@ from SECQUOIA.core.gap_filling import (
     extract_track_id,
     fill_missing_frames,
     mask_absent_measurements,
-    pair_mate,
-    parent_track,
     representative_xy,
     sibling_group,
     sort_columns,
     track_windows,
 )
-
-
-# Binary lineage arithmetic
-class TestParentTrack:
-    @pytest.mark.parametrize(
-        ("track", "expected"),
-        [(2, 1), (3, 1), (4, 2), (5, 2), (6, 3), (7, 3), (100, 50)],
-    )
-    def test_halves_the_track_number(self, track, expected):
-        assert parent_track(track) == expected
-
-    def test_the_founder_has_no_parent(self):
-        assert parent_track(1) is None
-
-    @pytest.mark.parametrize("track", [None, np.nan, "not a number", 0])
-    def test_returns_none_for_unusable_input(self, track):
-        assert parent_track(track) is None
-
-    def test_accepts_a_numeric_string(self):
-        assert parent_track("4") == 2
-
-    def test_accepts_a_float(self):
-        assert parent_track(4.0) == 2
 
 
 class TestChildTracks:
@@ -75,21 +50,6 @@ class TestSiblingGroup:
 
     def test_the_founder_is_alone(self):
         assert sibling_group(1) == (1,)
-
-
-class TestPairMate:
-    @pytest.mark.parametrize(
-        ("track", "expected"), [(2, 3), (3, 2), (4, 5), (5, 4)]
-    )
-    def test_returns_the_sister(self, track, expected):
-        assert pair_mate(track) == expected
-
-    def test_the_founder_has_no_sister(self):
-        assert pair_mate(1) is None
-
-    @pytest.mark.parametrize("track", [None, np.nan, 0])
-    def test_returns_none_for_unusable_input(self, track):
-        assert pair_mate(track) is None
 
 
 # Fill windows

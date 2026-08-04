@@ -1,4 +1,4 @@
-"""Normalisation of derived metric columns."""
+"""Normalisation of metric columns."""
 
 from __future__ import annotations
 
@@ -9,9 +9,7 @@ import pandas as pd
 
 __all__ = ["apply_normalization"]
 
-# Column holding the per cell identifier, used when scope is ``"ids"``.
 ID_COLUMN = "Identification"
-
 TIME_COLUMN = "t"
 METHOD_ZSCORE = "zscore"
 METHOD_INVERSE = "inv"

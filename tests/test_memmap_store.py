@@ -297,12 +297,10 @@ def loaded_session(fake_main_window, tmp_path):
 
     return fake_main_window(
         images=arrays,
-        _memmap_arrays={},
         corrected_images={},
         corrected_images_ratioflat={},
         corrected_images_noratioflat={},
         _memmap_files=files,
-        _corrected_memmap_files=[],
         _ratioflat_memmap_files=[],
         _noratioflat_memmap_files=[],
         _memmap_dir=str(mm_dir),

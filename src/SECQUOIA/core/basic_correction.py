@@ -45,7 +45,7 @@ class DataSetBaSiC:
         position: int | None = None,
     ):
         """
-        Store BaSiC data set configuration for a given Position.
+        Store the BaSiC configuration for one position.
 
         Inputs:
         flag: whether BaSiC correction is enabled.
@@ -100,9 +100,9 @@ class DataSetBaSiC:
     def add_path_basic(self, path_basic: str) -> None:
         """Set the BaSiC folder path after validating it.
 
-        Silently ignored (with a log message) if BaSiC correction is
-        disabled, if ``path_basic`` is not an existing directory, or if
-        its name does not contain the literal substring ``"BaSiC"``.
+        Rejected with a log message, leaving the current path untouched, if
+        BaSiC correction is disabled, if ``path_basic`` is not an existing
+        directory, or if its name does not contain the substring ``"BaSiC"``.
         """
         if not self.flag:
             LOG.debug("BaSiC checkbox off; ignoring path_basic=%s", path_basic)
@@ -122,6 +122,7 @@ class DataSetBaSiC:
             self.position = position
 
     def _get_channel(self, fn: str) -> str:
+        """Channel key (``wNN``) parsed out of a BaSiC filename."""
         m = re.search(r"_(w\d+)", fn)
         return m.group(1) if m else "1"
 
@@ -142,6 +143,7 @@ class DataSetBaSiC:
     ) -> dict[str, dict[str, np.ndarray]]:
         vals = {}
         for f in files:
+            """Read ``t<NNNNN>: <value>`` text series, clipped to ``[t_min, t_max]``."""
             channel = self._get_channel(f.name)
             times, vs = np.loadtxt(
                 f,
@@ -245,7 +247,7 @@ def _ensure_background_path(main_window) -> None:
 
 
 def _prepare_basic_correction_inputs(main_window) -> tuple[int, int]:
-    """Feed BaSiC the active channels, experiment name, and time range; return that time range."""
+    """Push the active channels, experiment name and t-range onto ``basic``."""
     t_file_min, t_file_max, _t_idx_min, _t_idx_max = _current_t_range(
         main_window
     )

@@ -38,7 +38,7 @@ _MEMMAP_DIR_GLOB = "SECQUOIA_memmaps_*"
 
 
 def acquire_dir_lock(dir_path: str):
-    """Take a non-blocking exclusive lock."""
+    """Take a non-blocking exclusive lock on ``<dir_path>/.owner.lock``."""
     lock_path = os.path.join(dir_path, _LOCK_FILENAME)
     try:
         fh = open(lock_path, "a+b")  # noqa: SIM115
@@ -96,7 +96,7 @@ def reap_stale_memmap_dirs() -> None:
 
 
 def _detach_viewer_images(viewer) -> None:
-    """Drop napari Image layer data and remove those layers from a viewer."""
+    """Drop napari image layer data and remove those layers from a viewer."""
     if viewer is None:
         return
     with contextlib.suppress(AttributeError, RuntimeError, TypeError):
@@ -173,7 +173,7 @@ def _delete_file_list(
 
 
 def _rmtree_retry(path: str, retries: int, sleep_s: float) -> bool:
-    """Remove a directory tree, retrying on transient (typically Windows) file locks."""
+    """Remove a directory tree, retrying on transient file locks."""
     if not path or not os.path.isdir(path):
         return True
 
@@ -221,7 +221,6 @@ def cleanup_memmaps(
         _detach_viewer_images(getattr(main_window, "viewer_2", None))
 
     _flush_close_attr(main_window, "images")
-    _flush_close_attr(main_window, "_memmap_arrays")
     _flush_close_attr(main_window, "corrected_images")
     _flush_close_attr(main_window, "corrected_images_ratioflat")
     _flush_close_attr(main_window, "corrected_images_noratioflat")
@@ -230,7 +229,6 @@ def cleanup_memmaps(
     gc.collect()
 
     _delete_file_list(main_window, "_memmap_files", retries, sleep_s)
-    _delete_file_list(main_window, "_corrected_memmap_files", retries, sleep_s)
     _delete_file_list(main_window, "_ratioflat_memmap_files", retries, sleep_s)
     _delete_file_list(
         main_window, "_noratioflat_memmap_files", retries, sleep_s

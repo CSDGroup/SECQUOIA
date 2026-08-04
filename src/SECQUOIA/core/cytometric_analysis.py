@@ -26,9 +26,13 @@ LOG = logging.getLogger(__name__)
 
 
 def run_cytometric_analysis(main_window) -> None:
-    """Iterate over all *_pXXXX folders inside main_window.folder, load images and masks.
+    """Quantify every ``*_pXXXX`` position folder under ``main_window.folder``.
 
-    Run region-based quantification, and save CSV per position.
+    For each position: loads the FL channels and the segmentation masks, runs
+    region-based quantification, and writes one CSV per mask (``…_M1.csv``,
+    ``…_M2.csv``, …). Positions with more than one mask also get a
+    ``…_matched.csv`` pairing the masks by centroid distance. Output goes to
+    ``<experiment>/Analysis/Cytometric_Analysis``.
     """
     from SECQUOIA.core.segmentation.mask_io import load_masks
 
@@ -115,6 +119,7 @@ def run_cytometric_analysis(main_window) -> None:
     ch_re = re.compile(r"(?:_)?(w\d\d)$")
 
     def quantify_one_position(pos_path: str, out_csv: str) -> None:
+        """Quantify one position folder and write its per mask CSVs."""
         pos_name = os.path.basename(pos_path)
         img_dir = Path(pos_path)
         img_files = sorted(img_dir.glob(f"*.{img_fmt}"))
@@ -556,9 +561,11 @@ def _match_two_mask_tables(
     position_value,
     time_value,
 ) -> pd.DataFrame:
-    """Match rows in current_df to rows in next_df using nearest-neighbor matching.
+    """Join ``next_df`` onto ``current_df`` by centroid proximity.
 
-    Matching is one-to-one and constrained to a distance threshold.
+    All candidate pairs within ``threshold_px`` are sorted by distance and
+    consumed greedily, so each row on either side is used at most once. Rows
+    left unmatched on either side are kept and padded with ``pd.NA``.
     """
     current_df = current_df.copy().reset_index(drop=True)
     next_df = next_df.copy().reset_index(drop=True)

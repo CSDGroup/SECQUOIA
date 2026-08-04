@@ -1,4 +1,4 @@
-"""Lineage aware gap filling for the track DataFrame."""
+"""Lineage gap filling for the track DataFrame."""
 
 from __future__ import annotations
 
@@ -23,8 +23,6 @@ __all__ = [
     "child_tracks",
     "ensure_track_schema",
     "fill_missing_frames",
-    "pair_mate",
-    "parent_track",
     "sibling_group",
     "track_windows",
 ]
@@ -33,7 +31,13 @@ LOG = logging.getLogger(__name__)
 
 
 class CoordinatePolicy(str, Enum):
-    """Where to put a row the filler invented: nowhere (0, 0), or at a median."""
+    """Where a synthetic row's coordinates come from.
+
+    SENTINEL leaves ``XMorphology``/``YMorphology`` at 0, marking the row as
+    having no real position. MEDIAN borrows the median of the track's own
+    measured coordinates, falling back to its sisters, then to the whole
+    Identification.
+    """
 
     SENTINEL = "sentinel"
     MEDIAN = "median"
@@ -135,7 +139,7 @@ class GapFillContext:
         return (int(t) * self.time_interval_s) / 60.0
 
     def presence_flags(self, channel_suffix: str):
-        """Per-frame acquisition flags for the channel behind ``Ch<suffix>`` columns."""
+        """Per frame acquisition flags for the channel behind ``Ch<suffix>`` columns."""
         for channel in self.channels:
             if str(channel)[1:] == channel_suffix:
                 flags = self.presence.get(channel)
@@ -162,12 +166,6 @@ def _normalise_track(track_number) -> int | None:
     return None if pd.isna(n) else int(n)
 
 
-def parent_track(track_number) -> int | None:
-    """Return the track this one divided out of, or ``None`` for the founder (track 1)."""
-    n = _normalise_track(track_number)
-    return None if n is None or n < 2 else n // 2
-
-
 def child_tracks(track_number) -> tuple[int, ...]:
     """Return the two tracks this one divides into (``2n`` and ``2n + 1``)."""
     n = _normalise_track(track_number)
@@ -183,18 +181,10 @@ def sibling_group(track_number) -> tuple:
     return (even, even + 1)
 
 
-def pair_mate(track_number) -> int | None:
-    """Sister of a track number (2<->3, 4<->5, ...); ``None`` for track 1."""
-    n = _normalise_track(track_number)
-    if n is None or n <= 1:
-        return None
-    return n + 1 if n % 2 == 0 else n - 1
-
-
 def track_windows(
     spans: dict[Any, tuple[int, int]], frames: range
 ) -> dict[Any, range]:
-    """Fill window per track: born with its sister, ends when its own daughters appear."""
+    """Frame range each track may be filled over."""
     if not frames or not spans:
         return {}
 
