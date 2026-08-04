@@ -15,7 +15,7 @@ LOG = logging.getLogger(__name__)
 
 
 def _next_ident_like(s: str, all_ids: pd.Series) -> str:
-    """Derive the base prefix from a Tree-ID like '250615MA40-p0001-001' and return the next free numeric suffix among all Tree-IDs."""
+    """Return the next free Identification sharing."""
     m = re.match(r"^(.*?-.*?-)(\d+)$", str(s).strip())
     if not m:
         base, width, start = s + "-", 3, 0
@@ -37,7 +37,7 @@ def _next_ident_like(s: str, all_ids: pd.Series) -> str:
 
 
 def _first_identification(main_window) -> str:
-    """Build the very first Identification for a position, e.g. ``EXP-p0002-001``."""
+    """Build a position's first Identification, e.g. ``EXP-p0002-001``."""
     base = getattr(main_window, "experiment_name", "").strip().rstrip("-")
     position_number = _get_position_number(main_window)
     return f"{base}-p{int(position_number):04d}-001"
@@ -46,7 +46,7 @@ def _first_identification(main_window) -> str:
 def _next_identification_after(
     ids_series: pd.Series | None,
 ) -> tuple[str, int] | None:
-    """Return ``(next Identification, its numeric suffix)``."""
+    """Return ``(next Identification, its numeric suffix)`` or None."""
     if ids_series is None or ids_series.dropna().empty:
         LOG.warning(
             "[New ID] 'Identification' column missing or empty; cannot infer base."
@@ -81,6 +81,7 @@ def _next_identification_after(
 def _track_id_for_ident(
     df: pd.DataFrame, ident: str, *, fallback_to_name: bool = True
 ):
+    """Return the ``track_id`` recorded for ``ident``, or None."""
     if "track_id" not in df.columns:
         return None
     with contextlib.suppress(KeyError, IndexError):

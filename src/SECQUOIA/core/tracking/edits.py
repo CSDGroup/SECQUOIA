@@ -1,4 +1,4 @@
-"""New-ID, division and split handlers: the single-lineage editing tools."""
+"""New ID, division and split handlers: the single lineage editing tools."""
 
 from __future__ import annotations
 
@@ -56,7 +56,7 @@ LOG = logging.getLogger(__name__)
 
 
 def on_new_id_clicked(main_window) -> None:
-    """Create a new Identification with blank rows across the current time range."""
+    """Create a new Identification with empty rows across the current time range."""
     if not _require_data_loaded(main_window):
         return
 

@@ -1,4 +1,4 @@
-"""Binary TrackNumber math: the tree-position scheme lineage edits rely on.
+"""Binary TrackNumber math: the tree position scheme lineage edits rely on.
 
 Every lineage editing tool (division, split, fuse, undo) assumes TrackNumbers
 follow root=1, daughters=2*parent[+1].
@@ -19,14 +19,7 @@ def _safe_num(series: pd.Series) -> pd.Series:
 def _binary_tracknumbers(
     roots: Iterable[int], children: dict[int, list[int]]
 ) -> dict[int, int]:
-    """Assign binary-tree TrackNumbers (root=1, daughters=2*parent[+1]).
-
-    ``children`` must map each node id to its list of child ids, already
-    sorted in birth/appearance order. All lineage editing tools (division,
-    split, fuse, undo) assume this exact numbering via ``_is_desc`` and
-    ``_path_from_root``, so every loader (CTC, Ultrack, btrack) must use
-    this same helper rather than its own numbering scheme.
-    """
+    """Assign tree TrackNumbers (root=1, daughters=2*parent[+1])."""
     tracknum: dict[int, int] = {}
     for r in roots:
         tracknum[r] = 1
@@ -74,6 +67,7 @@ def _apply_path_from_one(steps: list[str]) -> int:
 
 
 def _apply_path_from(start: int, steps: list[str]) -> int:
+    """Apply steps starting from 'start' to get new track number."""
     x = int(start)
     for s in steps:
         x = 2 * x if s == "L" else 2 * x + 1

@@ -1,5 +1,7 @@
-"""Reading ``main_window`` state: current position/Identification/time, and
-resolving the (df, ident, t, TrackNumber) an edit should act on.
+"""Reading the state an edit acts on.
+
+Pulls the current position, Identification, time point and TrackNumber
+off ``main_window``.
 """
 
 from __future__ import annotations
@@ -18,6 +20,7 @@ LOG = logging.getLogger(__name__)
 
 
 def _get_time_interval(main_window) -> float:
+    """Return the seconds between frames, from the cache or the Qt field."""
     cached = getattr(main_window, "time_interval", None)
     if cached is not None:
         with contextlib.suppress(ValueError, TypeError):
@@ -30,12 +33,13 @@ def _get_time_interval(main_window) -> float:
 
 
 def _get_position_number(main_window) -> int:
+    """Return the position number currently shown, or 0 if unknown."""
     number = position_number_at_current_index(main_window)
     return number if number is not None else 0
 
 
 def _get_current_ident(main_window) -> str:
-    """Return current Identification string."""
+    """Return current Identification."""
     with contextlib.suppress(AttributeError, IndexError, KeyError):
         return str(
             getattr(
@@ -48,6 +52,7 @@ def _get_current_ident(main_window) -> str:
 
 
 def _get_current_time_index(main_window) -> int:
+    """Return the 0-based frame index currently displayed."""
     with contextlib.suppress(AttributeError, ValueError, TypeError):
         return int(getattr(main_window, "current_time_index", 0))
     return 0
@@ -179,6 +184,7 @@ def _existing_time_tracknumbers(
 
 
 def _require_data_loaded(main_window) -> bool:
+    """Return whether data is loaded, warning the user if it is not."""
     if not hasattr(main_window, "folder_list") or not main_window.folder_list:
         LOG.warning("Please first load CSV file and select folder")
         from SECQUOIA.gui.common.messages import show_folder_warning

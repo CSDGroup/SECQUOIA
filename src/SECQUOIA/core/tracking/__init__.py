@@ -1,4 +1,4 @@
-"""Lineage tree editing for the SECQUOIA tracking module.
+"""Tracking core: track loading, lineage numbering, and lineage editing.
 
 Provides Qt event handlers for interactively editing cell lineage trees
 (new IDs, divisions, splits, fuses).

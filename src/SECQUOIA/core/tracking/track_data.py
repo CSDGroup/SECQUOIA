@@ -128,7 +128,7 @@ def _recompute_derived_column(
     row_exists: bool,
     mask_idx: int | None,
 ) -> None:
-    """Recompute one derived metric's column in df, in place, if it applies here."""
+    """Recompute one derived metric's column in ``df``, in place."""
     fml = desc.get("formula")
     if not isinstance(fml, dict):
         return
@@ -188,7 +188,7 @@ def recompute_derived_for_row(
     *,
     mask_idx: int | None = None,
 ) -> None:
-    """Reapply all saved metric rules after base mask/channel measurements change."""
+    """Reapply the saved metric rules after measurements changed."""
     df = getattr(main_window, "track_df", None)
     if not isinstance(df, pd.DataFrame) or df.empty:
         return
@@ -305,7 +305,7 @@ def _load_tracking_data(main_window) -> None:
 
 
 def ctc_to_long(folder: str) -> pd.DataFrame:
-    """Convert a Cell-Tracking-Challenge result folder to a long DataFrame."""
+    """Convert a CTC result folder to a long DataFrame."""
     folder = Path(folder)
 
     track_path = folder / "res_track.txt"
@@ -441,7 +441,7 @@ def collect_positions_to_track_df_parallel(
 def load_ultrack_with_tracknumber(folder: str | Path) -> pd.DataFrame:
     """Read Ultrack CSVs in a folder and add a TrackNumber per lineage.
 
-    Uses the same binary-tree numbering (root=1, daughters=2*parent[+1])
+    Uses the same tree numbering (root=1, daughters=2*parent[+1])
     produced by ``ctc_to_long``, so the division/split/fuse editing tools
     work the same regardless of import format.
     """
@@ -545,7 +545,7 @@ def load_tracks_from_folder(
 def assign_track_numbers(tracks: list) -> dict[int, int]:
     """Assign a per lineage TrackNumber to each track.
 
-    Uses the same binary-tree numbering (root=1, daughters=2*parent[+1])
+    Uses the same tree numbering (root=1, daughters=2*parent[+1])
     as ``ctc_to_long``, so the division/split/fuse editing tools behave
     consistently regardless of whether tracks were imported via CTC,
     Ultrack, or btrack.
@@ -658,7 +658,7 @@ def filter_track_df_to_selected(main_window) -> None:
     if positions.size == 0:
         return
 
-    available = np.unique(positions)  # np.unique returns sorted values
+    available = np.unique(positions)
     current_pos = int(current_pos)
     if current_pos in available:
         return
@@ -735,7 +735,13 @@ def update_track_df(main_window) -> None:
     first_row = filtered_df.iloc[0] if not filtered_df.empty else None
 
     def _apply_selection_to_viewer(viewer, row, mask_idxs):
-        """If row[f'label_id_m{m}'] > 0 => select that label for that layer and show_selected_label=True. If 0 or NaN/missing => show all labels (show_selected_label=False) for that layer."""
+        """Point one viewer's segmentation layers at ``row``'s labels.
+
+        A ``label_id_m{m}`` above 0 selects that label on
+        ``Segmentation{m}`` and hides the rest; 0, NaN or a missing
+        column shows all labels for that layer. Finally centres and zooms
+        the camera on the row.
+        """
         if viewer is None or not hasattr(viewer, "layers") or row is None:
             return
 
@@ -820,7 +826,7 @@ def _apply_import_realtime_to_track_df(main_window) -> None:
 def _position_csv_path(
     main_window, position: int, t_file_min: int, t_file_max: int
 ) -> str:
-    """Build (and ensure the existence of) the cached-measurements CSV path for one position."""
+    """Build the cached-measurements CSV path for one position."""
     experiment_root = getattr(main_window, "folder", None)
     save_folder = os.path.join(
         experiment_root,
@@ -846,7 +852,7 @@ def _cache_position_measurements(
     *,
     log_prefix: str = "csv-cache",
 ) -> None:
-    """Persist this position's rows of ``track_df`` to its cached CSV."""
+    """Load one position's cached measurements CSV, if it exists."""
     df = getattr(main_window, "track_df", None)
     if not isinstance(df, pd.DataFrame):
         return

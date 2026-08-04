@@ -1,4 +1,10 @@
-"""Helpers for reading experiment metadata, parsing CLT/TAT tracking files, and exporting quantifications."""
+"""Reading and writing tTt CLT tracking files.
+
+Parses ``%% TrackingData`` blocks into a track_df and writes SECQUOIA
+measurements back out as ``%% Quantification`` blocks. TAT metadata,
+when supplied, converts between global microscope coordinates and
+pixels.
+"""
 
 from __future__ import annotations
 
@@ -25,7 +31,7 @@ LOG = logging.getLogger(__name__)
 
 
 def _as_scalar(val, default=None):
-    """Collapse an accidental Series/array to a single value."""
+    """Collapse an accidental series/array to a single value."""
     if isinstance(val, pd.Series):
         return val.iloc[0] if not val.empty else default
     if isinstance(val, np.ndarray):
@@ -51,7 +57,7 @@ class CLTParser:
     """
 
     def __init__(self, tat_xml_path: str | None = None):
-        """If tat_xml_path is provided, the parser will convert x/y (global offsets) into pixel coordinates using posX/posY and MicrometerPerPixel."""
+        """Set up an empty parser, optionally backed by TAT metadata."""
         self.tat: TATParser | None = None
         if tat_xml_path and os.path.exists(tat_xml_path):
             self.tat = TATParser.from_xml(tat_xml_path)
@@ -65,9 +71,8 @@ class CLTParser:
 
     @staticmethod
     def _identification_from_path(path: str) -> str:
+        """Derive an Identification from a CLT file name."""
         stem = os.path.splitext(os.path.basename(path))[0]
-
-        # drop letters from final part (if any)
         ident = re.sub(r"[A-Za-z]+$", "", stem)
         return ident
 
@@ -109,6 +114,7 @@ class CLTParser:
     def _remove_secquoia_quant_blocks(
         self, text: str, *, normalize_newline: bool = False
     ) -> str:
+        """Remove every ``%% Quantification`` block SECQUOIA wrote."""
         out = self._QUANT_BLOCK_RE.sub("", text)
         return out.rstrip("\n") + "\n" if normalize_newline else out
 
@@ -194,7 +200,7 @@ class CLTParser:
             df_track_sorted = df_track.sort_values(["t", "Position"])
 
             for _, row in df_track_sorted.iterrows():
-                # TimePoint (1-based)
+                # Time point (1-based)
                 try:
                     timepoint = int(_as_scalar(row["t"])) + 1
                 except (TypeError, ValueError):
@@ -245,7 +251,6 @@ class CLTParser:
                             v_float = float(val)
                             values.append(f"{v_float:.6g}")
                         except (TypeError, ValueError):
-                            # Fallback to string representation if not numeric
                             values.append(str(val))
 
                 lines.append("\t\t" + ";".join(values))
@@ -520,7 +525,7 @@ class CLTParser:
         return t_val, pos_val, x_val, y_val
 
     def _rows_from_file(self, path: str) -> list[tuple]:
-        """Parse one CLT file into a list of plain tuples (no pandas)."""
+        """Parse one CLT file into a list of plain tuples."""
         with open(path, encoding="utf-8", errors="replace") as f:
             text = f.read()
         text = self._remove_secquoia_quant_blocks(text)
@@ -598,7 +603,7 @@ class CLTParser:
         progress_fun: Callable[[int, int], None] | None = None,
         dry_run: bool = False,
     ) -> pd.DataFrame:
-        """Load all .clt files in folder_exp (recursively) and parse them into a track_df."""
+        """Load all .clt files in folder_exp and parse them into a track_df."""
         self.folder_exp = folder_exp
         self.folder_seg = folder_seg
         self.cp_tracking = cp_tracking
@@ -685,7 +690,8 @@ class CLTParser:
         *,
         overwrite_existing_quant: bool,
     ) -> str:
-        """Append quant_block to existing_text, stripping prior SECQUOIA quantification blocks first when overwrite_existing_quant is set."""
+        """Append quant_block to existing_text, stripping prior SECQUOIA quantification
+        blocks first when overwrite_existing_quant is set."""
         text = existing_text
         if overwrite_existing_quant:
             text = self._remove_secquoia_quant_blocks(
@@ -730,6 +736,7 @@ class CLTParser:
         new_root: str,
         pos_tag_dirs: dict[str, str],
     ) -> None:
+        """Write one Identification's quantification into its CLT file."""
         # ensure consistent Identification format
         if "-p" in ident and "_p" not in ident:
             ident = ident.replace("-p", "_p", 1)
@@ -816,7 +823,6 @@ class CLTParser:
         if progress_fun:
             progress_fun(0, total)
 
-        # Walk the output tree once up front instead of once per new file.
         pos_tag_dirs = (
             self._index_pos_tag_dirs(new_root) if create_missing else {}
         )
@@ -836,12 +842,7 @@ class CLTParser:
                         pos_tag_dirs=pos_tag_dirs,
                     )
                 except (OSError, ValueError, RuntimeError) as e:
-                    LOG.error(
-                        "Giving up on '%s' after reloading (%r); skipping it "
-                        "and continuing with the rest.",
-                        ident,
-                        e,
-                    )
+                    LOG.error("[CLT export] Skipping '%s': %r", ident, e)
 
             if progress_fun:
                 progress_fun(idx, total)

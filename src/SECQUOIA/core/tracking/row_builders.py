@@ -15,7 +15,7 @@ from SECQUOIA.utils.timing import realtime_columns
 def _ensure_columns(
     df: pd.DataFrame, required_cols: list[str]
 ) -> pd.DataFrame:
-    """Add missing columns and return df."""
+    """Add any of ``required_cols`` that ``df`` lacks, filled with 0."""
     missing = [c for c in required_cols if c not in df.columns]
     if missing:
         for c in missing:
@@ -205,7 +205,7 @@ def _backfill_root_rows(
     time_interval: float,
     track_id_val=None,
 ) -> pd.DataFrame:
-    """Prepend blank root rows so a split-off lineage starts at ``t_min``."""
+    """Prepend blank root rows so a split off lineage starts at ``t_min``."""
     if t_min >= t_split:
         return df_move
 

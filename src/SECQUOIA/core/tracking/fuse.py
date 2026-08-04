@@ -32,7 +32,12 @@ LOG = logging.getLogger(__name__)
 
 
 class _FuseRequest(NamedTuple):
-    """What the fuse dialog is asking for."""
+    """One fuse as the dialog described it.
+
+    ``g1`` and ``g2`` are the TrackNumbers picked in tree 1 and tree 2:
+    tree 2's ``g2`` subtree is grafted onto tree 1 at ``g1``, from
+    ``t_fuse`` on.
+    """
 
     ident1: str
     ident2: str
