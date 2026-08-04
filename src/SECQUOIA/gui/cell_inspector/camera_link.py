@@ -47,12 +47,6 @@ class CameraState:
         """How many image pixels tall the visible area is."""
         return self.canvas_height / self.zoom if self.zoom > 0 else 0.0
 
-    def __repr__(self) -> str:
-        return (
-            f"CameraState(center=({self.center_x:.1f}, {self.center_y:.1f}), "
-            f"zoom={self.zoom:.3f})"
-        )
-
 
 class NapariCameraLink(QObject):
     """Watches one viewer's camera and reports when it moved."""
@@ -113,13 +107,8 @@ class NapariCameraLink(QObject):
         self._connections = []
         self._viewer = None
 
-    @property
-    def is_attached(self) -> bool:
-        """True if a camera is being watched."""
-        return bool(self._connections)
-
     def _on_camera_event(self, _event=None) -> None:
-        """Remember that the camera moved."""
+        """Start timer so a burst of moves emits once."""
         if not self._timer.isActive():
             self._timer.start()
 

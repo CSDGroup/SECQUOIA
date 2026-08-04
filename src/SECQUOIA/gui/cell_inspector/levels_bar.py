@@ -96,11 +96,6 @@ class LevelsBar(QWidget):
         else:
             self._update_readout()
 
-    @property
-    def range(self) -> tuple[float, float]:
-        """The intensity range."""
-        return self._range
-
     def levels(self) -> tuple[float, float] | None:
         """The black and white points values."""
         low, high = self._range
@@ -110,6 +105,7 @@ class LevelsBar(QWidget):
         )
 
     def set_levels(self, low: float, high: float) -> None:
+        """Move the sliders to these values, keeping black below white."""
         range_low, range_high = self._range
         black = _to_slider(low, range_low, range_high)
         white = _to_slider(high, range_low, range_high)

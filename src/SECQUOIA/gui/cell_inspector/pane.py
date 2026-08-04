@@ -34,7 +34,7 @@ class InspectorPane(QWidget):
         self.view.context_menu_requested.connect(self.context_menu_requested)
 
         self.levels_bar = LevelsBar()
-        self.levels_bar.levels_changed.connect(self.view.apply_levels_from_bar)
+        self.levels_bar.levels_changed.connect(self.view.set_levels)
 
         self._controls = QWidget()
         self._controls_layout = QHBoxLayout(self._controls)

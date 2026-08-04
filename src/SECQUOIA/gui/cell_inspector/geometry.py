@@ -24,11 +24,6 @@ class Rect:
         """Height in pixels."""
         return max(0, self.bottom - self.top)
 
-    @property
-    def is_empty(self) -> bool:
-        """True if there are no pixels in it."""
-        return self.width == 0 or self.height == 0
-
     def slices(self) -> tuple[slice, slice]:
         """The (rows, cols) slices to index an (H, W) array with."""
         return slice(self.top, self.bottom), slice(self.left, self.right)
@@ -36,6 +31,7 @@ class Rect:
 
 @dataclass(frozen=True)
 class CropWindow:
+    """A crop request and the part of it that lies inside the image."""
 
     requested: Rect
     valid: Rect

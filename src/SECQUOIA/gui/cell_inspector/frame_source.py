@@ -68,13 +68,6 @@ class FrameSource:
         self._cache: OrderedDict[CropRequest, CropResult] = OrderedDict()
         self._lock = threading.Lock()
 
-    def channel_ids(self) -> list[str]:
-        """The channels that have images loaded."""
-        images = getattr(self._main_window, "images", None)
-        if not isinstance(images, dict):
-            return []
-        return [key for key, stack in images.items() if stack is not None]
-
     def mask_stack(self, mask_number: int):
         """Return the mask stack for a 1-based mask number, or None."""
         labels = getattr(self._main_window, "labels", None)
@@ -95,18 +88,6 @@ class FrameSource:
             if labels.ndim == 3:
                 return labels if index == 0 else None
         return None
-
-    def mask_count(self) -> int:
-        """How many masks are loaded."""
-        labels = getattr(self._main_window, "labels", None)
-        if isinstance(labels, (list | tuple)):
-            return len(labels)
-        if isinstance(labels, np.ndarray):
-            if labels.ndim == 4:
-                return int(labels.shape[0])
-            if labels.ndim == 3:
-                return 1
-        return 0
 
     def read(self, request: CropRequest) -> CropResult | None:
         """Return the tile for a request, or None if that frame is missing."""

@@ -40,7 +40,6 @@ class PaneState:
 
     pane: InspectorPane
     dispatcher: CropDispatcher
-    last_result: CropResult | None = None
     levels: dict[str, tuple[float, float]] = field(default_factory=dict)
     ranges: dict[str, tuple[float, float]] = field(default_factory=dict)
 
@@ -161,6 +160,7 @@ class CellInspectorController(QObject):
         return getattr(self._main_window, "viewer_1", None)
 
     def _all_viewers(self) -> list:
+        """Every viewer to watch for mask edits."""
         viewers = getattr(self._main_window, "viewer_fluorescence", None)
         if not viewers:
             viewers = [
@@ -185,7 +185,11 @@ class CellInspectorController(QObject):
             self.render_pane(pane)
 
     def render_pane(self, pane: InspectorPane) -> None:
-        """Ask for the region the viewer is showing."""
+        """Ask for the crop the viewer is showing.
+
+        The crop is square, sized by the larger of the camera's visible
+        width and height and capped at ``MAX_CROP_SIZE``.
+        """
         state = self._states.get(pane)
         if state is None or not self._panel.isVisible():
             return
@@ -218,6 +222,7 @@ class CellInspectorController(QObject):
 
     @staticmethod
     def _prefetch_requests(request: CropRequest) -> list[CropRequest]:
+        """The same crop at the neighbouring time points, nearest first."""
         ahead: list[CropRequest] = []
         for offset in range(1, PREFETCH_RADIUS + 1):
             for step in (offset, -offset):
@@ -241,7 +246,6 @@ class CellInspectorController(QObject):
         state = self._states.get(pane)
         if state is None:
             return
-        state.last_result = result
 
         overlay = composite_overlay(
             result.labels,
@@ -251,7 +255,6 @@ class CellInspectorController(QObject):
             result.image,
             result.window.requested,
             overlay,
-            auto_levels=False,
         )
         pane.view.set_overlay_opacity(pane.current_opacity())
         self._sync_levels_ui(state, result.request.channel_id)
@@ -266,10 +269,7 @@ class CellInspectorController(QObject):
             )
 
     def _on_tile_unavailable(self, pane: InspectorPane) -> None:
-        """Report missing frame."""
-        state = self._states.get(pane)
-        if state is not None:
-            state.last_result = None
+        """Show the placeholder when the frame could not be read."""
         pane.view.show_placeholder(NO_IMAGE_MESSAGE)
 
     def _channel_range(
@@ -391,8 +391,6 @@ class CellInspectorController(QObject):
     def refresh_sources(self) -> None:
         """Rebuild the controls after the channels or masks changed."""
         self._source.invalidate()
-        for state in self._states.values():
-            state.last_result = None
         self._panel.rebuild_all_controls()
         self.attach_viewers()
         self.render()

@@ -65,7 +65,7 @@ class CellInspectorPanel(QWidget):
         self.add_pane()
 
     def _new_pane(self) -> InspectorPane:
-        """Make right-click menu."""
+        """Create a view, wire its right-click signal and track it."""
         pane = InspectorPane(self._widget_source)
         pane.context_menu_requested.connect(
             lambda position, p=pane: self._show_pane_menu(p, position)
@@ -198,15 +198,6 @@ class CellInspectorPanel(QWidget):
             pane.rebuild_controls()
 
     def closeEvent(self, event) -> None:
+        """Tell the controller to stop following the viewers."""
         self.closed.emit()
         super().closeEvent(event)
-
-
-__all__ = [
-    "CellInspectorPanel",
-    "InspectorPane",
-    "ABOVE",
-    "BELOW",
-    "LEFT",
-    "RIGHT",
-]

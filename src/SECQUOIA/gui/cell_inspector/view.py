@@ -59,22 +59,11 @@ class InspectorView(QWidget):
         self._has_tile = False
         self._tile_range: tuple[float, float] | None = None
 
-    @property
-    def view_box(self) -> pg.ViewBox:
-        """The view the camera moves."""
-        return self._view_box
-
-    @property
-    def image_item(self) -> pg.ImageItem:
-        """The grey image the black and white points apply to."""
-        return self._image_item
-
     def set_tile(
         self,
         image: np.ndarray,
         placement: Rect,
         overlay: np.ndarray | None,
-        auto_levels: bool,
     ) -> None:
         """Show a tile where it really sits in the frame, with its mask."""
         self._placeholder.hide()
@@ -90,7 +79,7 @@ class InspectorView(QWidget):
         )
 
         self._tile_range = self._range_of(image)
-        if auto_levels or not self._has_tile:
+        if not self._has_tile:
             self._apply_auto_levels(image)
         self._has_tile = True
 
@@ -120,29 +109,15 @@ class InspectorView(QWidget):
         centre = self._view_box.viewRect().center()
         self._placeholder.setPos(centre.x(), centre.y())
 
-    def set_overlay_visible(self, visible: bool) -> None:
-        """Show or hide the mask without touching the image."""
-        self._overlay_item.setVisible(bool(visible))
-
     def set_overlay_opacity(self, opacity: float) -> None:
+        """Set how strongly the mask shows through, from 0 to 1."""
         self._overlay_item.setOpacity(float(np.clip(opacity, 0.0, 1.0)))
-
-    def levels(self) -> tuple[float, float] | None:
-        """The black and white points, as real intensity values."""
-        values = self._image_item.getLevels()
-        if values is None:
-            return None
-        return float(values[0]), float(values[1])
 
     def set_levels(self, low: float, high: float) -> None:
         """Apply new black and white points without re-reading the tile."""
         if high <= low:
             high = low + 1.0
         self._image_item.setLevels((float(low), float(high)))
-
-    def apply_levels_from_bar(self, low: float, high: float) -> None:
-        """Apply values that came from the sliders."""
-        self.set_levels(low, high)
 
     @staticmethod
     def _range_of(image: np.ndarray) -> tuple[float, float] | None:
@@ -164,10 +139,6 @@ class InspectorView(QWidget):
     def tile_range(self) -> tuple[float, float] | None:
         """The value range of the tile on screen, used to size the sliders."""
         return self._tile_range
-
-    def set_interactive(self, interactive: bool) -> None:
-        """Allow or block panning and zooming with the mouse."""
-        self._view_box.setMouseEnabled(bool(interactive), bool(interactive))
 
     def set_view_region(
         self, center_x: float, center_y: float, width: float, height: float

@@ -9,9 +9,11 @@ from skimage.segmentation import find_boundaries
 
 LOG = logging.getLogger(__name__)
 
+# Overlay draw modes. Only FILL is reachable today: the sole caller,
+# CONTOUR will be included in the future.
+
 FILL = "Fill"
 CONTOUR = "Contour"
-OVERLAY_MODES = (FILL, CONTOUR)
 FALLBACK_RGBA = (255, 215, 0, 255)
 
 
@@ -39,7 +41,10 @@ def labels_to_rgba(
     colormap=None,
     mode: str = FILL,
 ) -> np.ndarray | None:
-    """Colour one mask crop, or None if there is nothing to draw."""
+    """Colour one mask crop, or None if there is nothing to draw.
+
+    ``mode`` is ``FILL`` or ``CONTOUR``; nothing selects ``CONTOUR`` yet.
+    """
     if label_crop is None:
         return None
     labels = np.asarray(label_crop)
@@ -74,7 +79,10 @@ def composite_overlay(
     colormap_for,
     mode: str = FILL,
 ) -> np.ndarray | None:
-    """Draw several masks into one overlay."""
+    """Draw several masks into one overlay.
+
+    ``mode`` is forwarded to :func:`labels_to_rgba`; see the note there.
+    """
     combined: np.ndarray | None = None
     for mask_number, crop in label_crops:
         rgba = labels_to_rgba(crop, colormap_for(mask_number), mode)

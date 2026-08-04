@@ -8,15 +8,11 @@ LOG = logging.getLogger(__name__)
 
 
 def open_cell_inspector(main_window):
-    """Show the Cell Inspector, or put it away if it is already in front.
+    """Show the Cell Inspector, or close it if it is the active window.
 
-    Pressing the shortcut again closes the window, but only when that is the
-    window you are looking at. If it is open but sitting behind the main
-    window, the same key brings it to the front instead. So one press always
-    gets you to it, and a second press puts it away.
-
-    Closing only hides it. The channel, mask and black/white points are still
-    there when it comes back.
+    A second press only closes it when it is in front; if it is behind
+    the main window the same key raises it instead. Closing hides the
+    window, so the channel, mask and level settings survive.
     """
     if _put_away_if_in_front(main_window):
         return getattr(main_window, "cell_inspector", None)
@@ -75,7 +71,7 @@ def notify_cell_inspector(main_window, method: str) -> None:
 
 
 def detach_cell_inspector(main_window) -> None:
-    """Stop the inspector's background work before the program closes."""
+    """Shut the inspector down and drop it from the main window."""
     notify_cell_inspector(main_window, "shutdown")
     panel = getattr(main_window, "cell_inspector_panel", None)
     if panel is not None:
