@@ -1,4 +1,8 @@
-"""napari viewer/layer selection: syncing Labels layers to the current dataframe row."""
+"""napari layer state for segmentation masks.
+
+Label selection driven by the current dataframe row, camera centring, and the
+per viewer map from mask index to Labels layer name.
+"""
 
 import contextlib
 import logging
@@ -15,7 +19,7 @@ LOG = logging.getLogger(__name__)
 
 
 def mask_index_from_layer_name(name) -> int | None:
-    """Extract the 1-based mask index from a segmentation layer name."""
+    """Extract the mask index from a segmentation layer name."""
     text = str(name or "")
 
     match = re.search(
@@ -29,13 +33,7 @@ def mask_index_from_layer_name(name) -> int | None:
 
 
 def get_mask_indices(main_window) -> list[int]:
-    """Return sorted mask indices.
-
-    Returns ``[1..n_masks]`` if `main_window.n_masks` is set; otherwise
-    falls back to whichever ``label_id_m<k>`` columns are present in
-    `main_window.filtered_df`, which may be a non-contiguous set (e.g.
-    ``[1, 3]``); defaults to ``[1]`` if neither source is available.
-    """
+    """Return sorted mask indices."""
     try:
         mc = getattr(main_window, "n_masks", 0)
         if mc > 0:
@@ -127,7 +125,7 @@ def _resolve_t_index(main_window, row: pd.Series) -> int:
         return int(getattr(main_window, "current_time_index", 0))
 
 
-# avoids re-scanning the label array on every revisit.
+# Avoids scanning the label array on every revisit.
 _SLICE_MAX_CACHE: "weakref.WeakKeyDictionary" = weakref.WeakKeyDictionary()
 _CACHE_INVALIDATION_WIRED: "weakref.WeakSet" = weakref.WeakSet()
 
@@ -158,13 +156,7 @@ def _ensure_cache_invalidation_wired(layer) -> None:
 
 
 def _next_label_for_layer(layer, t_idx: int) -> int:
-    """Compute the next free label id for `layer` (max label in the current slice + 1).
-
-    Cached per (layer, t_idx): a cache hit requires the layer's data object to
-    still be the one the cached value was computed from, and is dropped
-    outright the moment the layer is painted - so it can return stale-looking
-    but never actually-stale results.
-    """
+    """Return the next free label id for `layer`: max label in the slice + 1."""
     _ensure_cache_invalidation_wired(layer)
 
     try:
@@ -316,9 +308,7 @@ def apply_all_mask_selections(
 
 
 def refresh_all_mask_selections_at_current(main_window) -> None:
-    """Look up the row at (current Identification, current TrackNumber, current t)
-    and call apply_all_mask_selections(...).
-    """
+    """Reapply the mask selections for the row the UI is currently showing."""
     df_all = getattr(main_window, "filtered_df", None)
     if df_all is None or df_all.empty:
         return
@@ -416,8 +406,6 @@ def rebuild_segmentation_layer_index(main_window) -> None:
 
         next_idx = 1
         for nm in labels_names:
-            if next_idx in mapping:
-                next_idx += 1
             while next_idx in mapping:
                 next_idx += 1
             if nm in mapping.values():
@@ -450,12 +438,10 @@ def set_active_layers_from_header_buttons(main_window) -> None:
         if v is None or not hasattr(v, "layers"):
             continue
 
-        m_sel = None
-        if m_sel is None:
-            try:
-                m_sel = int(main_window.active_mask_index_by_viewer.get(vi, 1))
-            except (RuntimeError, AttributeError, TypeError, ValueError):
-                m_sel = 1
+        try:
+            m_sel = int(main_window.active_mask_index_by_viewer.get(vi, 1))
+        except (RuntimeError, AttributeError, TypeError, ValueError):
+            m_sel = 1
         if m_sel < 1:
             m_sel = 1
 
@@ -509,8 +495,11 @@ def show_all_masks(main_window) -> None:
 
 
 def show_current_mask(main_window) -> None:
-    """Undo show_all_masks: isolate each Segmentation{m} layer down to the
-    label of the currently selected track at the current time point.
+    """Show only the currently selected track's label in each mask layer.
+
+    The inverse of `show_all_masks`: for every Segmentation{m} layer in both
+    viewers, select the label this row carries for that mask and switch
+    isolation on. A mask with no label for this row keeps showing everything.
     """
     try:
         mask_idxs = get_mask_indices(main_window)

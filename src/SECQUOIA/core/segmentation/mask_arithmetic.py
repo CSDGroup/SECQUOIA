@@ -1,4 +1,4 @@
-"""Bitwise combination and re-labelling of segmentation mask stacks."""
+"""Bitwise combination and labelling of segmentation mask stacks."""
 
 from __future__ import annotations
 
@@ -99,7 +99,6 @@ def compute_bitwise_mask(
     """Combine two label stacks with a bitwise operator."""
     op = str(op).upper()
 
-    # Fast path: a pure dilation of a non-inverted mask keeps its own labels.
     if keep_separate and op == "NONE" and dil1v > 0 and not not_a:
         return np.stack([expand_labels(sl, distance=dil1v) for sl in a])
 

@@ -32,9 +32,7 @@ def _mask_worker_count(max_workers: int | None = None) -> int:
     if _process_cpu_count is not None:
         n = _process_cpu_count()
     else:
-        _sched_getaffinity = getattr(
-            os, "sched_getaffinity", None
-        )  # Linux/BSD
+        _sched_getaffinity = getattr(os, "sched_getaffinity", None)
         if _sched_getaffinity is not None:
             n = len(_sched_getaffinity(0))
     if not n:
@@ -205,7 +203,7 @@ def load_masks(
     t_file_max: int | None = None,
     max_workers: int | None = None,
 ) -> np.ndarray | list | dict | None:
-    """Flexible loader for segmentation masks (optional t-file range).
+    """Load segmentation masks for a position, optionally over a t-file range.
 
     All mask folders and all frames are decoded by a single bounded thread pool.
     The returned structure (array / list / dict), the frame order and the
@@ -263,7 +261,7 @@ def load_masks(
 
 
 def t_file_from_idx(main_window, t_idx: int) -> int:
-    """Map a rebased time index back to the original on-disk t-file number."""
+    """Map a rebased time index back to the original on disk t-file number."""
     t_file_min, t_file_max, t_idx_min, t_idx_max = _current_t_range(
         main_window
     )
@@ -281,7 +279,7 @@ def position_name(main_window) -> str:
 
 
 def position_dir_for_mask(mask_dir: str, pos_name: str) -> str:
-    """Subfolder inside this mask directory corresponding to the current position."""
+    """Return the subfolder of `mask_dir` holding the given position."""
     return os.path.join(mask_dir, pos_name)
 
 
@@ -389,7 +387,7 @@ def fallback_mask_filename(
 
 
 def save_masks_incremental(main_window) -> None:
-    """Save ONLY corrected mask slices into the copied segmentation folders under Analysis."""
+    """Save only corrected mask slices into the copied segmentation folders under Analysis."""
     seg_dirs = getattr(main_window, "segmentation_paths", None)
     if not seg_dirs:
         LOG.warning(
