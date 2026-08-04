@@ -10,7 +10,6 @@ from __future__ import annotations
 
 import numpy as np
 import pandas as pd
-import pytest
 
 from SECQUOIA.core.outlier_detection.track_sync import (
     _column_match_mask,
@@ -337,15 +336,23 @@ class TestUpdateUniqueOutliersIds:
 
         assert main_window.unique_outliers_ids == []
 
-    @pytest.mark.parametrize("column", ["identification", "ID", "Id", "id"])
-    def test_accepts_alternative_identification_column_names(
-        self, fake_main_window, column
-    ):
+    def test_accepts_a_lowercase_identification_column(self, fake_main_window):
         df = filtered_frame(1, [("p1_a", 0)]).rename(
-            columns={"Identification": column}
+            columns={"Identification": "identification"}
         )
         main_window = fake_main_window(filtered_df=df)
 
         update_unique_outliers_ids(main_window)
 
         assert main_window.unique_outliers_ids == ["p1_a"]
+
+    def test_ignores_a_short_id_column(self, fake_main_window):
+        """Only Identification and its lowercase spelling name a cell."""
+        df = filtered_frame(1, [("p1_a", 0)]).rename(
+            columns={"Identification": "ID"}
+        )
+        main_window = fake_main_window(filtered_df=df)
+
+        update_unique_outliers_ids(main_window)
+
+        assert main_window.unique_outliers_ids == []

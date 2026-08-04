@@ -83,7 +83,7 @@ class RulesPack:
 
 
 def save_outlier_rules_to_disk(main_window, rules_payload: dict) -> str | None:
-    """Save rules as JSON."""
+    """Save rules as JSON under a timestamped name, returning the path or None on failure."""
     folder = _outlier_rules_dir(main_window)
     if not folder:
         return None
@@ -185,21 +185,8 @@ def _generic_suffix_matches(
     }
 
 
-def _exact_mask_channel_names(
-    df_cols, feat: str, masks: list[int], channels: list[str]
-) -> set:
-    """Exact 'feat+Ch+ch+M+m' / 'feat+M+m+Ch+ch' names for every requested mask x channel pair."""
-    found = set()
-    for m in masks:
-        for ch in channels:
-            for name in (f"{feat}Ch{ch}M{m}", f"{feat}M{m}Ch{ch}"):
-                if name in df_cols:
-                    found.add(name)
-    return found
-
-
 def _exact_mask_only_names(df_cols, feat: str, masks: list[int]) -> set:
-    """Exact 'feat+M+m' names: channel-agnostic mask columns always match the requested mask, regardless of any channel filter."""
+    """Exact 'feat+M+m' names, the columns the channel filter would otherwise drop."""
     found = set()
     for m in masks:
         name = f"{feat}M{m}"
@@ -225,8 +212,6 @@ def resolve_feature_columns(
         cols = _generic_suffix_matches(df_cols, feat, masks, channels)
     else:
         cols = set()
-        if masks and channels:
-            cols |= _exact_mask_channel_names(df_cols, feat, masks, channels)
         if masks:
             cols |= _exact_mask_only_names(df_cols, feat, masks)
         cols |= _generic_suffix_matches(df_cols, feat, masks, channels)
@@ -269,7 +254,7 @@ def rule_is_active(rule: Rule) -> bool:
 def run_threshold_rules(
     df, pack: RulesPack, outcol="Outlier_detection", on_rule_done=None
 ) -> pd.DataFrame:
-    """Apply all static threshold rules in a RulesPack to a dataframe."""
+    """Apply all static threshold rules in a RulesPack, writing 'Outlier' into `outcol` in place."""
     if outcol not in df.columns:
         df[outcol] = "OK"
     for r in pack.rules:
@@ -328,7 +313,7 @@ def _window_sd(
             break
     if win.size < 2:
         return None
-    return float(np.std(win, ddof=1)) if win.size > 1 else None
+    return float(np.std(win, ddof=1))
 
 
 def _flag_next_time_outliers(
@@ -372,7 +357,7 @@ def _mark_group_outliers(
     t_max: float,
     sd_factor: float,
 ) -> pd.Series:
-    """Mark sliding-window outliers within a single track (one Identification)."""
+    """Mark sliding-window outliers within a single track (one Identification and TrackNumber)."""
     mark_outlier = pd.Series(False, index=idx)
 
     times = np.unique(t_vals[np.isfinite(t_vals)])
@@ -389,7 +374,7 @@ def _mark_group_outliers(
     # Map each time point to the dataframe indices observed at that time.
     rows_at_t = {t: list(idx[np.where(t_vals == t)[0]]) for t in times}
 
-    # compare point at t_next to band around value at t_curr
+    # Compare point at t_next to band around value at t_curr
     for i in range(len(times) - 1):
         t_curr, t_next = times[i], times[i + 1]
         curr_rows = rows_at_t.get(t_curr, [])
@@ -504,7 +489,7 @@ def _apply_sliding_window_config(
 def run_sliding_windows(
     df, pack: RulesPack, outcol="Outlier_detection", on_window_done=None
 ) -> pd.DataFrame:
-    """Run sliding-window outlier detection rules."""
+    """Run sliding-window outlier detection rules and return the sorted result."""
     if df is None or len(df) == 0:
         return df
 
@@ -557,7 +542,7 @@ def sliding_window_outlier_mask(
 def run_outlier_pipeline(
     df, pack: RulesPack, outcol="Outlier_detection"
 ) -> pd.DataFrame:
-    """Run the full outlier detection pipeline."""
+    """Run the full outlier detection pipeline, resetting `outcol` to 'OK' first."""
     df[outcol] = "OK"
     df = run_threshold_rules(df, pack, outcol=outcol)
     df = run_sliding_windows(df, pack, outcol=outcol)

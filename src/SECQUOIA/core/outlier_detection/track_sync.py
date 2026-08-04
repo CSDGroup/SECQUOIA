@@ -25,7 +25,11 @@ def _pick_if_both(
 
 
 def _shared_preferred_keys(track_df, df_all):
-    """Return (left_keys, right_keys, l_pos, r_pos): matching Identification/t/TrackNumber/Position column pairs between track_df and filtered_df, plus the Position pair alone (needed separately to scope the OK-reset to touched positions)."""
+    """Return (left_keys, right_keys, l_pos, r_pos) for the columns shared by track_df and filtered_df.
+
+    The keys are the Identification/t/TrackNumber/Position columns present in
+    both frames.
+    """
     names = ("Identification", "t", "TrackNumber", "Position")
     pairs = [_pick_if_both(track_df, df_all, name, name) for name in names]
 
@@ -120,7 +124,9 @@ def update_outlier_detection_in_track_df(
 def update_unique_outliers_ids(
     main_window, *, outcol: str = "Outlier_detection"
 ) -> None:
-    """Build main_window.unique_outliers_ids from main_window.filtered_df by collecting Identification values that have at least one 'Outlier' in `outcol`."""
+    """Build main_window.unique_outliers_ids from main_window.filtered_df by
+    collecting Identification values that have at least one 'Outlier' in `outcol`.
+    """
     df = getattr(main_window, "filtered_df", None)
     if df is None or len(df) == 0:
         main_window.unique_outliers_ids = []
@@ -135,7 +141,7 @@ def update_unique_outliers_ids(
         return
 
     # Pick the ID column name
-    id_candidates = ["Identification", "identification", "ID", "Id", "id"]
+    id_candidates = ["Identification", "identification"]
     id_col = next((c for c in id_candidates if c in df.columns), None)
     if id_col is None:
         LOG.warning(
@@ -212,7 +218,11 @@ def update_outlier_detection_in_track_df_fast(
     changed_filtered_df_idxs,
     outcol: str = "Outlier_detection",
 ):
-    """For each index in `changed_filtered_df_idxs` (indices of main_window.filtered_df),update ONLY the matching row(s) in main_window.track_df."""
+    """Update only the track_df rows matching the given filtered_df indices.
+
+    The full sync in `update_outlier_detection_in_track_df` rewrites every
+    row of the position; this touches just the points that changed.
+    """
     df_all = getattr(main_window, "filtered_df", None)
     track_df = getattr(main_window, "track_df", None)
 

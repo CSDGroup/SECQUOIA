@@ -1,4 +1,5 @@
-"""Resolving the outlier the user is currently looking at, and rechecking outlier status for a single point after an edit."""
+"""Resolving the outlier the user is currently looking at, and rechecking
+its status after an edit."""
 
 from __future__ import annotations
 
@@ -32,8 +33,7 @@ def _refresh_outlier_views(
     main_window, *, outcol: str = "Outlier_detection"
 ) -> None:
     """Rebuild the outlier subset, list and star markers from the current data."""
-    # circular-import: gui.outlier imports core.outlier_detection at module load time,
-    # so these can only be pulled in once everything has finished loading.
+    # circular-import: gui.outlier imports core.outlier_detection at module load time.
     from SECQUOIA.gui.outlier.markers import update_outlier_marker
     from SECQUOIA.gui.outlier.outlier_list import _rebuild_active_list
 
@@ -57,7 +57,7 @@ def _refresh_outlier_views(
 
 
 def _clamp_outlier_index(main_window) -> None:
-    """Keep ``current_outlier_index`` inside ``unique_outliers_ids``."""
+    """Keep `current_outlier_index` inside `unique_outliers_ids`."""
     outs = getattr(main_window, "unique_outliers_ids", None) or []
     try:
         idx = int(getattr(main_window, "current_outlier_index", 0) or 0)
@@ -69,7 +69,7 @@ def _clamp_outlier_index(main_window) -> None:
 
 
 def _normalize_unique_ids(main_window) -> list:
-    """Return ``main_window.unique_ids`` as a plain list, never ``None``."""
+    """Return `main_window.unique_ids` as a plain list, never `None`."""
     ids = getattr(main_window, "unique_ids", None)
     if ids is None:
         return []
@@ -82,8 +82,6 @@ def _normalize_unique_ids(main_window) -> list:
             listed = None
         if isinstance(listed, list):
             return listed
-    if isinstance(ids, (list | tuple | set)):
-        return list(ids)
     try:
         return list(ids)
     except TypeError:
@@ -151,7 +149,7 @@ def resolve_current_ident(
 
 
 def _resolve_current_time(main_window, df_all, ident, id_col, time_col) -> int:
-    """Return the current time index, falling back to `ident`'s earliest time on error."""
+    """Return the time value the viewer is currently on."""
     try:
         return int(getattr(main_window, "current_time_index", 0))
     except (TypeError, ValueError):
@@ -162,7 +160,7 @@ def _resolve_current_time(main_window, df_all, ident, id_col, time_col) -> int:
 def _resolve_target_row_indices(
     df_all, ident, t_val, track_no, id_col, time_col, track_col
 ) -> list:
-    """Find filtered_df row indices for `ident`/`t_val`[/`track_no`], relaxing the TrackNumber filter to all tracks of `ident` if it matches nothing."""
+    """Find the filtered_df rows for `ident` at `t_val` on track `track_no`."""
     id_mask = df_all[id_col].astype(str) == ident
     t_mask = pd.to_numeric(df_all[time_col], errors="coerce") == t_val
     row_mask = id_mask & t_mask
@@ -286,9 +284,10 @@ def _apply_outlier_status_updates(
     time_col,
     outcol,
 ) -> bool:
-    """Evaluate `outcol` for each row in `target_idxs` against `rules` and the
-    precomputed `sliding_hits`, logging and tracking any changes. Returns True
-    if at least one row changed."""
+    """Evaluate `outcol` for every row in `target_idxs`, returning True if any row changed.
+
+    A row is an outlier if it hits any threshold rule or is flagged in the
+    precomputed `sliding_hits`."""
     changed_any = False
     for idx in target_idxs:
         prev = df_all.at[idx, outcol]
