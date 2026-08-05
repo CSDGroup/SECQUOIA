@@ -1,16 +1,4 @@
-"""Helpers for managing add/remove-able rows inside a ``QGridLayout``.
-
-Several dialogs (outlier detection's threshold-rule and sliding-window
-tables, and similar row-per-item editors) share the same pattern: a grid of
-widget rows, each with its own add/remove buttons, where rows can be
-inserted, deleted, or reordered. These helpers implement that pattern once,
-independent of what a row's fields actually mean.
-
-Each row is represented as a ``dict`` of widgets with at least a
-``"btn_bar"`` (the container for its add/remove buttons), a ``"btn_add"``,
-and a ``"btn_rm"``. ``field_keys`` lists the remaining keys, in the order
-they should appear as grid columns.
-"""
+"""Helpers for managing add/remove rows inside a ``QGridLayout``."""
 
 from __future__ import annotations
 
@@ -37,7 +25,7 @@ def use_qt_drawn_popup(combo: QComboBox) -> QComboBox:
 
 
 def reposition_grid_rows(grid, rows, field_keys) -> None:
-    """Replace each row's widgets in the grid so rows stay in list order after add/remove."""
+    """Readd each row's widgets so grid order matches list order."""
     for i, row in enumerate(rows, start=1):
         widgets = [row[key] for key in field_keys] + [row["btn_bar"]]
         for widget in widgets:
@@ -57,7 +45,7 @@ def update_row_remove_buttons(rows) -> None:
 
 
 def remove_grid_row(grid, rows, field_keys, idx) -> bool:
-    """Pop and delete row ``idx`` from ``rows``/``grid``."""
+    """Remove row ``idx`` from ``rows`` and delete its widgets from ``grid``."""
     if len(rows) <= 1:
         return False
     if idx is None or idx < 0 or idx >= len(rows):

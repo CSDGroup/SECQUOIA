@@ -10,23 +10,14 @@ from qtpy.QtCore import Qt
 from qtpy.QtGui import QCursor, QGuiApplication
 from qtpy.QtWidgets import QMessageBox, QWidget
 
-__all__ = ["show_error_message", "show_folder_warning"]
+__all__ = ["show_folder_warning"]
 
 _WARNING_WIDTH_FRACTION = 0.35
 _WARNING_HEIGHT_FRACTION = 0.22
 
 
-def show_error_message(message: str) -> None:
-    """Show a modal error box."""
-    msg = QMessageBox()
-    msg.setIcon(QMessageBox.Critical)
-    msg.setText(message)
-    msg.setWindowTitle("Input Error")
-    msg.exec_()
-
-
 def show_folder_warning(parent: QWidget | None = None) -> None:
-    """Tell the user no experiment folder has been selected yet."""
+    """Warn that no tracking data and experiment folder are loaded yet."""
     msg = QMessageBox(parent)
     msg.setIcon(QMessageBox.Warning)
     msg.setWindowTitle("Folder Selection Error")

@@ -63,6 +63,7 @@ _macos_combo_popup_style = None
 
 
 def is_widget_alive(widget) -> bool:
+    """Return True if the widget exists and its C++ object is not deleted."""
     if widget is None:
         return False
     try:
@@ -91,6 +92,7 @@ def reuse_widget(main_window, attr: str, factory):
 
 
 def use_readable_combo_popup_on_macos(combo: QComboBox) -> None:
+    """Apply the Fusion style to a combo so its popup honors the stylesheet."""
     if sys.platform != "darwin":
         return
     global _macos_combo_popup_style
@@ -214,7 +216,7 @@ def fit_to_screen(
     max_frac: float = 0.85,
     min_size: tuple[int, int] = (640, 300),
 ) -> None:
-    """Size a window to its hint, but never past a fraction of the screen."""
+    """Size a window to its hint, capped at a fraction of the screen."""
     hint = window.sizeHint()
     screen = window.screen() if hasattr(window, "screen") else None
     if screen is None:
@@ -260,7 +262,7 @@ def equalize_min_widths(
 
 
 def harmonize_form_labels(root: QWidget) -> None:
-    """Left-align every ``formLabel`` under ``root`` and equalize their width."""
+    """Left align every ``formLabel`` under ``root`` and equalize their width."""
     labels = root.findChildren(QLabel, "formLabel")
     if not labels:
         return

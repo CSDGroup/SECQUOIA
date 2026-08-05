@@ -1,4 +1,4 @@
-"""Pop-up help windows providing a searchable, read-only text/Markdown viewer."""
+"""Pop-up help windows providing a searchable, read-only text/Markdown window."""
 
 import textwrap
 
@@ -349,7 +349,7 @@ class HelpPopup(QtWidgets.QDialog):
     def _find_flags(
         self, backwards: bool = False
     ) -> QtGui.QTextDocument.FindFlag:
-        """Return case-insensitive find flags, optionally searching backward."""
+        """Return case insensitive find flags, optionally searching backward."""
         flags = QtGui.QTextDocument.FindFlag()
         if backwards:
             flags |= QtGui.QTextDocument.FindBackward
