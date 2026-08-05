@@ -92,7 +92,7 @@ def _populate_channels_ui(main_window, channel_names):
 
 
 def _sync_channels_selected(main_window):
-    """From the checked items in chan_tree, set: main_window.n_channels and main_window.FL_inputs."""
+    """Push the checked channels onto ``ids_channels`` and ``n_channels``, and rebuild ``FL_inputs``."""
     tree = main_window.chan_tree
     selected = []
     for i in range(tree.topLevelItemCount()):

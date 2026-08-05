@@ -139,7 +139,7 @@ def _detect_unique_w_channels(main_window):
 
 
 def _detect_time_max_in_position_folder(main_window):
-    """Return the highest time point index present in the experiment."""
+    """Return the highest time point index found in one sample position folder, at least 1."""
     return detect_time_max(_find_example_position_folder(main_window))
 
 
