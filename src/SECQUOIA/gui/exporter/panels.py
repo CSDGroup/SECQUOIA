@@ -1,4 +1,4 @@
-"""Draggable preview grid layout."""
+"""Grid preview tiles: creation, placement, selection, removal."""
 
 import logging
 import math
@@ -32,13 +32,13 @@ LOG = logging.getLogger(__name__)
 
 
 class _Panels:
-    """Draggable preview grid layout."""
+    """Builds preview tiles and keeps them on the snap grid."""
 
     class SnapProxy(QGraphicsProxyWidget):
         """Graphics proxy that keeps preview panels aligned to the layout grid."""
 
         def __init__(self, controller, main_window, parent=None):
-            """Proxy widget that snaps to nearest free grid cell."""
+            """Wrap a tile, disable free dragging, and keep the controller."""
             super().__init__(parent)
             self._ctrl = controller
             self._mw = main_window
@@ -47,7 +47,7 @@ class _Panels:
             self.setZValue(0)
 
         def itemChange(self, change, value):
-            """Snap movement to free grid positions during drag."""
+            """Redirect any position change to the nearest free grid cell."""
             if change == QGraphicsItem.ItemPositionChange and isinstance(
                 value, QPointF
             ):
@@ -379,7 +379,7 @@ class _Panels:
 
         panel_dict["container"].mousePressEvent = _on_frame_press
 
-    def _create_tile_widget(self, main_window):
+    def _create_tile_widget(self):
         """Create a fixed size panel widget and preview label."""
         panel = QFrame()
         panel.setFrameShape(QFrame.StyledPanel)
@@ -435,7 +435,7 @@ class _Panels:
 
     def _add_panel(self, main_window, pos: QPointF = None):
         """Create, place, and register a new panel tile at position."""
-        container, label, obj_name = self._create_tile_widget(main_window)
+        container, label, obj_name = self._create_tile_widget()
         proxy = self.SnapProxy(self, main_window)
         proxy.setWidget(container)
         with suppress(Exception):

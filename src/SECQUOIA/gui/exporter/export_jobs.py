@@ -235,7 +235,7 @@ class _ExportJobs:
     def _export_video_files(
         self, frames_rgb, fps, outdir, base_name, want_mp4=True, want_avi=False
     ):
-        """Write MP4/AVI files using imageio with proper padding."""
+        """Write MP4/AVI via imageio, padding frames to a multiple of 16 px."""
 
         def _pad_to_mbs(img, m=16):
             w, h = img.size

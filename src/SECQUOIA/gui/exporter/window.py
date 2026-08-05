@@ -42,7 +42,7 @@ class _Window:
     """Builds the Image & Movie Exporter window and its sidebar widgets."""
 
     def open_image_movie_export_window(self, main_window=None):
-        """Build and display the GIF/Image exporter window and canvas."""
+        """Build and display the Image & Movie Exporter window and canvas."""
         main_window = main_window or self.main_window
 
         if not getattr(main_window, "folder_list", None):
@@ -94,7 +94,7 @@ class _Window:
         main_window.identification_input = QLineEdit()
         main_window.identification_input.setVisible(False)
 
-        # Timeline
+        # Timeline min/max
         grp_time, box_time, gb = self._make_section("Time Window", QHBoxLayout)
         gb.setContentsMargins(10, 10, 10, 10)
         gb.setSpacing(10)
@@ -477,7 +477,11 @@ class _Window:
         )
 
         def _canvas_context_menu(pos):
-            """Show the canvas context menu and add a new panel at the clicked grid cell."""
+            """Show the canvas context menu on empty space.
+
+            Adds a tile at the nearest free grid cell; does nothing when
+            an item is already under the cursor.
+            """
             view = main_window.view
             scene_pos = view.mapToScene(pos)
             item_under = main_window.scene.itemAt(scene_pos, view.transform())
@@ -505,7 +509,6 @@ class _Window:
         root_h.addWidget(left_wrap, 0)
         root_h.addWidget(right_wrap, 1)
 
-        # collections
         main_window.panels = []
         main_window.active_panel = None
 
@@ -649,12 +652,11 @@ class _Window:
             if typ == "Single image":
                 main_window.single_img_fmt_combo = main_window.export_fmt_combo
                 self._export_single_images(main_window)
+            elif fmt == "TIF stack":
+                self._export_tiff_stack(main_window)
             else:
-                if fmt == "TIF stack":
-                    self._export_tiff_stack(main_window)
-                else:
-                    main_window.anim_fmt_combo = main_window.export_fmt_combo
-                    self._export_animation_multi(main_window)
+                main_window.anim_fmt_combo = main_window.export_fmt_combo
+                self._export_animation_multi(main_window)
 
         main_window.export_btn.clicked.connect(lambda *_: _do_export())
 

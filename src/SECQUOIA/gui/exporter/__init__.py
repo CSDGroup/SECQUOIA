@@ -1,10 +1,4 @@
-"""Image & Movie Exporter: GIF/Movie/TIFF/PNG export window and canvas.
-
-``ImageMovieExporter`` itself only owns ``__init__``; every other method is
-contributed by one of the classes below, each covering one concern
-(panel/grid layout, rendering, playback, the file-writing exporters, lineage
-resolution, the B/W inspector dialog, sidebar wiring, and presets).
-"""
+"""Image & Movie Exporter: GIF/Movie/TIF/PNG export window and canvas."""
 
 from __future__ import annotations
 

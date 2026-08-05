@@ -115,13 +115,11 @@ class _BWInspector:
             )
             return
 
-        ctrl = self
-
         class HistWidget(QWidget):
             """Interactive histogram widget for adjusting black and white intensity levels."""
 
             def __init__(self, parent=None):
-                """Build a log scaled normalized 256-bin histogram from image."""
+                """Set up an empty histogram seeded with the panel's B/W points."""
                 super().__init__(parent)
                 self.setMinimumSize(420, 180)
                 self.margin = 18
@@ -131,7 +129,7 @@ class _BWInspector:
                 self._drag = None
 
             def set_hist_from_image(self, imgL: Image.Image):
-                """Set black/white thresholds and refresh plot."""
+                """Build the log scaled, percentile-normalized histogramß."""
                 arr = np.array(imgL, dtype=np.uint8).ravel()
                 hist, _ = np.histogram(arr, bins=256, range=(0, 255))
                 h = np.log1p(hist.astype(np.float64))
@@ -144,10 +142,6 @@ class _BWInspector:
                 self._b = int(max(EXPORT.BW_MIN, min(self._w - 1, b)))
                 self._w = int(min(EXPORT.BW_MAX, max(self._b + 1, w)))
                 self.update()
-
-            def bw(self):
-                """Return the current ``(black_point, white_point)`` pair."""
-                return self._b, self._w
 
             def _plot_rect(self) -> QRect:
                 """Return the inner plotting rectangle for the histogram."""
@@ -268,7 +262,7 @@ class _BWInspector:
             ):
                 main_window.sel_black_spin.setValue(int(b))
                 main_window.sel_white_spin.setValue(int(w))
-            ctrl._update_single_panel_preview(
+            self._update_single_panel_preview(
                 main_window, main_window.active_panel
             )
 

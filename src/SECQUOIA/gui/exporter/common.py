@@ -1,4 +1,4 @@
-"""Small stateless UI/formatting helpers shared across the exporter."""
+"""Shared exporter helpers: dialogs, widget styling, fonts, filesystem."""
 
 import logging
 import os
@@ -36,7 +36,7 @@ LOG = logging.getLogger(__name__)
 
 
 class _Common:
-    """Small stateless formatting helpers shared across the exporter."""
+    """Message boxes, section/widget builders, and small shared utilities."""
 
     @staticmethod
     def _message_host(parent):

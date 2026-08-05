@@ -122,15 +122,11 @@ class _Presets:
 
     def _reset_layout_to_defaults(self, main_window):
         """Restore default tile sizes, time range, and single panel."""
-        with self.blocked(main_window.tile_w_input, main_window.tile_h_input):
-            main_window.tile_w_input.setValue(
-                EXPORT.PREVIEW_W if EXPORT.PREVIEW_W else 200
-            )
-            main_window.tile_h_input.setValue(
-                EXPORT.PREVIEW_H if EXPORT.PREVIEW_H else 200
-            )
         EXPORT.PREVIEW_W = 200
         EXPORT.PREVIEW_H = 200
+        with self.blocked(main_window.tile_w_input, main_window.tile_h_input):
+            main_window.tile_w_input.setValue(EXPORT.PREVIEW_W)
+            main_window.tile_h_input.setValue(EXPORT.PREVIEW_H)
 
         lo, hi = 0, 9999
         try:

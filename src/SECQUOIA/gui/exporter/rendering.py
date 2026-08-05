@@ -112,7 +112,7 @@ class _Rendering:
         return None
 
     def _get_panel_state_for_render(self, panel):
-        """Normalize and freeze panel state for rendering."""
+        """Return a copy of `panel` with render fields coerced and clamped."""
         st = dict(panel)
         st["chan_abs_idx"] = int(panel.get("chan_abs_idx", 0))
         st["contour_px"] = max(1, int(panel.get("contour_px", 1)))
@@ -152,7 +152,7 @@ class _Rendering:
                 if i <= b
                 else (255 if i >= w else int(round((i - b) * 255.0 / span)))
             )
-        return pil_img.convert("L").point(lut).convert("L")
+        return pil_img.convert("L").point(lut)
 
     def _resolve_sec_per_frame(self, main_window) -> float:
         """Return seconds/frame, defaulting to 1.0."""
@@ -273,7 +273,7 @@ class _Rendering:
     def _draw_time_indicator(
         self, draw, main_window, st: dict, t_index: int, sec_per_frame: float
     ) -> int:
-        """Draw the time progress bar; return its pixel height (0 if hidden)."""
+        """Draw the sliding time marker; return its top y offset (0 if hidden)."""
         y_ind = 0
         with suppress(Exception):
             y_ind = (
@@ -415,7 +415,7 @@ class _Rendering:
             self._warn(main_window, "Preview Error", str(e))
 
     def _canvas_bbox(self, main_window, export_gap_px: int):
-        """Compute canvas bbox using export spacing only."""
+        """Return (minx, miny, maxx, maxy) laid out with the export gap."""
         if not getattr(main_window, "panels", []):
             return 0, 0, EXPORT.PREVIEW_W, EXPORT.PREVIEW_H
         xs, ys, xe, ye = [], [], [], []
