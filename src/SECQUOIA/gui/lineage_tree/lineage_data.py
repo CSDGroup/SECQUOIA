@@ -22,7 +22,7 @@ from SECQUOIA.gui.lineage_tree.lineage_geometry import (
 from SECQUOIA.utils.plotting import TIME_MODE_T, x_column_for
 
 
-def _infer_active_mask(main_window, _=None) -> int:
+def _infer_active_mask(main_window) -> int:
     """Return the active mask index used to determine valid track frames."""
     n = int(getattr(main_window, "n_masks", 1) or 1)
     try:
@@ -36,8 +36,8 @@ def _infer_active_mask(main_window, _=None) -> int:
 
 def _time_mapper_for_ident(
     df_ident: pd.DataFrame, main_window
-) -> tuple[Callable[[float], float], float, float, str]:
-    """Return a time->x mapping function plus x-range and column name for an ident."""
+) -> tuple[Callable[[float], float], float]:
+    """Return a time->x mapping function and the largest mapped x for an ident."""
     mode = getattr(main_window, "_time_mode", TIME_MODE_T)
     if mode == TIME_MODE_T:
 
@@ -50,8 +50,8 @@ def _time_mapper_for_ident(
         )
         tt = tt[np.isfinite(tt)]
         if tt.size == 0:
-            return f, 0.0, 1.0, "t"
-        return f, float(np.nanmin(tt)), float(np.nanmax(tt)), "t"
+            return f, 1.0
+        return f, float(np.nanmax(tt))
 
     ch_idx = 1
     try:
@@ -75,8 +75,8 @@ def _time_mapper_for_ident(
         )
         tt = tt[np.isfinite(tt)]
         if tt.size == 0:
-            return f, 0.0, 1.0, "t"
-        return f, float(np.nanmin(tt)), float(np.nanmax(tt)), "t"
+            return f, 1.0
+        return f, float(np.nanmax(tt))
 
     tt = pd.to_numeric(df_ident.get("t"), errors="coerce").to_numpy(
         dtype=float
@@ -91,7 +91,7 @@ def _time_mapper_for_ident(
             """Fall back to identity mapping when no finite (t, x) pairs exist."""
             return float(t)
 
-        return f, 0.0, 1.0, "t"
+        return f, 1.0
 
     tt = tt[mask]
     xx = xx[mask]
@@ -109,7 +109,7 @@ def _time_mapper_for_ident(
             )
         )
 
-    return f, float(uniq_x.min()), float(uniq_x.max()), xcol
+    return f, float(uniq_x.max())
 
 
 def _lineage_data(
@@ -120,12 +120,10 @@ def _lineage_data(
 ) -> dict:
     """Compute everything the lineage view needs to *draw*, with no Qt widgets."""
     sub_ident = df[df["Identification"] == ident].copy()
-    mk_active = _infer_active_mask(main_window, sub_ident)
+    mk_active = _infer_active_mask(main_window)
 
     try:
-        xmap, _xmin_mapped, xmax_mapped, _xcol = _time_mapper_for_ident(
-            sub_ident, main_window
-        )
+        xmap, xmax_mapped = _time_mapper_for_ident(sub_ident, main_window)
     except (RuntimeError, AttributeError, TypeError, ValueError, KeyError):
         xmap = default_xmap
         xmax_mapped = None

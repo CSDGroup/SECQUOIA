@@ -1,8 +1,4 @@
-"""Stateless paint routines for the lineage tree.
-
-Each function here takes a ``pg.PlotItem`` plus already computed geometry
-and/or values and paints into it.
-"""
+"""Paint routines for the lineage tree."""
 
 from __future__ import annotations
 
@@ -60,7 +56,6 @@ _EVENT_MARKERS = (
 
 HEAT_TICK_FONT = QtGui.QFont("Arial", 9)
 HEAT_CBAR_WIDTH = 0
-STRIP_Z = 5
 HEAT_LINE_WIDTH = 20
 CONNECT_Z = 8
 HEAT_SEG_PAD = 0.12
@@ -124,7 +119,7 @@ def _draw_lineage_pg(
         return pg.mkPen(col, width=LINEWIDTH)
 
     def span_item(tn: int, t0: float, t1: float, y: float, *, strict: bool):
-        """Build the polyline for one track span, honouring mask gaps."""
+        """Build the polyline for one track span over ``[t0, t1]``."""
         tn = int(tn)
         has_key = valid_times is not None and tn in valid_times
         vt = valid_times.get(tn) if has_key else None
@@ -334,7 +329,7 @@ def _draw_lineage_heatmap(
     )
 
 
-def _scatter_events_pg_fast(
+def _scatter_events_pg(
     plot: pg.PlotItem,
     df_events: pd.DataFrame,
     y_map: dict[int, float],
@@ -376,22 +371,6 @@ def _scatter_events_pg_fast(
     )
     sp.setZValue(9)
     plot.addItem(sp)
-
-
-def _scatter_events_pg(
-    plot: pg.PlotItem,
-    df_events: pd.DataFrame,
-    y_map: dict[int, float],
-    symbol,
-    size: int,
-    pen=None,
-    brush=None,
-    xmap=None,
-) -> None:
-    """Compatibility wrapper for event-marker drawing."""
-    _scatter_events_pg_fast(
-        plot, df_events, y_map, symbol, size, pen=pen, brush=brush, xmap=xmap
-    )
 
 
 def _multi_lane_offsets(

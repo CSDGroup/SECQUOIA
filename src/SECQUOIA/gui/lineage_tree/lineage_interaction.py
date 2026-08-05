@@ -31,7 +31,10 @@ class ShiftPanGuard(QtCore.QObject):
     )
 
     def __init__(self, view_box, parent=None) -> None:
-        """Watch ``view_box`` for the end of a Shift-pan gesture."""
+        """Hold the view box this guard restores.
+
+        Installing the event filter is ``install_shift_pan``'s job.
+        """
         super().__init__(parent)
         self._vb = view_box
 

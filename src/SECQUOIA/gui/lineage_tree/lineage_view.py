@@ -48,7 +48,7 @@ from SECQUOIA.gui.lineage_tree.lineage_zoom import _register_redraw
 
 
 class LineageTreeView:
-    """One lineage plot widget, plus everything that redraws it."""
+    """One lineage plot widget: builds it, redraws it, handles clicks on it."""
 
     def __init__(
         self,
@@ -283,7 +283,7 @@ class LineageTreeView:
         )
         self.overlay_highlight()
 
-    def overlay_highlight(self, pen=None) -> None:
+    def overlay_highlight(self) -> None:
         """Redraw selected or painted tracks on top, in their own colours."""
         edges = self.state["edges"]
         y_map = self.state["y_map"]
@@ -298,8 +298,7 @@ class LineageTreeView:
         if not painting and not selected:
             return
 
-        if pen is None:
-            pen = pg.mkPen((255, 230, 0), width=4)
+        pen = pg.mkPen((255, 230, 0), width=4)
 
         def pen_for(track: int):
             """The pen one highlighted track is drawn with."""
@@ -366,7 +365,7 @@ class LineageTreeView:
                 symbol=symbol,
                 size=12,
                 pen=None if filled else pg.mkPen(color, width=1.8),
-                brush=pg.mkBrush(color, width=1.8) if filled else None,
+                brush=pg.mkBrush(color) if filled else None,
                 xmap=self.state["xmap"],
             )
 
@@ -408,7 +407,7 @@ class LineageTreeView:
             if df is None or ident is None:
                 raise RuntimeError("No dataframe/ident")
             sub = df[df["Identification"].astype(str) == str(ident)]
-            mapper, _, _, _ = _time_mapper_for_ident(sub, mw)
+            mapper, _ = _time_mapper_for_ident(sub, mw)
 
             times = pd.to_numeric(sub.get("t"), errors="coerce").to_numpy(
                 dtype=float

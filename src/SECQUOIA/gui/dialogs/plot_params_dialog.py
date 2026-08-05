@@ -19,6 +19,7 @@ from qtpy.QtWidgets import (
     QWidget,
 )
 
+import SECQUOIA.gui.lineage_tree.lineage_draw as ld
 import SECQUOIA.gui.lineage_tree.lineage_tree as lt
 from SECQUOIA.config import PLOTPARAMETERS, TOOLTIPSTEXT
 from SECQUOIA.gui.common.messages import show_folder_warning
@@ -322,7 +323,7 @@ class PlotParamsDialog(QDialog):
         axis_font_size = int(self.axis_font_spin.value())
         self.params["axis_font_size"] = axis_font_size
 
-        lt.GEN_TEXT_FONT = QFont("Arial", axis_font_size)
+        ld.GEN_TEXT_FONT = QFont("Arial", axis_font_size)
 
         update_plot(self.main_window)
         lt.lineage_tree(self.main_window)

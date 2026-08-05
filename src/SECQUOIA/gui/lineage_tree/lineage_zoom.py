@@ -1,7 +1,7 @@
-"""Viewbox zoom capture/restore and cross-plot sync for the lineage tree.
+"""Zoom capture/restore, cross-plot sync, and view lifecycle for the tree.
 
 Preserves pyqtgraph zoom state across redraws and mirrors the lineage tree's
-view range into the row plots.
+x range onto the row plots.
 """
 
 from __future__ import annotations
@@ -75,13 +75,10 @@ def refresh_lineage_values(main_window) -> bool:
 
 
 def _capture_view_range(pw) -> dict | None:
-    """Per axis view range for one ``PlotWidget``, or ``None`` if it's fully
-    auto-ranging (i.e. showing the full data extent, nothing to restore).
+    """Per axis view range for one ``PlotWidget``, or ``None``.
 
-    Row plots have their own left-drag RectMode zoom (mouse panning/wheel are
-    disabled, but ``ViewBox.RectMode`` left-drag zoom isn't gated by
-    ``mouseEnabled``), so each row can be independently zoomed just like the
-    lineage tree.
+    ``None`` means the widget is fully auto-ranging: it already shows the whole
+    data extent, so there is nothing worth restoring.
     """
     if not isinstance(pw, pg.PlotWidget):
         return None
@@ -156,7 +153,7 @@ def restore_dynamics_zoom(main_window, saved: dict | None) -> None:
 
 
 def _attach_lineage_zoom_sync(main_window):
-    """Mirror lineage tree range (x,y) into the row plots and filter tracks by visible Y."""
+    """Keep the row plots and the visible-track set in step with the tree."""
     try:
         graph = getattr(main_window, "graph3_plot", None)
         if not isinstance(graph, pg.PlotWidget):
@@ -270,6 +267,12 @@ def reset_lineage_zoom(main_window) -> None:
         return
 
     df = getattr(main_window, "filtered_df", None)
+    if (
+        not isinstance(df, pd.DataFrame)
+        or df.empty
+        or "Identification" not in df.columns
+    ):
+        return
 
     ids_in_df = set(df["Identification"].astype(str).unique())
     ident = getattr(main_window, "ident", None)

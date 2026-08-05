@@ -1,15 +1,12 @@
-"""Interactive lineage-tree plotting utilities for SECQUOIA.
+"""Entry point that builds or repaints the lineage tree for one identification.
 
-This module builds and renders cell lineage trees from tracking data stored in
-a pandas DataFrame. It supports plain lineage views, single-channel heatmap
-overlays, multi-channel stacked heatmaps, cell-fate event markers, track
-selection, track highlighting, and synchronization between the lineage tree and
-row-level time-series plots."""
+Resolves which identification to show, then hands off to ``LineageTreeView``
+for the drawing and to ``lineage_zoom`` for view reuse and zoom sync.
+"""
 
 from __future__ import annotations
 
 import contextlib
-import logging
 import numbers
 
 import numpy as np
@@ -18,17 +15,6 @@ import pyqtgraph as pg
 from qtpy import QtWidgets
 
 from SECQUOIA.gui.common.ui_utils import clear_layout
-from SECQUOIA.gui.lineage_tree.lineage_geometry import (
-    FeatureCatalog,
-    TrackStats,
-    assign_y_tidy,
-    build_edges,
-    build_track_table,
-    generation,
-    left,
-    parent,
-    right,
-)
 from SECQUOIA.gui.lineage_tree.lineage_view import LineageTreeView
 from SECQUOIA.gui.lineage_tree.lineage_zoom import (
     _attach_lineage_zoom_sync,
@@ -38,20 +24,7 @@ from SECQUOIA.gui.lineage_tree.lineage_zoom import (
 )
 from SECQUOIA.utils.plotting import TIME_MODE_T, update_plot
 
-LOG = logging.getLogger(__name__)
-
-__all__ = [
-    "FeatureCatalog",
-    "TrackStats",
-    "assign_y_tidy",
-    "build_edges",
-    "build_track_table",
-    "generation",
-    "left",
-    "lineage_tree",
-    "parent",
-    "right",
-]
+__all__ = ["lineage_tree"]
 
 
 def lineage_tree(main_window) -> None:

@@ -11,7 +11,6 @@ import numpy as np
 import pandas as pd
 
 __all__ = [
-    "TrackStats",
     "parent",
     "left",
     "right",
@@ -29,15 +28,6 @@ __all__ = [
     "FeatureCatalog",
     "EXCLUDED_TREE_FEATURES",
 ]
-
-
-@dataclass(frozen=True)
-class TrackStats:
-    """Summary statistics for one tracked cell lineage branch."""
-
-    t_start: float
-    t_end: float
-    fate: str
 
 
 def parent(n: int) -> int:
@@ -125,7 +115,7 @@ def build_edges(tracks: pd.DataFrame) -> pd.DataFrame:
 
 
 def assign_y_tidy(tracks: pd.DataFrame) -> dict[int, float]:
-    """Assign stable y-positions to tracks using a tree layout."""
+    """Assign one y row per leaf track, parents centred above their children."""
     present = {int(n) for n in tracks["TrackNumber"]}
     children = {
         n: [c for c in (left(n), right(n)) if c in present] for n in present
@@ -246,7 +236,9 @@ class LineageGeometry:
 
     def division_span(self, tn: int) -> tuple[float, float] | None:
         """``(t0, t1)`` where ``t1`` is the division time, else the track end.
-        This is the span used by the plain tree and the highlight overlay.
+
+        The span every renderer draws a parent track over, and the one the
+        highlight overlay follows.
         """
         tn = int(tn)
         t0 = self.t_start.get(tn)
