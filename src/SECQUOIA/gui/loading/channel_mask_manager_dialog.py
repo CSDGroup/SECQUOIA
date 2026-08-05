@@ -1,6 +1,7 @@
 """Post-load Channel/Mask Manager.
 
-Add or remove channels and segmentation masks after a project has already been loaded, without restarting the experiment.
+Add or remove channels and segmentation masks after a project
+has already been loaded, without restarting the experiment.
 """
 
 from __future__ import annotations
@@ -102,7 +103,7 @@ QLabel {{ color: #ffffff; }}
 
 
 def _current_position_number(main_window) -> int | None:
-    """Best-effort current position number, from the active folder or cached attribute."""
+    """Return the current position number, from the selected folder or the cached attribute."""
     sel = getattr(main_window, "position_selection", None)
     if sel:
         with contextlib.suppress(ValueError, IndexError):
@@ -145,7 +146,7 @@ def _invalidate_all_position_caches(main_window) -> int:
 
 
 def _columns_lost_by(main_window, channels, *, basic: bool, n_masks: int):
-    """Measurement columns of ``track_df`` that a pending configuration orphans."""
+    """Return the ``track_df`` measurement columns that the pending configuration would orphan."""
     df = getattr(main_window, "track_df", None)
     if df is None or not hasattr(df, "columns"):
         return []
@@ -228,7 +229,7 @@ def _sync_loader_bg_widgets(main_window, flag: bool, path: str | None) -> None:
 
 
 def open_channel_mask_manager(main_window: QWidget) -> None:
-    """Open the Channel/Mask Manager dialog for an already-loaded project."""
+    """Open the Channel/Mask Manager dialog for an already loaded project."""
     if not getattr(main_window, "folder", None) or not getattr(
         main_window, "ids_channels", None
     ):
@@ -383,7 +384,7 @@ def open_channel_mask_manager(main_window: QWidget) -> None:
         return os.path.join(analysis_dir, sel)
 
     def _sync_bg_ui(_state=None):
-        """Enable the folder combo only while the checkbox is on."""
+        """Enable the folder combo only while the checkbox is on and BaSiC folders exist."""
         bg_correct_combo.setEnabled(
             bg_correct_chk.isChecked() and bool(basic_names)
         )
@@ -433,6 +434,7 @@ def open_channel_mask_manager(main_window: QWidget) -> None:
     outer.addWidget(btn_row)
 
     def _checked_items(tree):
+        """Return the checked top-level items of a tree, in display order."""
         return [
             tree.topLevelItem(i)
             for i in range(tree.topLevelItemCount())
@@ -463,6 +465,7 @@ def open_channel_mask_manager(main_window: QWidget) -> None:
             main_window.fit_all_plots()
 
     def _finalize():
+        """Refresh the UI, save the project and close the dialog once loading is done."""
         _refresh_ui_after_load()
         save_project_state(main_window)
         QApplication.restoreOverrideCursor()
@@ -473,12 +476,14 @@ def open_channel_mask_manager(main_window: QWidget) -> None:
         QTimer.singleShot(400, dlg.close)
 
     def _poll_until_loaded():
+        """Wait for the background load to clear ``_loading_in_progress``, then finalize."""
         if getattr(main_window, "_loading_in_progress", False):
             QTimer.singleShot(150, _poll_until_loaded)
             return
         _finalize()
 
     def _on_apply():
+        """Apply the new channel/mask/BaSiC selection and re-run quantification."""
         new_channels = [it.text(0) for it in _checked_items(chan_tree)]
         mask_items = _checked_items(mask_tree)
         new_paths = [it.data(0, Qt.UserRole) for it in mask_items]

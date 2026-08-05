@@ -53,9 +53,7 @@ __all__ = ["_on_load_data_clicked", "_on_run_clicked"]
 
 
 def _on_load_data_clicked(main_window):
-    """Validate inputs; set tracking_format; populate Segmentation/Channels and ranges;
-    load tracking data; build Position→Identification tree; enable tabs 2..4.
-    """
+    """Validate the inputs, then fill the dialog from what is on disk."""
     if not getattr(main_window, "folder", None) or not getattr(
         main_window, "tracking_path", None
     ):
@@ -243,7 +241,7 @@ def _on_load_data_clicked(main_window):
 
 
 def _on_run_clicked(main_window):
-    """RUN button"""
+    """Start the run: build the viewers and plots, then load the selected positions."""
     if not getattr(main_window, "folder", None):
         QMessageBox.warning(
             main_window.mask_no_window,

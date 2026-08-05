@@ -54,7 +54,7 @@ def _on_seg_checkbox(main_window):
 
 
 def _populate_channels_ui(main_window, channel_names):
-    """Populate the channels; keep n_channels and FL_inputs updated."""
+    """Fill the channel tree from the detected channels, all checked, with tTt comments alongside."""
     tree = main_window.chan_tree
     tree.blockSignals(True)
     tree.clear()

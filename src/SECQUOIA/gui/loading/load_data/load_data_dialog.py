@@ -36,7 +36,7 @@ __all__ = ["load_data_window"]
 
 
 def load_data_window(main_window: QWidget) -> None:
-    """Tabbed UI with gated tabs and 'Load data' action."""
+    """Open the Load Data window: four tabs, with only Tracking enabled at first."""
 
     drop_dead_widget_attrs(main_window)
 

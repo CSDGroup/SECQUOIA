@@ -79,7 +79,7 @@ def create_experiment_loader_dialog(
     root.setContentsMargins(12, 12, 12, 12)
     root.setSpacing(10)
 
-    # header
+    # Header
     header = QHBoxLayout()
     title = QLabel("Cytometric analysis", dlg)
     title.setStyleSheet("font-weight:700; font-size:14pt;")
@@ -92,7 +92,7 @@ def create_experiment_loader_dialog(
     header.addWidget(help_btn, 0, Qt.AlignRight)
     root.addLayout(header)
 
-    # boxed load row
+    # Boxed load row
     box = QGroupBox("", dlg)
     box_l = QVBoxLayout(box)
     box_l.setContentsMargins(10, 10, 10, 10)
@@ -124,7 +124,7 @@ def create_experiment_loader_dialog(
     load_btn.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
     select_btn.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)
 
-    # map for existing handlers + requested icon call
+    # Map for existing handlers + requested icon call
     _set_btn_icon(load_btn, "mdi.file-restore-outline")
     _set_btn_icon(select_btn, "mdi.folder-open-outline")
 
@@ -134,7 +134,7 @@ def create_experiment_loader_dialog(
     box_l.addLayout(row)
     root.addWidget(box)
 
-    # boxed options
+    # Boxed options
     opt = QGroupBox("", dlg)
     opt_l = QVBoxLayout(opt)
     opt_l.setContentsMargins(10, 10, 10, 10)
@@ -305,7 +305,7 @@ def create_experiment_loader_dialog(
         main_window.use_background_correction = basic_chk.isChecked()
 
     def _on_select_folder(*_):
-        """Handle experiment-folder selection and update the Select button tooltip."""
+        """Handle experiment folder selection and update the "Select" button tooltip."""
         old = getattr(main_window, "folder_button", None)
         main_window.folder_button = select_btn
         try:
@@ -396,7 +396,7 @@ def create_experiment_loader_dialog(
 
 def open_experiment_loader_window(main_window: QWidget, *_) -> QDialog:
     """Opens the experiment loader as a non-modal independent tool window."""
-    # reuse existing window if already open
+    # Reuse existing window if already open
     dlg = getattr(main_window, "experiment_loader_window", None)
     if dlg is not None:
         dlg.raise_()
@@ -407,7 +407,7 @@ def open_experiment_loader_window(main_window: QWidget, *_) -> QDialog:
         main_window
     )
 
-    # make it independent
+    # Make it independent
     dlg.setModal(False)
     dlg.setWindowModality(Qt.NonModal)
     dlg.setWindowFlag(Qt.Tool, True)

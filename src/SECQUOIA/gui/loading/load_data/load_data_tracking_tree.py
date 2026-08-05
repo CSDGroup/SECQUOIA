@@ -129,7 +129,7 @@ def _select_all_tracking_tree(main_window, select: bool):
 
 
 def _sync_tracking_selection(main_window):
-    """Update selected_positions/identifications + update the counters label."""
+    """Refresh the "Selected Positions / Selected Lineage Trees" counter label."""
     tree = main_window.tracking_tree
     sel_pos, sel_ids = set(), set()
     total_pos = tree.topLevelItemCount()

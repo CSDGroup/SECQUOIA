@@ -24,7 +24,10 @@ __all__ = [
 
 
 def _maybe_load_ttt_channel_comments(main_window):
-    """If tTt and xml_path present, parse channel comments; else {}."""
+    """Store the tTt channel comments on ``main_window.channel_comment_map``.
+
+    Left empty unless the tracking format is tTt and a TAT XML was found.
+    """
     cf = {}
     if getattr(main_window, "tracking_format", "") == "tTt":
         cf = extract_channel_comments_from_xml(
@@ -34,7 +37,10 @@ def _maybe_load_ttt_channel_comments(main_window):
 
 
 def _maybe_load_ttt_position_comments(main_window):
-    """If tTt and xml_path present, parse position comments; else {}."""
+    """Store the tTt position comments on ``main_window.position_comment_map``.
+
+    Left empty unless the tracking format is tTt and a TAT XML was found.
+    """
     pf = {}
     if getattr(main_window, "tracking_format", "") == "tTt":
         pf = extract_position_comments_from_xml(

@@ -1,4 +1,4 @@
-"""Shared plumbing for the experiment-loading dialogs."""
+"""Shared helpers for the experiment-loading dialogs."""
 
 from __future__ import annotations
 
@@ -131,7 +131,7 @@ def _find_example_position_folder(main_window):
 
 
 def _detect_unique_w_channels(main_window):
-    """Return the 'wNN' channel identifiers present in the experiment."""
+    """Return the 'wNN' channel identifiers found in one sample position folder."""
     return detect_unique_w_channels(
         _find_example_position_folder(main_window),
         getattr(main_window, "n_channels", 1),
@@ -191,7 +191,7 @@ def _add_seg_tree_item(
     checked: bool = False,
     extra_columns: int = 0,
 ) -> QTreeWidgetItem:
-    """Add a checkable segmentation-folder item to a tree, storing its full path in UserRole."""
+    """Add a checkable segmentation folder item to a tree, storing its full path in UserRole."""
     item = QTreeWidgetItem([name] + [""] * extra_columns)
     item.setFlags(item.flags() | Qt.ItemIsUserCheckable)
     item.setCheckState(0, Qt.Checked if checked else Qt.Unchecked)
@@ -202,7 +202,7 @@ def _add_seg_tree_item(
 
 
 def _ensure_analysis_dirs(main_window):
-    """Ensure <experiment>/Analysis and <experiment>/Analysis/SECQUOIA_files exist."""
+    """Create ``<experiment>/Analysis/SECQUOIA_files_<tracking_format>/<project_name>``."""
     folder = getattr(main_window, "folder", None)
     if not folder:
         return
@@ -234,7 +234,6 @@ def _confirm_overwrite_project_dir(main_window) -> bool:
 
     project_dir = project_analysis_dir(main_window, folder, tracking_format)
 
-    # Folder does not exist yet, so normal loading can continue.
     if not os.path.isdir(project_dir):
         main_window.project_dir = project_dir
         return True
@@ -287,7 +286,7 @@ def _current_tracking_format(main_window) -> str:
 
 
 def _update_load_button_enabled(main_window):
-    """Enable 'Load data' only when folder AND tracking path are selected."""
+    """Enable the "Load Experiment" button only once a folder and a tracking path are set."""
     has_folder = bool(getattr(main_window, "folder", None))
     path_ok = bool(getattr(main_window, "tracking_path", None))
     btn = getattr(main_window, "load_data_btn", None)
@@ -498,7 +497,9 @@ def _install_experiment_mount_menu(button, main_window):
 
 
 def _install_tracking_mount_menu(button, main_window):
-    """Right-click lets the user mount a parent folder: a directory containing tracking folders for the current tracking format."""
+    """Right-click lets the user mount a parent folder: a directory containing
+    tracking folders for the current tracking format.
+    """
     if button.property("tracking_mount_menu_installed"):
         return
 
