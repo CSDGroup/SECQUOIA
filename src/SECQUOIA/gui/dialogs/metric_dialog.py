@@ -42,7 +42,7 @@ _DEFAULT_OP = "/"
 
 @dataclass(frozen=True)
 class _DerivedFeatureSpec:
-    """The fully resolved definition of one derived metric, as computed by `_on_run`."""
+    """One fully resolved derived metric."""
 
     feature_key: str
     col_new: str
@@ -68,7 +68,7 @@ QWidget {{
 QGroupBox {{
     border: 1pt solid #ddd;
     border-radius: 6pt;
-    margin-top: 6pt;   /* smaller gap since we don't use titles */
+    margin-top: 6pt;   /* smaller gap */
     padding: 8pt;
     background: transparent;
 }}
@@ -347,11 +347,7 @@ class MetricDialog(QDialog):
         return box
 
     def _build_button_row(self) -> QHBoxLayout:
-        """Build the Run / Exit row.
-
-        Returns:
-            The button layout, right-aligned.
-        """
+        """Build the Run / Exit row."""
         self.btn_run = QPushButton("Run")
         self.btn_run.setToolTip(TOOLTIPSTEXT.RRUN)
         self.btn_exit = QPushButton("Exit")
@@ -475,7 +471,7 @@ class MetricDialog(QDialog):
         self._apply_norm_method_visibility()
 
     def _apply_channel_visibility(self) -> None:
-        """Show and enable each channel combo only when its selected feature has a channel dimension and channels exist."""
+        """Show each channel combo only when its feature has channels."""
         for feat_combo, c_label, c_combo in (
             (self.featA, self.c1_label, self.c1),
             (self.featB, self.c2_label, self.c2),
@@ -606,7 +602,7 @@ class MetricDialog(QDialog):
     def _compute_into(
         self, attr: str, col_a: str, col_b: str, col_new: str, op_val: str
     ):
-        """Write the derived column into one of the main window's dataframes."""
+        """Add the derived column to one of the main window's dataframes."""
         df = getattr(self.main_window, attr, None)
         if (
             isinstance(df, pd.DataFrame)
@@ -645,7 +641,7 @@ class MetricDialog(QDialog):
         }
 
     def _remember_row_config(self, spec: _DerivedFeatureSpec) -> None:
-        """Store this row's choices so the dialog reopens pre-filled."""
+        """Store this row's choices so the dialog reopens prefilled."""
         self.main_window.last_run_config = getattr(
             self.main_window, "last_run_config", {}
         )

@@ -1,4 +1,4 @@
-"""Dialog for editing lineage-tree and heatmap styling."""
+"""Dialog for editing lineage tree and heatmap styling."""
 
 from __future__ import annotations
 
@@ -65,9 +65,9 @@ def open_lineage_style_dialog(main_window: QWidget) -> None:
 
 
 class LineageStyleDialog(QDialog):
-    """Dialog for editing lineage-tree and heatmap styling."""
+    """Dialog for editing lineageTree and heatmap styling."""
 
-    def __init__(self, main_window=None, parent=None):
+    def __init__(self, parent=None):
         """Initialize the lineage-style dialog and populate controls from current settings."""
         super().__init__(parent)
         self.setWindowTitle("Lineage/Heat Tree")
@@ -236,7 +236,7 @@ class LineageStyleDialog(QDialog):
                     w.blockSignals(prev)
 
     def _apply_mode_visibility(self, mode: str):
-        """Show or hide color controls for the active styling mode."""
+        """Show the parameter group for the active mode, hide the other."""
         is_tree = mode == "T"
         self.tree_grp.setVisible(is_tree)
         self.heat_grp.setVisible(not is_tree)
@@ -250,7 +250,6 @@ class LineageStyleDialog(QDialog):
         """
         mode = "T" if self.mode_combo.currentIndex() == 0 else "H"
         self._apply_mode_visibility(mode)
-        self._force_dialog_relayout()
 
     def _init_color_button(self, btn: QPushButton, qcolor: QColor):
         """Initialize a color button."""
@@ -264,7 +263,7 @@ class LineageStyleDialog(QDialog):
         btn.setStyleSheet(css)
 
     def _pick_single_color(self, which: str):
-        """Open a color picker for a single-color setting."""
+        """Open a color picker for a single color setting."""
         cur = ld.HEAT_LOW_COLOR if which == "low" else ld.HEAT_HIGH_COLOR
         qcol = QColorDialog.getColor(
             cur, self, f"Pick {'LOW' if which=='low' else 'HIGH'} color"
@@ -285,14 +284,13 @@ class LineageStyleDialog(QDialog):
         self._paint_button_swatch(self.multi_btns[idx], qcol)
 
     def apply_changes(self):
-        """Apply the selected lineage style settings to the main window."""
+        """Write the controls to the lineage_draw globals and redraw."""
         ld.LINEWIDTH = float(self.line_width_sb.value())
         ld.CONNECTOR_WIDTH = float(self.connector_width_sb.value())
 
         ld.HEAT_LINE_WIDTH = float(self.heat_width_sb.value())
         ld.HEAT_LINE_WIDTH_MULTI = float(self.heat_width_multi_sb.value())
 
-        # Labels
         font_size = int(self.gen_font_sb.value())
         ld.GEN_TEXT_FONT = QFont("Arial", font_size)
         ld.SHOW_TRACK_LABELS = bool(self.show_labels_cb.isChecked())
@@ -321,13 +319,12 @@ class LineageStyleDialog(QDialog):
         )
         mw = self.parent()
         if mw is not None:
-            # Keep the dynamics plot axis font in sync with the lineage
             ensure_plot_params(mw)["axis_font_size"] = font_size
             lt.lineage_tree(mw)
             update_plot(mw)
 
     def _qcolor_from_btn(self, btn: QPushButton, fallback: QColor) -> QColor:
-        """Return the QColor stored on a color button."""
+        """Return the colour parsed back out of a button's stylesheet."""
         with contextlib.suppress(Exception):
             css = btn.styleSheet()
             m = re.search(r"rgb\((\d+),\s*(\d+),\s*(\d+)\)", css)

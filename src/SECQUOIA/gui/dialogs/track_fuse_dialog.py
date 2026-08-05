@@ -40,7 +40,7 @@ class TrackFuseDialog(QDialog):
     """Dialog for fusing two lineage trees at a chosen time point."""
 
     def __init__(self, main_window: QWidget):
-        """Build the track-fuse dialog and populate controls from main_window state."""
+        """Build the dialog and attach its input widgets to main_window."""
         super().__init__(TrackFuseDialog._resolve_parent(main_window))
         self.main_window = main_window
 
@@ -73,8 +73,7 @@ class TrackFuseDialog(QDialog):
         main_window.fuse_time_spin.setToolTip(TOOLTIPSTEXT.FUSE_TIME)
 
         # Start alternation on field 1
-        with contextlib.suppress(Exception):
-            main_window._fuse_next_slot = 1
+        main_window._fuse_next_slot = 1
 
         # Initial spinbox range + value
         t_min, t_max = 0, max(
@@ -129,7 +128,6 @@ class TrackFuseDialog(QDialog):
         main_v.addWidget(l_fuse_at)
         main_v.addWidget(main_window.fuse_time_spin)
 
-        # Right-align the button, minimally
         btn_row = QHBoxLayout()
         btn_row.addStretch(1)
         btn_row.addWidget(fuse_btn)
@@ -198,7 +196,7 @@ def reset_fuse_dialog_fields(
 
 
 def open_track_fuse_window(main_window: QWidget) -> None:
-    """Open (or re-show) the track-fuse GUI."""
+    """Open (or re-show) the track-fuse dialog."""
     if not hasattr(main_window, "folder_list") or not main_window.folder_list:
         LOG.warning("Please first load CSV file and select folder")
         show_folder_warning(main_window)

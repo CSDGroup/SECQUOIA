@@ -1,4 +1,4 @@
-"""Dialog for editing how tracks are drawn in the plot panel."""
+"""Dialog for editing marker, line and axis appearance in the plots."""
 
 from __future__ import annotations
 
@@ -34,17 +34,11 @@ __all__ = [
     "open_plot_params_dialog",
 ]
 
-# Default axis font size
 _DEFAULT_AXIS_FONT_SIZE = PLOTPARAMETERS.DEFAULT_LABEL_FONT_SIZE
-
-# A symbol size of 0 effectively hides the markers.
 _SYMBOL_SIZE_RANGE = (0, 64)
 _LINE_WIDTH_RANGE = (0.5, 20.0)
 _HL_LINE_WIDTH_RANGE = (0.5, 30.0)
-# Matches the lineage-style dialog's label font range so a synced value never clamps.
 _AXIS_FONT_RANGE = (6, 48)
-
-# Minimum width for the numeric editors, so the arrow buttons never clip.
 _SPIN_MIN_WIDTH = 110
 
 # Palette
@@ -60,7 +54,7 @@ _STYLESHEET_CACHE: str | None = None
 
 
 def _build_stylesheet() -> str:
-    """Return the dialog stylesheet, generating the spin-box arrow images."""
+    """Return the dialog stylesheet, generating the spinbox arrow images."""
     global _STYLESHEET_CACHE
     if _STYLESHEET_CACHE is not None:
         return _STYLESHEET_CACHE
@@ -206,11 +200,7 @@ class PlotParamsDialog(QDialog):
         layout.addLayout(self._build_button_row())
 
     def _build_markers_group(self) -> QGroupBox:
-        """Build the marker symbol and size controls.
-
-        Returns:
-            The populated group box.
-        """
+        """Build the marker symbol and size controls."""
         self.symbol_combo = QComboBox(self)
         for label, symbol_key in PLOTPARAMETERS.PG_SYMBOLS:
             self.symbol_combo.addItem(label, symbol_key)
@@ -299,7 +289,7 @@ class PlotParamsDialog(QDialog):
     def _make_width_spin(
         self, value_range: tuple[float, float], value: float, tooltip: str
     ) -> QDoubleSpinBox:
-        """Create a line-width spin box with the usual step and precision."""
+        """Create a line width spin box with the usual step and precision."""
         spin = QDoubleSpinBox(self)
         spin.setDecimals(1)
         spin.setRange(*value_range)
@@ -344,12 +334,12 @@ class PlotParamsDialog(QDialog):
 
 
 def create_plot_params_dialog(main_window: QWidget) -> PlotParamsDialog:
-    """Build the plot-parameters dialog without showing it."""
+    """Build the dynamics plot parameters dialog without showing it."""
     return PlotParamsDialog(main_window)
 
 
 def open_plot_params_dialog(main_window: QWidget) -> PlotParamsDialog | None:
-    """Open the plot-parameters dialog, if an experiment is loaded."""
+    """Open the dynamics plot parameters dialog, if an experiment is loaded."""
     if not getattr(main_window, "folder_list", None):
         LOG.warning("Please first load CSV file and select folder")
         show_folder_warning(main_window)

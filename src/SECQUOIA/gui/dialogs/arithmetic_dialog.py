@@ -59,7 +59,8 @@ __all__ = [
     "open_arithmetic_dialog",
 ]
 
-# Maps the combo box labels to the tokens core.segmentation.mask_arithmetic expects.
+# Maps the operator combo's item data to the tokens that
+# core.segmentation.mask_arithmetic expects.
 OP_MAP = {
     "intersection": "INT",
     "union": "UNI",
@@ -67,14 +68,16 @@ OP_MAP = {
     "NONE": "NONE",
 }
 
-# Half-width of the preview crop, in pixels.
+# Half width of the preview crop, in pixels.
 _PREVIEW_HALF = 64
 
 # Opacity of the label overlay drawn on the preview, 0-255.
 _OVERLAY_ALPHA = 120
+# Minimum preview size
 _PREVIEW_MIN_SIZE = (256, 256)
 
-# Fraction of the progress bar to fill immediately on run, so it visibly
+# Fraction of the progress bar filled the moment Run is pressed, so the
+# bar visibly moves before the first position finishes.
 _STARTUP_PROGRESS_FRACTION = 0.05
 
 
@@ -95,7 +98,6 @@ def to_pixmap_overlay(img2d: np.ndarray, mask2d: np.ndarray) -> QPixmap:
 
     alpha = ((labels > 0).astype(np.uint8) * _OVERLAY_ALPHA).astype(np.uint8)
 
-    # Alpha blend: out = overlay * a + img * (1 - a)
     a = alpha[..., None].astype(np.float32) / 255.0
     out = (
         overlay.astype(np.float32) * a + img_rgb.astype(np.float32) * (1.0 - a)
@@ -262,9 +264,9 @@ def _process_one_position(
 ) -> tuple[int, np.ndarray | None]:
     """Load, combine and write the masks for a single position.
 
-    Returns the position number together with its combined stack (``None``
-    when the source masks were missing), so the caller can hand the
-    current position's result to the napari viewers.
+    Returns the combined stack, or ``None`` when the source masks were
+    missing, so the caller can show the current position's result in
+    the napari viewers.
     """
     pos_name = f"{exp_name}_p{pos:04d}"
     pos_dir = os.path.join(out_seg_dir, pos_name)
@@ -346,8 +348,6 @@ def _save_bitwise_masks_all_positions(
         "t_idx_max": t_idx_max,
     }
 
-    # Nudge the bar right away so the user sees the run has started, since
-    # the first position can take a while to load, combine and write.
     progress_step(
         total_positions * _STARTUP_PROGRESS_FRACTION, total_positions
     )
@@ -369,8 +369,8 @@ def _save_bitwise_masks_all_positions(
 class MaskArithmeticDialog(QDialog):
     """Modal dialog for combining two masks, with a live preview.
 
-    Attributes:
-        main_window: The application main window.
+    The preview shows one cropped time slice. Run applies the same
+    operation to every selected position and writes it to disk.
     """
 
     def __init__(self, main_window, parent: QWidget | None = None):
@@ -498,11 +498,7 @@ class MaskArithmeticDialog(QDialog):
 
     @staticmethod
     def _make_dilation_spin() -> QSpinBox:
-        """Create a dilation spin box. Negative values erode.
-
-        Returns:
-            The configured spin box.
-        """
+        """Create a dilation spin box. Negative values erode."""
         spin = QSpinBox()
         spin.setRange(-999, 999)
         spin.setValue(0)
@@ -555,7 +551,7 @@ class MaskArithmeticDialog(QDialog):
         self.exit_btn.clicked.connect(self.reject)
 
     def _current_center_xy(self, t: int, img2d: np.ndarray) -> tuple[int, int]:
-        """Find the tracked cell's centre at a time point."""
+        """Return the tracked cell's (x, y) centre at time ``t``."""
         try:
             df = getattr(self.main_window, "df_subset", None)
             if df is None or df.empty:
@@ -628,7 +624,7 @@ class MaskArithmeticDialog(QDialog):
             self.preview_label.setText(f"Preview unavailable\n{e}")
 
     def _toggle_m2(self) -> None:
-        """Enable the second-mask controls only when the operator needs them."""
+        """Enable the second mask controls only when the operator needs them."""
         use_m2 = self.op.currentData() != "NONE"
         for widget in (
             self.not2,
