@@ -82,11 +82,9 @@ def _draw_outlier_row(
     if not col_name or col_name not in df_subset.columns:
         return None
 
-    has_ch = feature_defs.get(feat_key, {}).get("has_ch", False)
     ch_idx = getattr(main_window, "selected_ch_by_channel", {}).get(row, 1)
     xcol = x_column_for(
         getattr(main_window, "_time_mode", TIME_MODE_T),
-        has_ch=bool(has_ch),
         ch_idx=int(ch_idx or 1),
         df_cols=list(df_subset.columns),
     )

@@ -62,7 +62,7 @@ def _time_mapper_for_ident(
         ch_idx = 1
 
     cols = list(df_ident.columns)
-    xcol = x_column_for(mode, has_ch=True, ch_idx=ch_idx, df_cols=cols)
+    xcol = x_column_for(mode, ch_idx=ch_idx, df_cols=cols)
 
     if xcol not in df_ident.columns:
 

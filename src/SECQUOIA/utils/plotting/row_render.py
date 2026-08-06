@@ -31,11 +31,11 @@ from SECQUOIA.utils.plotting.feature_discovery import (
     x_column_for,
 )
 
-# Fallback curve colour when a track has no assigned colour.
+# Fallback curve color when a track has no assigned color.
 DEFAULT_TRACK_COLOR = "#4FC3F7"
 # Z-order for the white base curve drawn under highlighted tracks.
 Z_HIGHLIGHT_BASE = 5
-# Z-order for the coloured highlight curve drawn on top.
+# Z-order for the colored highlight curve drawn on top.
 Z_HIGHLIGHT_TOP = 100
 
 
@@ -330,7 +330,8 @@ def _sync_row_combos(
 
     Order matters: the feature list is rebuilt first because the channel and
     mask pickers are shown or hidden according to whichever feature ends up
-    selected."""
+    selected.
+    """
     tools = getattr(main_window, "row_tools", {}).get(row_idx, None)
     if not tools:
         return
@@ -375,7 +376,6 @@ def _sync_all_row_combos(
         main_window._features_defaulted = True
 
 
-# Used when matplotlib is unavailable and tracks still need distinct colours.
 _FALLBACK_PALETTE = (
     "#4FC3F7",
     "#81C784",
@@ -401,7 +401,7 @@ def _visible_tracks(all_tracks, selected, zoom) -> list:
 
 
 def _track_color_map(all_tracks: list) -> dict:
-    """One colour per track, spread across tab20 where matplotlib allows."""
+    """One color per track, spread across tab20, or a fixed palette if that fails."""
     try:
         cmap = plt.get_cmap("tab20")
     except (RuntimeError, AttributeError, TypeError, ValueError):
@@ -422,7 +422,7 @@ def _track_color_map(all_tracks: list) -> dict:
 
 
 def _highlight_colors(main_window) -> dict:
-    """Painted highlight colours, keyed by integer TrackNumber."""
+    """Painted highlight colors, keyed by integer TrackNumber."""
     color_map = getattr(main_window, "_track_highlight_colors", {}) or {}
     with contextlib.suppress(AttributeError, TypeError, ValueError):
         return {int(k): v for k, v in color_map.items()}
@@ -440,7 +440,7 @@ class _RowColumn(NamedTuple):
 
 
 class _RowRenderContext(NamedTuple):
-    """Inputs shared by every row when a lineage is (re)drawn."""
+    """Inputs shared by every plot row on one redraw."""
 
     unique_tracks: list
     global_xmax: float
@@ -454,7 +454,7 @@ class _RowRenderContext(NamedTuple):
 
 
 def _reset_plot_widget(pw: pg.PlotWidget):
-    """Blank one plot widget and strip the context-menu entries we don't use.
+    """Blank one plot widget and strip its unused context-menu entries.
 
     Returns the widget's ``PlotItem`` so callers don't need a second lookup.
     """
@@ -539,9 +539,7 @@ def _resolve_row_column(
         ch_idx = 1
 
     mode = getattr(main_window, "_time_mode", TIME_MODE_T)
-    xcol = x_column_for(
-        mode, has_ch=has_ch, ch_idx=ch_idx, df_cols=list(df_subset.columns)
-    )
+    xcol = x_column_for(mode, ch_idx=ch_idx, df_cols=list(df_subset.columns))
     return _RowColumn(feat_key, col_name, xcol, m_idx, channel)
 
 
@@ -583,7 +581,7 @@ def _render_resolved_row(
     )
     _style_row_axes(plot_item, axis_fs)
 
-    # circular-import: gui.main_window imports update_plot from this package
+    # Circular-import: gui.main_window imports update_plot from this package
     from SECQUOIA.gui.main_window.dynamics_plot_time_menu import (
         install_time_menu,
     )
@@ -593,7 +591,7 @@ def _render_resolved_row(
 
 
 def _global_x_max(main_window, df_subset: pd.DataFrame) -> float:
-    """Largest x value across the lineage, used to align every row's time axis.
+    """Largest x value in the current Identification, used to align the rows.
 
     Channel 1 is the reference: in real-time mode each channel has its own
     timestamps, and rows would otherwise end at slightly different points.
@@ -601,7 +599,6 @@ def _global_x_max(main_window, df_subset: pd.DataFrame) -> float:
     try:
         xcol = x_column_for(
             getattr(main_window, "_time_mode", TIME_MODE_T),
-            has_ch=True,
             ch_idx=1,
             df_cols=list(df_subset.columns),
         )
@@ -799,7 +796,6 @@ def _render_all_rows(
             )
         )
 
-        # keep external selections in sync
         main_window.selected_feature_by_row[row] = resolved.feat_key
         main_window.selected_m_by_channel[row] = resolved.m_idx
         main_window.selected_ch_by_channel[row] = resolved.channel

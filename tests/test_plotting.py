@@ -217,36 +217,30 @@ def test_finite_helpers_fall_back_when_nothing_is_finite():
 
 # X-axis column selection
 def test_x_column_defaults_to_the_time_index():
-    assert x_column_for(TIME_MODE_T, False, None, ["t"]) == "t"
+    assert x_column_for(TIME_MODE_T, None, ["t"]) == "t"
 
 
 def test_x_column_uses_calculated_time_when_present():
     columns = ["t", "Calculated_Time"]
-    assert x_column_for(TIME_MODE_CALC, False, None, columns) == (
-        "Calculated_Time"
-    )
+    assert x_column_for(TIME_MODE_CALC, None, columns) == ("Calculated_Time")
 
 
 def test_x_column_falls_back_when_calculated_time_is_missing():
-    assert x_column_for(TIME_MODE_CALC, False, None, ["t"]) == "t"
+    assert x_column_for(TIME_MODE_CALC, None, ["t"]) == "t"
 
 
 def test_x_column_picks_the_realtime_column_for_the_channel():
     columns = ["t", "RealTimeMinutes_Ch1", "RealTimeMinutes_Ch2"]
-    assert x_column_for(TIME_MODE_REAL, True, 2, columns) == (
-        "RealTimeMinutes_Ch2"
-    )
+    assert x_column_for(TIME_MODE_REAL, 2, columns) == ("RealTimeMinutes_Ch2")
 
 
 def test_x_column_realtime_falls_back_to_the_first_channel():
     columns = ["t", "RealTimeMinutes_Ch1"]
-    assert x_column_for(TIME_MODE_REAL, True, 9, columns) == (
-        "RealTimeMinutes_Ch1"
-    )
+    assert x_column_for(TIME_MODE_REAL, 9, columns) == ("RealTimeMinutes_Ch1")
 
 
 def test_x_column_realtime_falls_back_to_the_time_index():
-    assert x_column_for(TIME_MODE_REAL, True, 1, ["t"]) == "t"
+    assert x_column_for(TIME_MODE_REAL, 1, ["t"]) == "t"
 
 
 # Curve data extraction

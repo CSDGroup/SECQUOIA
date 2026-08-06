@@ -1,4 +1,4 @@
-"""Position-range helpers shared by the GUI dialogs and the loading pipeline."""
+"""Position range helpers shared by the GUI dialogs and the loading pipeline."""
 
 from __future__ import annotations
 
@@ -62,7 +62,11 @@ def detected_position_numbers(
 
 
 def resolve_position_range(main_window) -> tuple[int, int]:
-    """Resolve the inclusive position range the user is working on."""
+    """The inclusive ``(min, max)`` position range to work on.
+
+    Prefers the user's explicit selection, then the stored bounds, then what
+    was detected on disk, and finally falls back to ``(1, 1)``.
+    """
     detected = detected_position_numbers(main_window)
 
     pos_min = coerce_int(
@@ -87,7 +91,7 @@ def resolve_position_range(main_window) -> tuple[int, int]:
 
 
 def position_index_from_number(main_window, pos_number: int | None) -> int:
-    """Map a position *number* to its index in ``position_folders``."""
+    """Map a position number to its index in ``position_folders``."""
     number = coerce_int(pos_number)
     if number is None:
         return 0
@@ -100,12 +104,7 @@ def position_index_from_number(main_window, pos_number: int | None) -> int:
 
 
 def position_number_at_current_index(main_window) -> int | None:
-    """Return the position number for ``position_folders[current_position_index]``.
-
-    Unlike :func:`current_position_number`, this ignores any cached
-    ``main_window.current_position_number`` value and always re-derives the
-    number from the folder list.
-    """
+    """The position number the viewer is currently pointed at, or ``None``."""
     folders = getattr(main_window, "position_folders", None) or []
     idx = coerce_int(getattr(main_window, "current_position_index", None))
     if idx is not None and 0 <= idx < len(folders):
@@ -116,7 +115,7 @@ def position_number_at_current_index(main_window) -> int | None:
 def current_position_number(
     main_window, fallback: Iterable[int] | None = None
 ) -> int | None:
-    """Return the position number currently displayed in the viewer."""
+    """The position number currently displayed in the viewer."""
     number = coerce_int(getattr(main_window, "current_position_number", None))
     if number is not None:
         return number

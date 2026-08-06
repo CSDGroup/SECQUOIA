@@ -27,7 +27,7 @@ _Y_PAD_BOTTOM_FRAC = 0.06
 def _choose_tick_step(
     xmax: float, nticks_target: int = 8, min_step: float = _MIN_TICK_STEP
 ) -> float:
-    """Pick a "nice" tick step (1/2/5 x 10^k) for a span of ``xmax``."""
+    """Pick a "nice" tick step (1/2/5 x 10^k) covering a span of ``xmax``."""
     try:
         xmax = float(xmax)
     except (TypeError, ValueError):
@@ -59,7 +59,6 @@ def _decimals_for_step(step: float) -> int:
         return _MAX_TICK_DECIMALS
     if not np.isfinite(step) or step <= 0:
         return _MAX_TICK_DECIMALS
-    # Steps are 1/2/5 x 10^k, so the exponent alone gives the precision.
     return max(0, min(-math.floor(math.log10(step)), _MAX_LABEL_DECIMALS))
 
 
@@ -95,7 +94,7 @@ _AXIS_UNITS = ((1_000_000.0, "M"), (1_000.0, "K"), (1.0, ""))
 
 
 def _axis_unit(scale_hint: float) -> tuple[float, str]:
-    """The ``(divisor, suffix)`` values of this magnitude are written in."""
+    """The ``(divisor, suffix)`` a value of this magnitude should be written in."""
     try:
         hint = abs(float(scale_hint))
     except (TypeError, ValueError):
@@ -150,7 +149,6 @@ def _y_view_range(
     if lo > hi:
         lo, hi = hi, lo
 
-    # Keep the zero baseline in view.
     lo = min(lo, 0.0)
     hi = max(hi, 0.0)
 
@@ -224,7 +222,6 @@ def _choose_y_ticks(
 
     i0, i1 = _grid(step)
 
-    # Coarsen the step if the two-sided range would exceed the tick budget.
     if (i1 - i0) > _MAX_TICKS:
         factor = int(math.ceil((i1 - i0) / float(_MAX_TICKS)))
         step = max(step * max(factor, 1), min_step)
@@ -244,7 +241,7 @@ def _choose_y_ticks(
 def _shared_left_axis_width(
     global_ymin: float, global_ymax: float, axis_fs: int
 ) -> int:
-    """Width the left axis needs for the widest tick label any row will show."""
+    """Left-axis width for the widest label the global y-range produces."""
     lo, hi = _y_view_range(global_ymin, global_ymax)
     return _left_axis_width_for_ticks(_choose_y_ticks(hi, y_min=lo), axis_fs)
 
@@ -265,10 +262,10 @@ def _set_left_axis_ticks(plot_item, ticks, axis_fs: int, min_width) -> None:
 def apply_y_range_and_ticks(
     plot_item, y_lo: float, y_hi: float, axis_fs: int, min_width=None
 ) -> int:
-    """Set a plot's Y range and the tick."""
+    """Set a plot's Y range and ticks; return the left-axis width they need."""
     ticks = _choose_y_ticks(y_hi, y_min=y_lo)
+    width = _left_axis_width_for_ticks(ticks, axis_fs)
 
-    # Kept apart: a failing range must not leave the previous ticks behind.
     with contextlib.suppress(
         RuntimeError, AttributeError, TypeError, ValueError
     ):
@@ -278,7 +275,7 @@ def apply_y_range_and_ticks(
     ):
         _set_left_axis_ticks(plot_item, ticks, axis_fs, min_width)
 
-    return _left_axis_width_for_ticks(ticks, axis_fs)
+    return width
 
 
 def sync_row_y_ticks(plot_item, axis_fs: int = 10, min_width=None) -> None:
@@ -293,6 +290,7 @@ def sync_row_y_ticks(plot_item, axis_fs: int = 10, min_width=None) -> None:
 
 
 def _plotted_y_extent(plot_item) -> tuple[float | None, float | None]:
+    """``(min, max)`` finite y across the plot's data items, or ``(None, None)``."""
     lo, hi = np.inf, -np.inf
     try:
         items = list(plot_item.listDataItems())
@@ -336,7 +334,7 @@ def apply_time_axis(
     show_left_axis: bool = True,
     tick_font: QFont | None = None,
 ):
-    """Uniform time axis: thick baseline, majors only (no minor ticks),
+    """Uniform time axis: thick baseline, majors only,
     start at 0 with small right padding, fixed left/bottom axis sizes so
     different widgets align horizontally/vertically.
     """
@@ -371,7 +369,6 @@ def apply_time_axis(
         ]
         ax_b.setTicks([majors])
 
-    # Ranges
     vb = plot_item.getViewBox()
     x_left, x_right = 0.0, float(xmax) + right_pad
     if y_min is None or y_max is None:

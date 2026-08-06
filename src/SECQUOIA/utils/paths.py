@@ -1,4 +1,4 @@
-"""Shared filesystem-path helpers for the per project Analysis output folder."""
+"""Shared filesystem path helpers for the per project Analysis output folder."""
 
 from __future__ import annotations
 
@@ -12,14 +12,7 @@ def project_analysis_dir(
     experiment_root: str | None = None,
     tracking_format: str | None = None,
 ) -> str:
-    """Return ``<experiment_root>/Analysis/SECQUOIA_files_<tracking_format>/<project_name>``.
-
-    ``experiment_root`` defaults to ``main_window.folder``; pass it explicitly
-    when the caller resolves the root differently (e.g. falling back to the
-    current working directory). ``tracking_format`` defaults to
-    ``main_window.tracking_format``; pass it explicitly when the caller has
-    its own fallback (e.g. reading a live combo box before that attribute is set).
-    """
+    """Return ``<experiment_root>/Analysis/SECQUOIA_files_<tracking_format>/<project_name>``."""
     if experiment_root is None:
         experiment_root = getattr(main_window, "folder", None)
     if tracking_format is None:

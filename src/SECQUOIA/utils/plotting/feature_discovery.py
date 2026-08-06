@@ -1,7 +1,7 @@
-"""Time-mode and feature-column discovery for the dynamics plots.
+"""Time-mode and feature column discovery for the dynamics plots.
 
 Works out which dataframe columns are plottable features and which column to
-use for the x-axis, given the current time mode. Pure pandas/regex logic, no
+use for the x-axis, given the current time mode. Pure numpy/regex logic, no
 Qt dependency.
 """
 
@@ -14,9 +14,13 @@ import numpy as np
 from SECQUOIA.config import TRACKING
 from SECQUOIA.utils.timing import realtime_columns
 
+# Values of ``main_window._time_mode``; the comment is the menu label.
 TIME_MODE_T = "t"  # "Time point"
 TIME_MODE_CALC = "calc"  # "Time"
 TIME_MODE_REAL = "real"  # "RealTime"
+
+# Pre-selected feature
+DEFAULT_FEATURE = "MeanNoBgCorrected"
 
 
 def _finite_max(series, default: float | None = None) -> float | None:
@@ -43,10 +47,12 @@ def _finite_min(series, default: float | None = None) -> float | None:
     return float(arr.min())
 
 
-def x_column_for(
-    mode: str, has_ch: bool, ch_idx: int | None, df_cols: list[str]
-) -> str:
-    """Return the name of the x-axis column given the current time mode."""
+def x_column_for(mode: str, ch_idx: int | None, df_cols: list[str]) -> str:
+    """The x-axis column for the current time mode, falling back to ``"t"``.
+
+    Real-time mode prefers this channel's column, then channel 1's, then any
+    imported real-time column that exists.
+    """
     if mode == TIME_MODE_CALC and "Calculated_Time" in df_cols:
         return "Calculated_Time"
     if mode == TIME_MODE_REAL:
@@ -119,15 +125,7 @@ def _discover_features(
             if feat in EXCLUDED_FEATURES:
                 continue
             template = re.sub(r"Ch\d+M\d+$", "Ch{ch}M{m}", col, count=1)
-            entry = feature_defs.get(
-                feat,
-                {
-                    "has_ch": False,
-                    "has_m": True,
-                    "template": template,
-                    "display": feat,
-                },
-            )
+            entry = feature_defs.get(feat, {"has_m": True})
             entry["has_ch"] = True
             entry["template"] = template
             entry["display"] = feat
@@ -164,7 +162,3 @@ def _ensure_time_mode(main_window) -> None:
     """Initialize the main window time plotting mode if it is not already set."""
     if not hasattr(main_window, "_time_mode"):
         main_window._time_mode = TIME_MODE_T
-
-
-# pre-selected feature
-DEFAULT_FEATURE = "MeanNoBgCorrected"

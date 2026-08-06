@@ -1,7 +1,8 @@
-"""Reload helper for file reads that may transiently fail.
+"""Reload helpers for file reads and writes that may transiently fail.
 
 Most useful when the experiment/segmentation folders live on a cloud-synced
-drive."""
+drive.
+"""
 
 from __future__ import annotations
 

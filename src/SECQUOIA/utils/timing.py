@@ -17,8 +17,9 @@ from SECQUOIA.config import TRACKING
 
 _T_RE = re.compile(r"_t(\d{5})_")
 
-#: Parses position / timepoint / wavelength out of an ``Image File`` entry.
+# Prefix of the imported real-time columns, e.g. ``RealTimeMinutes_Ch1``.
 RT_PREFIX = TRACKING.REALTIME_PREFIX
+# Parses position / timepoint / wavelength out of an ``Image File`` entry.
 _RT_NAME_RE = re.compile(
     r"[\\/_]p(?P<p>\d+).*?[\\/_]t(?P<t>\d+).*?(?:[\\/_]z\d+.*?)?[\\/_]w(?P<w>\d+)",
     re.IGNORECASE,
@@ -26,18 +27,21 @@ _RT_NAME_RE = re.compile(
 
 
 def filename_t_file_number(path: str) -> int | None:
-    """Extract 1-based t from a filename like _t00001_.
+    """The 1-based time point in a ``_t00001_`` filename, or ``None``.
 
-    Returns int or None if not found.
+    The ``t`` token must be exactly five digits.
     """
     m = _T_RE.search(os.path.basename(path))
     return int(m.group(1)) if m else None
 
 
 def current_t_range(main_window) -> tuple[int, int, int, int]:
-    """Returns a 4-tuple of ints:
-    t_file_min, t_file_max : 1-based (as in filenames `_t00001_`)
-    t_idx_min,  t_idx_max  : 0-based (napari / track_df indices)"""
+    """The selected time range, as file numbers and as 0-based indices.
+
+    Returns ``(t_file_min, t_file_max, t_idx_min, t_idx_max)``: the file
+    numbers are 1-based as in ``_t00001_``, the indices are what napari and
+    ``track_df`` use.
+    """
     t_file_min = int(getattr(main_window, "time_min_selected", 1))
     t_file_max = int(getattr(main_window, "time_max_selected", t_file_min))
     if t_file_max < t_file_min:
@@ -48,9 +52,7 @@ def current_t_range(main_window) -> tuple[int, int, int, int]:
 
 
 def calculate_time(main_window) -> None:
-    """Calculate the time based on the saved Δt (seconds) and the 't' column
-    n track_df. 'Calculated_Time' is in minutes.
-    """
+    """Fill ``Calculated_Time`` (minutes) from the saved Δt and the ``t`` column."""
     dt_sec = float(main_window.dt_seconds)
     main_window.time_interval = dt_sec
 
@@ -100,7 +102,7 @@ def build_realtime_lookup(
         pos = int(m.group("p").lstrip("0") or "0")
         t_raw = int(m.group("t"))
         ch_orig = int(m.group("w"))
-        t_adj = max(0, t_raw - 1)
+        t_adj = max(0, t_raw - 1)  # filenames are 1-based, track_df is 0-based
 
         try:
             minutes = float(ms) / 60_000.0  # ms -> minutes

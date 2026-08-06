@@ -1,6 +1,4 @@
-"""This module contains utility functions for time navigation, cell navigation,
-curation-tree updates, plot markers, viewer synchronization, and highlighting.
-"""
+"""Navigation and marker helpers shared by the main window."""
 
 from __future__ import annotations
 
@@ -32,8 +30,7 @@ LOG = logging.getLogger(__name__)
 
 
 def extract_unique_tracknumbers(main_window) -> dict:
-    """Map each Identification to its sorted unique TrackNumbers, based on
-    main_window.filtered_df."""
+    """Map each Identification to its unique TrackNumbers, from ``filtered_df``."""
     data = {}
     try:
         df = getattr(main_window, "filtered_df", None)
@@ -171,7 +168,7 @@ def _on_time_index_changed(main_window, t: int) -> None:
             return
 
         _update_current_track_number_plot(main_window)
-        # circular-import
+        # Imported here to avoid a circular import.
         from SECQUOIA.gui.outlier.markers import update_outlier_marker
 
         update_outlier_marker(main_window)
@@ -229,7 +226,7 @@ def change_time_point_in_jump_channel(main_window, increment: int) -> None:
 
 
 def _compute_unique_ids(main_window) -> list:
-    """Recompute the sorted by appearance list of unique Identifications."""
+    """The unique Identifications in ``filtered_df``, in order of appearance."""
     return (
         main_window.filtered_df["Identification"]
         .dropna()
@@ -240,7 +237,10 @@ def _compute_unique_ids(main_window) -> list:
 
 
 def select_ident_in_tree(main_window) -> None:
-    """Move the blue tree selection to the current Identification and scroll it into view, without re-triggering the item-click handler."""
+    """Select the current Identification in the tree and scroll it into view.
+
+    Signals are blocked so this doesn't retrigger the item_click_handler.
+    """
     tree = getattr(main_window, "tree_widget", None)
     if tree is None:
         return
@@ -262,7 +262,7 @@ def select_ident_in_tree(main_window) -> None:
 
 
 def change_cell(main_window: QWidget, direction: str) -> None:
-    """Change the current cell based on the direction."""
+    """Step to the next or previous Identification and refresh the whole UI."""
     if not hasattr(main_window, "folder_list") or not main_window.folder_list:
         LOG.warning("Please first load CSV file and select folder")
         from SECQUOIA.gui.common.messages import show_folder_warning
@@ -329,7 +329,7 @@ def jump_to_identification(
     t: int | None = None,
     tracknumber: int | None = None,
 ) -> None:
-    """Select `ident` and refresh UI. If `t` is None, jump to the first time point."""
+    """Select ``ident`` and refresh the UI; ``t=None`` jumps to its first time point."""
     if not ident or not hasattr(main_window, "filtered_df"):
         LOG.warning("[Jump] Missing ident or filtered_df.")
         return
@@ -440,27 +440,8 @@ def _update_current_track_number_plot(main_window) -> None:
     main_window.current_TrackNumber_plot = int(candidates.iloc[0])
 
 
-def _clear_time_markers_fallback(main_window) -> None:
-    """Remove all per row and lineage time markers (used when the marker is toggled off or before a redraw)."""
-    if hasattr(main_window, "_clear_time_markers"):
-        main_window._clear_time_markers()
-        return
-
-    _clear_row_markers(main_window)
-
-    old_line = getattr(main_window, "_lineage_time_line", None)
-    if isinstance(old_line, pg.InfiniteLine):
-        with contextlib.suppress(RuntimeError, AttributeError, TypeError):
-            for attr in ("graph3_plot", "graph3_widget"):
-                pw = getattr(main_window, attr, None)
-                if isinstance(pw, pg.PlotWidget):
-                    pw.getPlotItem().removeItem(old_line)
-                    break
-    main_window._lineage_time_line = None
-
-
 def _clear_row_markers(main_window) -> None:
-    """Remove existing per row time marker items (does not touch the lineage marker)."""
+    """Remove existing per row time marker items."""
     if hasattr(main_window, "current_time_markers"):
         for marker in list(main_window.current_time_markers.values()):
             with contextlib.suppress(RuntimeError, AttributeError, TypeError):
@@ -471,8 +452,11 @@ def _clear_row_markers(main_window) -> None:
     main_window.current_time_markers = {}
 
 
-def _current_ident_df(main_window):
-    """Resolve the currently selected Identification and its row subset, or None if unavailable."""
+def _current_ident_df(main_window) -> tuple[object, pd.DataFrame] | None:
+    """``(Identification, its rows)`` for the current selection, or ``None``.
+
+    ``None`` means nothing is selected or the selection has no rows.
+    """
     df_filt = getattr(main_window, "filtered_df", None)
     if (
         not hasattr(main_window, "unique_ids")
@@ -497,12 +481,9 @@ def _x_position_for_row(
     main_window, df_id, row, current_time, mode, feature_defs
 ):
     """Compute the x-position at which to draw the time marker for one plot row."""
-    feat_key = getattr(main_window, "selected_feature_by_row", {}).get(row)
-    has_ch = bool(feature_defs.get(feat_key, {}).get("has_ch", False))
     ch_idx = getattr(main_window, "selected_ch_by_channel", {}).get(row, 1)
     xcol = x_column_for(
         mode,
-        has_ch=has_ch,
         ch_idx=int(ch_idx or 1),
         df_cols=list(df_id.columns),
     )
@@ -525,7 +506,7 @@ def _x_position_for_row(
 
 
 def _draw_row_marker(main_window, pw, row, x_line) -> None:
-    """Draw (or replace) the vertical time-marker line on a single plot row."""
+    """Draw (or replace) the vertical time marker line on a single plot row."""
     try:
         line = pg.InfiniteLine(
             pos=float(x_line),
@@ -545,7 +526,8 @@ def _draw_row_marker(main_window, pw, row, x_line) -> None:
 
 
 def _find_lineage_plot_widget(main_window):
-    """Locate the lineage tree's PlotWidget, trying the known attributes and falling back to a child search."""
+    """Locate the lineage tree's PlotWidget."""
+
     lineage_pw = getattr(main_window, "graph3_plot", None)
 
     if not isinstance(lineage_pw, pg.PlotWidget):
@@ -563,7 +545,7 @@ def _find_lineage_plot_widget(main_window):
 
 
 def _draw_lineage_marker(main_window, df_id, current_time) -> None:
-    """Draw (or replace) the vertical time-marker line on the lineage tree plot."""
+    """Draw (or replace) the vertical time marker line on the lineage tree plot."""
     lineage_pw = _find_lineage_plot_widget(main_window)
     if lineage_pw is None:
         return
@@ -596,12 +578,12 @@ def _draw_lineage_marker(main_window, df_id, current_time) -> None:
 
 
 def update_time_marker(main_window) -> None:
-    """Draw a green vertical line at the current time on ALL plot rows,
-    independent of which metric (C/M) is shown. Also update the lineage
-    tree.
+    """Draw the green time marker on every plot row and on the lineage tree.
+
+    Independent of which feature each row is currently showing.
     """
     if not getattr(main_window, "show_time_marker", True):
-        _clear_time_markers_fallback(main_window)
+        main_window._clear_time_markers()
         return
 
     resolved = _current_ident_df(main_window)
@@ -663,7 +645,7 @@ def toggle_highlight_mode(main_window) -> None:
 
 
 def cycle_highlight_color(main_window, forward: bool = True) -> None:
-    """Cycle the active highlight color (used by Ctrl+Shift+P)."""
+    """Cycle the active highlight color, bound to ``Shift+P``."""
     try:
         order = getattr(main_window, "_hl_palette_order", None)
         if not order:
@@ -686,7 +668,7 @@ def cycle_highlight_color(main_window, forward: bool = True) -> None:
 
 
 def clear_highlight_paints(main_window) -> None:
-    """Remove ALL painted lineage/plot colors and refresh the UI."""
+    """Remove every painted highlight color and refresh the UI."""
     try:
         cmap = getattr(main_window, "_track_highlight_colors", None)
         if isinstance(cmap, dict):

@@ -1,4 +1,4 @@
-"""Interval and histogram helpers shared by the outlier plotting dialogs."""
+"""Interval, histogram and selection helpers for the outlier plotting dialogs."""
 
 from __future__ import annotations
 

@@ -454,7 +454,6 @@ def on_plot_single_click(main_window, plot_widget, row, event) -> None:
     if selection is None:
         return
     _feat_key, m_idx, ch_idx, definition = selection
-    has_ch = bool(definition.get("has_ch", False))
 
     intensity_column = _build_intensity_column(definition, ch_idx, m_idx)
     if intensity_column is None:
@@ -475,7 +474,6 @@ def on_plot_single_click(main_window, plot_widget, row, event) -> None:
     mode = getattr(main_window, "_time_mode", TIME_MODE_T)
     xcol = x_column_for(
         mode,
-        has_ch=has_ch,
         ch_idx=int(ch_idx or 1),
         df_cols=list(df_ident.columns),
     )
