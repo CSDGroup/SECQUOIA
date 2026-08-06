@@ -1,8 +1,14 @@
-"""Rename microscopy experiment folders into the tTt DataFormat layout.
+"""Copy microscopy experiment images into the tTt DataFormat layout.
 
-This module provides a Qt widget and a set of helper functions that parse image filenames,
-normalize their date, initials, setup, position, time point, z-slice, and channel tokens,
-and copy the images into a standardized folder structure named like '240323MA35_p0001_t00001_z001_w00.png'.
+This module provides a Qt widget and a set of helper functions that parse
+image filenames, normalize their date, initials, setup, position, time
+point, z-slice, and channel tokens, and copy the images into
+
+    <output>/240323MA35/
+        Analysis/
+        240323MA35_p0001/240323MA35_p0001_t00001_z001_w00.png
+
+The source folder is never modified; the renaming happens on the copies.
 """
 
 import os
@@ -36,7 +42,7 @@ INITIALS_VALIDATOR_RE = QRegularExpression(r"[A-Za-z]{0,4}")
 
 
 def normalize_setup(s: str) -> str:
-    """Normalize a setup number to exactly two digits."""
+    """Zero-pad a setup number to at least two digits ('7' -> '07')."""
     digits = re.sub(r"\D", "", s or "")
     if not digits:
         return ""
@@ -57,7 +63,7 @@ def yymmdd_compact(date_str: str) -> str:
 
 
 def normalize_initials(s: str) -> str:
-    """Uppercase letters only, at most 4 characters."""
+    """Strip non-letters, uppercase, and truncate to 4 characters."""
     return re.sub(r"[^A-Za-z]", "", s or "").upper()[:4]
 
 
@@ -107,7 +113,6 @@ def normalize_w(ch: str) -> str:
     if m:
         return f"w{int(m.group(1)):02d}"
 
-    # Convert c-form: c1 -> w00, c2 -> w01, ...
     m = re.fullmatch(r"c(\d+)", ch)
     if m:
         idx = int(m.group(1)) - 1
@@ -158,7 +163,7 @@ def no_images_message(folder: str) -> str:
     )
     if nested:
         msg += (
-            "\n\nImages were found in subfolders - this tool only reads the "
+            "\n\nImages were found in subfolders. This tool only reads the "
             "top level. Please select the folder that contains the images "
             "themselves."
         )
@@ -212,7 +217,7 @@ def find_one_image_file(folder: str) -> str:
 
 
 def hrow(*widgets) -> QtWidgets.QWidget:
-    """Returns a QWidget containing a tight HBoxLayout."""
+    """Wrap widgets in a QWidget with a tight horizontal layout."""
     w = QtWidgets.QWidget()
     lay = QtWidgets.QHBoxLayout(w)
     lay.setContentsMargins(0, 0, 0, 0)
@@ -223,7 +228,7 @@ def hrow(*widgets) -> QtWidgets.QWidget:
 
 
 class TttDataFormatTransformer(QtWidgets.QWidget):
-    """Qt widget that renames experiment image folders into the tTt format."""
+    """Qt widget that copies experiment images into the tTt folder layout."""
 
     def __init__(self) -> None:
         super().__init__()
@@ -432,7 +437,7 @@ class TttDataFormatTransformer(QtWidgets.QWidget):
             self.out_path.setText(folder)
 
     def read_naming(self) -> None:
-        """Auto-fill the fields from the first image filename in the folder."""
+        """Autofill the fields from the first image filename in the folder."""
         if not self.in_folder:
             QtWidgets.QMessageBox.warning(
                 self, "No folder", "Please select an Experiment folder first."
@@ -459,7 +464,6 @@ class TttDataFormatTransformer(QtWidgets.QWidget):
         self.ed_z.setText(normalize_z(info["z"]))
         self.ed_ch.setText(normalize_w(info["ch"]))
 
-        # Tell the user which fields the filename simply does not contain.
         missing = []
         if not self.ed_date.text():
             missing.append("Experiment Date")
@@ -484,7 +488,7 @@ class TttDataFormatTransformer(QtWidgets.QWidget):
             )
 
     def run(self) -> None:
-        """Validate inputs and copy/rename all images into the tTt layout."""
+        """Validate the fields, then copy every image into the tTt layout."""
         if not self.in_folder or not self.out_folder:
             QtWidgets.QMessageBox.warning(
                 self, "Missing", "Select both input and output folders."

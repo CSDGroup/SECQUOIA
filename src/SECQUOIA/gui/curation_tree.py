@@ -1,10 +1,5 @@
-"""Building/rendering Tree-ID items from data: curation status/active-state icons and
-tooltips, and populating the Tree-ID widget from filtered_df.
-
-Shared by MainWindow's CurationTree mixin (SECQUOIA.gui.main_window.curation_tree) and
-by core/outlier_detection/, core/tracking/, core/quantification.py, and others that need to
-repopulate the tree independent of MainWindow.
-"""
+"""Tree-ID item construction: curation status and active-state icons,
+tooltips, and population of the Tree-ID widget from filtered_df."""
 
 import contextlib
 import logging
@@ -92,8 +87,9 @@ def _build_curation_maps(df):
 def _populate_curation_tree(
     main_window, ident_track_pairs, curation_maps
 ) -> None:
-    """Build one parent tree item per (Identification, tracks) pair, with TrackNumber
-    children, applying curation status and active state symbols from `curation_maps`.
+    """Build one parent tree item per Identification, with one child per
+    TrackNumber, applying the curation status and active- tate symbols
+    from `curation_maps`.
     """
     have, parent_status, parent_active, child_status, child_active = (
         curation_maps
@@ -129,7 +125,11 @@ def _populate_curation_tree(
 
 
 def update_list(main_window) -> None:
-    """Populate the Tree-IDs, restoring 'active' (incl. deactivated) and 'inspected' from filtered_df."""
+    """Repopulate the Tree-ID widget from `filtered_df`.
+
+    Each item's active state and inspected status are restored, so
+    deactivated cells reappear struck through rather than being dropped.
+    """
     from SECQUOIA.utils.helpers import extract_unique_tracknumbers
 
     main_window.tree_widget.clear()

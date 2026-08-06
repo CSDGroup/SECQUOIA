@@ -61,7 +61,7 @@ __all__ = [
     "switch_to_position_with_progress",
 ]
 
-# Matches the ``_p0008`` position number in a folder name.
+# Matches the ''_p0008'' position number in a folder name.
 _POSITION_RE = re.compile(r"_p(\d+)")
 
 _LIST_STYLESHEET = (
@@ -87,10 +87,8 @@ def _create_loading_dialog(
     vbox.setContentsMargins(12, 12, 12, 12)
     vbox.setSpacing(10)
 
-    # Progress bar
     bar, _ = add_progress_bar(vbox)
 
-    # Status label
     status_lbl = QLabel("Switching position…")
     status_lbl.setWordWrap(True)
     vbox.addWidget(status_lbl)
@@ -130,9 +128,10 @@ def _create_loading_dialog(
 
 
 def _make_subprogress_factory(bridge):
+    """Return a factory that builds sub-progress callbacks for `bridge`."""
 
     def make_subprogress(start: int, end: int, on_first=None, on_done=None):
-        """Create a callback that maps subtask progress into a progress-bar range."""
+        """Create a callback that maps subtask progress into a progressbar range."""
         start_i = int(max(0, min(100, start)))
         end_i = int(max(0, min(100, end)))
         span = max(1, end_i - start_i)
@@ -175,7 +174,6 @@ def load_position(main_window: QWidget, direction: str) -> None:
         main_window, title="Loading position"
     )
 
-    # Subprogress factory
     make_subprogress = _make_subprogress_factory(bridge)
     bar.setValue(0)
     status_lbl.setText("Switching position…")
@@ -219,13 +217,13 @@ def load_position(main_window: QWidget, direction: str) -> None:
     except (RuntimeError, AttributeError, TypeError, ValueError):
         main_window.current_position_number = None
 
-    fl_cb = make_subprogress(10, 45)
+    fl_cb = make_subprogress(20, 45)
     basic_cb = make_subprogress(45, 70)
     meas_cb = make_subprogress(70, 95)
 
     progress_bundle = {"fl": fl_cb, "basic": basic_cb, "measure": meas_cb}
 
-    bar.setValue(10)
+    bar.setValue(20)
     status_lbl.setText("Loading images and masks…")
     QApplication.processEvents()
     update_images(main_window, progress_cb=progress_bundle)
@@ -286,9 +284,10 @@ def switch_to_position_with_progress(
 ) -> None:
     """Switch to the given position.
 
-    Saves the current position's state (optionally), locates the target position
-    folder, loads its images and masks with weighted progress reporting, and
-    refreshes the viewers, plots, and outlier list."""
+    Optionally saves the current position's state, locates the target
+    position folder, loads its images and masks with weighted progress
+    reporting, and refreshes the viewers, plots, and outlier list.
+    """
     if getattr(main_window, "_switching_position", False):
         main_window._pending_position_switch = (int(pos_number), save_current)
         LOG.info(
@@ -546,7 +545,7 @@ def set_current_position_from_spinbox(main_window) -> None:
 
 
 def resolve_position_index(main_window, pos_number=None) -> None:
-    """Resolve current_position_index from the position number by folder lookup."""
+    """Return a factory that builds subprogress callbacks for `bridge`."""
     if pos_number is None:
         pos_number = getattr(main_window, "current_position_number", None)
     if pos_number is None:
@@ -638,7 +637,6 @@ class PositionSelectDialog(QDialog):
 
         self.list_widget = self._build_list_widget()
         layout.addWidget(self.list_widget, 1)
-        self.main_window.list3_widget = self.list_widget
 
         self.count_lbl = QLabel()
         self.count_lbl.setStyleSheet("color: #ffffff;")

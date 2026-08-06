@@ -40,7 +40,11 @@ def _mask_indices_from_df(df: pd.DataFrame) -> list[int]:
 def _apply_labels_all_masks_to_viewer(
     viewer, row: pd.Series, mask_idxs: list[int]
 ) -> None:
-    """Select/show row's label on each SegmentationN layer of viewer."""
+    """Select and highlight the row's label on each SegmentationN layer.
+
+    A label of 0 or NaN turns `show_selected_label` off for that layer
+    instead of selecting anything.
+    """
     if viewer is None or not hasattr(viewer, "layers"):
         return
     for m in mask_idxs:
@@ -113,7 +117,10 @@ def _resolve_ident_from_suffix(main_window, suffix_text: str) -> str | None:
 
 
 def _set_current_ident_index(win, ident: str) -> None:
-    """Set win.current_ident_index to the position of ident in unique_ids."""
+    """Set win.current_ident_index to ident's position in unique_ids.
+
+    Falls back to 0 when ident is not in the list.
+    """
     uids = list(getattr(win, "unique_ids", []))
     try:
         win.current_ident_index = int(uids.index(ident))
@@ -188,7 +195,7 @@ def _finish_selection(
 
 
 def _select_identification(main_window, item) -> None:
-    """Handle a click on a top-level (identification) tree item."""
+    """Handle a click on a top-level (Identification) tree item."""
     selected_ident = _resolve_ident_from_suffix(main_window, item.text(0))
     if not selected_ident:
         return

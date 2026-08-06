@@ -43,7 +43,6 @@ LOG = logging.getLogger(__name__)
 __all__ = [
     "SharedProgress",
     "UiProgressBridge",
-    "apply_derived_features",
     "run_all_positions",
     "run_loading",
     "update_images",
@@ -87,7 +86,7 @@ class UiProgressBridge(QObject):
     update = Signal(int, str)
 
     def __init__(self, bar: QProgressBar, label: QLabel, parent=None):
-        """Create a thread-safe bridge for updating progress widgets."""
+        """Store the target widgets and queue updates onto the GUI thread."""
         super().__init__(parent)
         self._bar = bar
         self._label = label
@@ -211,7 +210,8 @@ def run_loading(main_window) -> None:
 
 
 def _load_data(main_window) -> None:
-    """Load all required data (fluorescence, masks, tracking) for the current position."""
+    """Load fluorescence images and masks for the current position, then
+    measure it (or reuse cached measurements) and refresh the viewer."""
     if getattr(main_window, "_loading_in_progress", False):
         return
     main_window._loading_in_progress = True
@@ -227,7 +227,6 @@ def _load_data(main_window) -> None:
         with contextlib.suppress(AttributeError, RuntimeError, TypeError):
             main_window.set_progress(pct)
 
-        #  Message under the progress bar
         _set_loading_status(main_window, msg or "")
         QApplication.processEvents()
 
@@ -252,7 +251,7 @@ def _load_data(main_window) -> None:
 
     seg_input = getattr(main_window, "segmentation_paths", None)
 
-    # parallel load FL + masks
+    # Parallel load FL + masks
     main_window.images = {}
     executor = concurrent.futures.ThreadPoolExecutor(max_workers=3)
 
@@ -350,7 +349,6 @@ def _load_data(main_window) -> None:
 
         btn = getattr(main_window, "start_curation_btn", None)
         if btn is not None:
-            # Belongs to the Load data window, which is gone on a reload.
             with contextlib.suppress(RuntimeError, AttributeError, TypeError):
                 btn.setEnabled(True)
                 btn.show()
@@ -389,9 +387,6 @@ def _load_data(main_window) -> None:
             LOG.error("[load_data] Failed to finish loading: %s", e)
             _set_loading_status(main_window, f"Error: {e}", kind="error")
         finally:
-            # Always clear the reentrancy guard and stop the progress UI,
-            # even if a step above raised — otherwise callers polling
-            # `_loading_in_progress` (e.g. the Channel/Mask Manager) spin forever.
             if hasattr(main_window, "finish_progress"):
                 with contextlib.suppress(
                     RuntimeError, AttributeError, TypeError
@@ -401,7 +396,6 @@ def _load_data(main_window) -> None:
             main_window._loading_in_progress = False
 
     QTimer.singleShot(0, _finish_when_ready)
-    return
 
 
 _RUN_ALL_PHASE_WEIGHTS = {"fl": 0.35, "basic": 0.25, "meas": 0.40}
@@ -446,7 +440,7 @@ def _init_run_all_progress_bar(gb, total: int) -> None:
     ):
         gb.setRange(0, total)
         gb.setValue(0)
-        gb.setFormat("Position %v/%m")  # shows "Position X/Y"
+        gb.setFormat("Position %v/%m")
         gb.setVisible(True)
         QApplication.processEvents()
 
@@ -595,7 +589,11 @@ def _close_mask_window(main_window) -> None:
 
 
 def run_all_positions(main_window) -> None:
-    """Run import/measurement for all positions; per position 0→100% progress, live messages, green tiles."""
+    """Import and measure every position in the selected range.
+
+    Each position runs 0→100% on the per position bar with live status
+    messages; the global bar advances one step per finished position.
+    """
     pmin, pmax = resolve_position_range(main_window)
     items = _collect_positions_to_run(main_window, pmin, pmax)
     if not items:
@@ -688,7 +686,11 @@ def _save_previous_position_state(main_window) -> None:
 
 
 def _resolve_target_position(main_window) -> int | None:
-    """Select the position folder at ``current_position_index`` and register it on ``main_window``."""
+    """Select the folder at current_position_index and record its number.
+
+    Returns the parsed position number, or None when it cannot be read
+    from the folder name.
+    """
     main_window.position_selection = main_window.position_folders[
         main_window.current_position_index
     ]
@@ -706,10 +708,11 @@ def _resolve_target_position(main_window) -> int | None:
 def _load_images_and_masks(
     main_window, seg_input, t_file_min, t_file_max, cb_fl
 ):
-    """Load FL images and segmentation masks for the current position in parallel.
+    """Load FL images and segmentation masks for the current position.
 
-    Blocks (while pumping the Qt event loop) until both finish. Returns the
-    segmentation result and also stores it on ``main_window.labels``.
+    Both run in parallel. Blocks, while pumping the Qt event loop, until
+    they finish. Returns the segmentation result and also stores it on
+    main_window.labels.
     """
     main_window.images = {}
 
@@ -780,7 +783,12 @@ def _measure_current_position(
 
 
 def update_images(main_window, progress_cb=None) -> None:
-    """Update images and segmentation masks when changing to a new position."""
+    """Load a new position: images, masks, and measurements.
+
+    Caches the previous position's measurements, loads the new position's
+    FL images and masks, measures it or reuses a cached CSV, applies the
+    derived features, and repopulates the curation tree.
+    """
     if getattr(main_window, "_updating_images", False):
         main_window._update_images_requested = True
         LOG.info(
