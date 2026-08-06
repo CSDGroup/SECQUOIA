@@ -1,4 +1,4 @@
-"""Running this file launches the SECQUOIA desktop application."""
+"""Prepares Qt, then builds and shows the SECQUOIA main window."""
 
 import contextlib
 import os
@@ -19,14 +19,8 @@ if os.name == "nt":
 
         ctypes.windll.user32.SetProcessDPIAware()
 
-from qtpy import QtCore, QtGui
 from qtpy.QtCore import Qt
 from qtpy.QtWidgets import QApplication
-
-QGuiApplication = getattr(QtGui, "QGuiApplication", None)
-RoundingPolicyEnum = getattr(
-    QtCore.Qt, "HighDpiScaleFactorRoundingPolicy", None
-)
 
 
 def set_windows_app_id(app_id: str = "SECQUOIA.SECQUOIA.desktop.1") -> None:
@@ -54,21 +48,8 @@ def main():
     with contextlib.suppress(Exception):
         QApplication.setAttribute(Qt.AA_UseHighDpiPixmaps, True)
 
-    if (
-        QGuiApplication is not None
-        and hasattr(QGuiApplication, "setHighDpiScaleFactorRoundingPolicy")
-        and RoundingPolicyEnum is not None
-        and hasattr(RoundingPolicyEnum, "PassThrough")
-    ):
-        with contextlib.suppress(Exception):
-            QGuiApplication.setHighDpiScaleFactorRoundingPolicy(
-                RoundingPolicyEnum.PassThrough
-            )
-
     app = QApplication(sys.argv)
     from SECQUOIA.resources import app_icon
-
-    app.setWindowIcon(app_icon())
 
     try:
         from SECQUOIA.config import STYLE

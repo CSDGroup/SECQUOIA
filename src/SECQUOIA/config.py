@@ -1,4 +1,4 @@
-"""Central configuration constants for SECQUOIA."""
+"""Configuration constants and shared settings dataclasses for SECQUOIA."""
 
 import sys
 from dataclasses import dataclass, field
@@ -19,38 +19,25 @@ BTRACK_REQUIREMENT: str = "btrack>=0.7,<0.8"
 
 
 @dataclass(frozen=True)
-class FILES:
-    """Filename suffixes."""
-
-    MASK_DATA_SUFFIX: str = "_2_mask_data.csv"
-    TRACK_DF_SUFFIX: str = "_track_df.csv"
-
-
-@dataclass(frozen=True)
 class IORELOAD:
     """Reload settings for image reads that may hit a transient I/O error,
     e.g. a cloud-synced folder that can't serve a file while the network connection is down.
     """
 
-    MAX_WAIT_S: float = (
-        3600.0  # give up on a single frame after ~1h of reloading
-    )
+    MAX_WAIT_S: float = 3600.0
     BASE_DELAY_S: float = 2.0
     MAX_DELAY_S: float = 30.0
 
 
 @dataclass(frozen=True)
 class STYLE:
-    """Default GUI style, spacing, font, and layout constants."""
+    """Default font settings and initial channel/mask counts."""
 
     FONT_SIZE: int = 12
     FONT_FAMILY: str = "Arial"
-    BORDER_RADIUS: int = 10
-    PADDING: int = 5
-    MARGIN: int = 20
     CHANNEL_NUMBER: int = 1
     MASK_NUMBER: int = 1
-    SYMBOL_SIZE: int = 2
+    SYMBOL_SIZE: int = 6
     FONT_SIZE_outlier: int = 12
     FONT_outlier: str = "Arial"
     FONT_SIZE_HELP: int = 12
@@ -94,11 +81,11 @@ class TracksViewConfig:
 def _default_label_font() -> str:
     """Pick a UI font that actually exists on the current OS."""
     if sys.platform.startswith("win"):
-        return "Segoe UI"  # Windows: keep your original look
+        return "Segoe UI"
     elif sys.platform == "darwin":
-        return "Helvetica Neue"  # macOS: native, no font-alias warning
+        return "Helvetica Neue"
     else:
-        return "DejaVu Sans"  # Linux and everything else
+        return "DejaVu Sans"
 
 
 class ColorStyle:
@@ -118,7 +105,7 @@ class ColorStyle:
 
     @classmethod
     def as_dict(cls) -> dict[str, str]:
-        """Return colors as a dictionary."""
+        """Return the colors keyed by the tags used in summary labels."""
         return {
             "feature": cls.FEATURE,
             "m": cls.MASK,
@@ -130,7 +117,7 @@ class ColorStyle:
 
     @classmethod
     def font_css(cls) -> str:
-        """Return a string for QLabel/QComboBox."""
+        """Return a CSS font declaration for a widget stylesheet."""
         return (
             f"font-family: '{cls.FONT_FAMILY}'; "
             f"font-size: {cls.FONT_SIZE}px; "
@@ -140,7 +127,7 @@ class ColorStyle:
 
 @dataclass(frozen=True)
 class FEATURES:
-    """Feature-name prefixes and default plotting style for measured features."""
+    """Feature-name prefixes used to build and parse feature columns."""
 
     METRIC_PREFIXES: ClassVar[tuple[str, ...]] = (
         "Mean",
@@ -166,25 +153,16 @@ class FEATURES:
         "AxisMajorLength",
         "AxisMinorLength",
     )
-    OUTLIERSIZE: ClassVar[int] = 10
-    DEFAULT_SYMBOL: ClassVar[str] = "o"
-    DEFAULT_SYMBOL_SIZE: ClassVar[int] = 6
-    DEFAULT_LINE_WIDTH: ClassVar[float] = 2.0
-    DEFAULT_HL_LINE_WIDTH: ClassVar[float] = 3.0
 
 
 @dataclass(frozen=True)
 class PLOTPARAMETERS:
-    """Define plotting colors and parameters"""
+    """Default colors, marker symbols and font sizes for plots."""
 
     ORANGE: ClassVar[tuple[int, int, int, int]] = (255, 165, 0, 255)
     OUTLIERSIZE: ClassVar[int] = 10
     DEFAULT_SYMBOL: ClassVar[str] = "o"
     DEFAULT_SYMBOL_SIZE: ClassVar[int] = 6
-    DEFAULT_LINE_WIDTH: ClassVar[float] = 2.0
-    DEFAULT_HL_LINE_WIDTH: ClassVar[float] = 3.0
-    # Shared between the dynamics-plot axis labels and the lineage-tree
-    # track/generation labels, so both start in sync.
     DEFAULT_LABEL_FONT_SIZE: ClassVar[int] = 10
 
     PG_SYMBOLS: ClassVar[tuple[tuple[str, str], ...]] = (
@@ -205,7 +183,6 @@ class PLOTPARAMETERS:
 class LINKS:
     """External documentation and help links."""
 
-    ULTRACK_HELP: str = "https://royerlab.github.io/ultrack/optimizing.html"
     GITHUB_HELP: str = "https://github.com/CSDGroup/SECQUOIA"
     GITHUB_LOADING_WINDOW: str = (
         "https://github.com/CSDGroup/SECQUOIA/blob/main/docs/loading-window.md"
@@ -260,30 +237,16 @@ class TOOLTIPSTEXT:
     # Loading window
     USER: str = "Enter user initials in tTt format."
     EXPFOLDER: str = "Select your experiment folder in tTt format."
-    NMASK: str = (
-        "Define the number of different masks to use for quantification."
-    )
-    CMASK: str = "Define the number of channels to load."
     TRACKINGFORMAT: str = "Select the tracking format input."
     IMAGEFORMAT: str = "Select the image file format."
     TIME: str = "Provide the time interval between time points (in seconds)."
-    SEGFOLDER: str = "Select the segmentation folder for quantification."
     MINTIME: str = "Define the minimum time point (start time point)."
     MAXTIME: str = "Define the maximum time point (end time point)."
-    MINPOSITION: str = "Define the minimum position for quantification."
-    MAXPOSITION: str = "Define the maximum position for quantification."
     STARTPOSITION: str = "Select the position where curation should start."
-    ALLP: str = "Quantify all positions first, then start curation."
-    POSITIONS: str = (
-        "Perform measurements only for the selected start position and start curation immediately."
-    )
     THRESHOLD: str = (
         "Define maximum distance in pixels between tracking point and mask centroid."
     )
     AREA: str = "Define minimum mask size."
-    LRUN: str = "Start loading all data."
-    LEXIT: str = "Close loading window."
-    LCH: str = "Select the current channel."
     BG: str = "Enable BaSiC background correction for the loaded data."
     BG_COMBO: str = (
         "Select a BaSiC* folder from the Analysis directory to use for background correction."
@@ -520,9 +483,6 @@ class TOOLTIPSTEXT:
         "Select experiment folder for Cytometric analysis data in tTt format."
     )
     LOAD_BTN_CYTOMETRIC: str = "Load Cytometric analysis experiment data."
-    SEG_FOLDER_CYTOMETRIC: str = (
-        "Select segmentation folder for Cytometric analysis data."
-    )
     BASIC_CYTOMETRIC: str = (
         "Enable BaSiC background correction for Cytometric analysis data."
     )
@@ -728,7 +688,6 @@ class TOOLTIPSTEXT:
         "Available positions. One click highlights a position, "
         "a double-click loads it directly."
     )
-    NO_POS: str = "No position number could be parsed from this folder name."
     LOAD_POS: str = (
         "Load the highlighted position: the current position is saved first, "
         "then its images, masks and tracks are loaded."
@@ -780,10 +739,6 @@ class EXPORT:
     GIF_SPEED_MIN: int = 1
     GIF_SPEED_MAX: int = 500
     GIF_SPEED_DEFAULT: int = 20
-    # GIF delays are stored in 1/100 s steps and most viewers force a ~10 fps
-    # floor below ~20 ms/frame, so higher requested speeds silently play back
-    # slower than expected. Cap GIF export at the highest fps the format can
-    # reliably reproduce; MP4/AVI export is unaffected and can go higher.
     GIF_SAFE_MAX_FPS: int = 50
 
     GRID_GAP: int = 6
@@ -809,7 +764,7 @@ class EXPORT:
 
 
 class TRACKING:
-    """Tracking-related constants."""
+    """Column names and prefixes used in the tracking dataframe."""
 
     REALTIME_PREFIX: ClassVar[str] = "RealTimeMinutes_Ch"
     SAFE_KEEP_NUMERIC: ClassVar[frozenset[str]] = frozenset(

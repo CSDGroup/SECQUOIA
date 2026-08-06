@@ -1,4 +1,4 @@
-"""entry-point wrapper"""
+"""Entry point wrapper"""
 
 from SECQUOIA.app import main
 
