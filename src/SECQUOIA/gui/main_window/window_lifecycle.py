@@ -1,4 +1,4 @@
-"""Window level lifecycle for MainWindow: opening sub-windows (exporter, tTt transformer,
+"""Window level lifecycle for MainWindow: opening subwindows (exporter, tTt transformer,
 help), the time marker toggle, the cellfate button bar, save/close/export, splitter/layout
 sizing, the window title, and the Tree-ID filter checkbox.
 """
@@ -38,10 +38,10 @@ LOG = logging.getLogger(__name__)
 
 
 class WindowLifecycle:
-    """Subwindow management, save/close/export, splitter/title, and the tree filter checkbox."""
+    """Subwindows, the time-marker toggle, save/close/export, layout sizing, title, and the tree filter."""
 
     def open_image_movie_exporter(self):
-        """Open the single-image / movie exporter for the loaded experiment."""
+        """Open the single image and movie exporter for the loaded experiment."""
         if not getattr(self, "folder_list", None):
             LOG.warning("Please first load CSV file and select folder")
             show_folder_warning(self)
@@ -66,7 +66,7 @@ class WindowLifecycle:
         self._ttt_transformer.activateWindow()
 
     def _clear_time_markers(self) -> None:
-        """Remove all currently drawn time markers (dynamics plots + lineage)."""
+        """Remove all currently drawn time markers (dynamics plots + lineage tree)."""
         if hasattr(self, "current_time_markers"):
             for marker in list(self.current_time_markers.values()):
                 with contextlib.suppress(
@@ -98,7 +98,7 @@ class WindowLifecycle:
             self._clear_time_markers()
 
     def show_help_popup(self, checked: bool = False) -> None:
-        """Show the hotkeys and mouse-controls help window."""
+        """Show the hotkeys and mouse controls help window."""
         if self.help_popup is None:
             self.help_popup = HelpPopup(
                 parent=self, title="Hotkeys & Mouse — Help"
@@ -117,7 +117,7 @@ class WindowLifecycle:
         self.help_popup.activateWindow()
 
     def _fate_buttons(self) -> list[QPushButton]:
-        """Return the six cell-fate buttons as a list."""
+        """Return the six cellfate buttons as a list."""
         return [
             self.btn_healthy,
             self.btn_dead,
@@ -138,13 +138,7 @@ class WindowLifecycle:
         w.setParent(None)
 
     def _move_fate_buttons_to_bottom_bar(self) -> None:
-        """Move the cell-fate buttons into the bottom bar and show it."""
-        if hasattr(self, "_fate_side_panel") and self._fate_side_panel:
-            for btn in self._fate_buttons():
-                if btn.parent() is self._fate_side_panel:
-                    self._remove_from_any_layout(btn)
-
-        # ensure the bottom bar holder is present and visible
+        """Move the cellfate buttons into the bottom bar and show it."""
         if (
             hasattr(self, "fate_bar_container")
             and self.fate_bar_container
@@ -155,16 +149,6 @@ class WindowLifecycle:
 
         for btn in self._fate_buttons():
             self.fate_bar.addWidget(btn)
-
-        if (
-            hasattr(self, "_napari_row_container")
-            and self._napari_row_container
-        ):
-            try:
-                self.layout2.removeWidget(self._napari_row_container)
-                self._napari_row_container.setParent(None)
-            except (RuntimeError, AttributeError, TypeError):
-                pass
 
         if (
             hasattr(self, "_napari_container")
@@ -201,7 +185,7 @@ class WindowLifecycle:
         orig_icon = btn.icon()
         btn.setEnabled(False)
 
-        # turn green while saving
+        # Turn green while saving
         btn.setStyleSheet(
             orig_ss
             + "QPushButton { background-color: #2ecc71; color: white; }"
@@ -275,8 +259,6 @@ class WindowLifecycle:
         clicked = dlg.clickedButton()
         if clicked is btn_yes:
             try:
-                # Must precede cleanup_memmaps: a crop read still in flight
-                # would be pointing into a memmap that cleanup deletes.
                 detach_cell_inspector(self)
                 cleanup_memmaps(self)
             except (RuntimeError, AttributeError, TypeError) as e:
@@ -310,7 +292,7 @@ class WindowLifecycle:
         save_masks_incremental(self)
 
     def _after_show(self) -> None:
-        """Maximize the window and finalize layout sizing"""
+        """Maximize the window and finalize layout sizing."""
         self.setWindowState(Qt.WindowMaximized)
         self.main_layout.activate()
         self._set_splitter_equal_soon()
@@ -338,8 +320,7 @@ class WindowLifecycle:
         self.setUpdatesEnabled(True)
 
     def update_window_title(self) -> None:
-        "Update the window title according to the current position."
-
+        """Update the window title according to the current position."""
         experiment_name = getattr(self, "experiment_name", "Unknown")
 
         position_number = position_number_at_current_index(self)

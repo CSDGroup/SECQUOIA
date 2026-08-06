@@ -1,4 +1,4 @@
-"""MainWindow and the mixin classes that compose it."""
+"""MainWindow of SECQUOIA."""
 
 from SECQUOIA.gui.main_window.main_window import MainWindow
 

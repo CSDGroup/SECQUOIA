@@ -86,7 +86,9 @@ class KeyBindings:
             self._shortcuts.append(sc)
 
         def add_hotkey_both(suffix: str, callback) -> None:
-            """Register the same callback on both Ctrl+<suffix> and Meta+<suffix>, so the shortcut works on Windows/Linux and macOS."""
+            """Register the same callback on both Ctrl+<suffix> and Meta+<suffix>,
+            so the shortcut works on Windows/Linux and macOS.
+            """
             add_hotkey(f"Ctrl+{suffix}", callback)
             add_hotkey(f"Meta+{suffix}", callback)
 
@@ -178,10 +180,7 @@ class KeyBindings:
             ),
         )
         add_hotkey_both("D", lambda: on_division_clicked(self))
-        # tTt Dataformat Transformer
         add_hotkey_both("T", self.open_ttt_dataformat_transformer)
-
-        # Close program
         add_hotkey("Escape", self.close)
         add_hotkey_both(
             "A", _guard_if_typing(lambda: _select_all_tracks(self))
@@ -252,15 +251,10 @@ class KeyBindings:
             )
             _tool_hotkey(self._tool_toggle_state)
 
-        # Toggle Erase/Brush: Space
         add_hotkey("Space", _guard_if_typing(toggle_tool))
-        # Pan: 6
         add_hotkey("6", lambda: _tool_hotkey("pan"))
-        # Erase: 1
         add_hotkey("1", lambda: _tool_hotkey("erase"))
-        # Brush: 2
         add_hotkey("2", lambda: _tool_hotkey("brush"))
-
         add_hotkey_both(
             "P", _guard_if_typing(lambda: toggle_highlight_mode(self))
         )
@@ -276,7 +270,7 @@ class KeyBindings:
         )
 
         def _undo_cb():
-            """Jump to the last-edited time point, then undo via undo_labels_edit()."""
+            """Jump to the last edited time point, then undo via undo_labels_edit()."""
             layer = self._labels_target_for_history()
             if layer is None:
                 LOG.warning(
@@ -291,7 +285,7 @@ class KeyBindings:
             self.undo_labels_edit(layer)
 
         def _redo_cb():
-            """Jump to the last-edited time point, then redo via redo_labels_edit()."""
+            """Jump to the last edited time point, then redo via redo_labels_edit()."""
             layer = self._labels_target_for_history()
             if layer is None:
                 LOG.warning(
@@ -341,6 +335,8 @@ class KeyBindings:
             pass
         return None, None
 
+    # napari's own 0/3/4/5/7/8/9 canvas shortcuts, suppressed so the keys can
+    # be reused as SECQUOIA hotkeys.
     _BLOCKED_CANVAS_KEYS = (
         Qt.Key_0,
         Qt.Key_3,
@@ -352,7 +348,7 @@ class KeyBindings:
     )
 
     def _is_blocked_canvas_key(self, obj: QObject, event: QEvent) -> bool:
-        """True if *event* is a disabled napari number-key shortcut on a viewer canvas."""
+        """True if event is a disabled napari number key shortcut on a viewer canvas."""
         return (
             obj in getattr(self, "_canvas_native_to_viewer", {})
             and isinstance(event, QKeyEvent)
@@ -361,7 +357,7 @@ class KeyBindings:
         )
 
     def _is_brush_resize_wheel(self, obj: QObject, event: QEvent) -> bool:
-        """True if *event* is a Ctrl+wheel brush/eraser-resize gesture on a viewer canvas."""
+        """True if event is a Ctrl+wheel brush/eraser-resize gesture on a viewer canvas."""
         return (
             obj in getattr(self, "_canvas_native_to_viewer", {})
             and isinstance(event, QWheelEvent)
@@ -369,7 +365,7 @@ class KeyBindings:
         )
 
     def _install_arrow_event_filter(self) -> None:
-        """Install the global arrow-key event filter"""
+        """Install this window as an application-wide Qt event filter."""
         if getattr(self, "_arrow_filter_installed", False):
             return
         app = QApplication.instance()
@@ -379,7 +375,7 @@ class KeyBindings:
         self._arrow_filter_installed = True
 
     def eventFilter(self, obj: QObject, event: QEvent) -> bool:
-        """Application-wide event filter installed on every canvas/tree widget."""
+        """Application wide event filter installed on every canvas/tree widget."""
         if self._handle_tree_ctrl_click(obj, event):
             return True
 
@@ -518,12 +514,7 @@ def install_alt_plus_minus_brush_resize(
     max_size: int = 512,
     require_paint_or_erase: bool = True,
 ):
-    """Install Alt+'+' / Alt+'-' shortcuts to grow/shrink the active brush.
-
-    Registers several key sequence variants (=, +, Plus, Add / -, Minus,
-    Subtract) so the binding works across keyboards. Holding Shift multiplies
-    the step by ``accel``. Only fires when the active Labels layer is in paint
-    or erase mode (unless ``require_paint_or_erase`` is False)."""
+    """Install Alt+'+' / Alt+'-' shortcuts to grow/shrink the active brush."""
 
     def _focused_viewer():
         """Return the fluorescence viewer with canvas focus, else viewer_1."""
@@ -548,6 +539,7 @@ def install_alt_plus_minus_brush_resize(
         return (getattr(m, "name", m) or "").lower()
 
     def _set_status(v, text: str):
+        """Set the viewer's status line, ignoring viewers that don't have one."""
         with contextlib.suppress(RuntimeError, AttributeError, TypeError):
             v.status = text
 

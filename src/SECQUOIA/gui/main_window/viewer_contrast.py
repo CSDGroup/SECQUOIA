@@ -33,63 +33,6 @@ def _to_real(idx: int, rmin: float, rmax: float) -> float:
 class ViewerContrast:
     """Contrast (black/white point) and mask-opacity slider controls."""
 
-    def reset_all_contrast(self, reset_ui: bool = True) -> None:
-        """Set all channel-image layers' contrast to the full range."""
-        viewers = getattr(self, "viewer_fluorescence", []) or []
-        for vi, viewer in enumerate(viewers):
-            if viewer is None:
-                continue
-            for layer in getattr(viewer, "layers", []):
-                try:
-                    if not isinstance(layer, Image):
-                        continue
-                except (RuntimeError, AttributeError, TypeError):
-                    if not hasattr(layer, "contrast_limits"):
-                        continue
-
-                try:
-                    rmin, rmax = map(
-                        float,
-                        getattr(
-                            layer,
-                            "contrast_limits_range",
-                            layer.contrast_limits,
-                        ),
-                    )
-                except (RuntimeError, AttributeError, TypeError):
-                    rmin, rmax = 0.0, 1.0
-                if not (rmax > rmin):
-                    try:
-                        dmin = float(np.nanmin(layer.data))
-                        dmax = float(np.nanmax(layer.data))
-                        if dmax > dmin:
-                            rmin, rmax = dmin, dmax
-                        else:
-                            rmin, rmax = 0.0, 1.0
-                    except (RuntimeError, AttributeError, TypeError):
-                        rmin, rmax = 0.0, 1.0
-
-                try:
-                    layer.contrast_limits = (rmin, rmax)
-                except (RuntimeError, AttributeError, TypeError) as e:
-                    LOG.warning(
-                        "[reset contrast] failed on %s: %s",
-                        getattr(layer, "name", "?"),
-                        e,
-                    )
-
-            if (
-                reset_ui
-                and hasattr(self, "contrast_widgets")
-                and vi < len(self.contrast_widgets)
-            ):
-                with contextlib.suppress(
-                    RuntimeError, AttributeError, TypeError
-                ):
-                    self._sync_contrast_ui_from_layer(
-                        viewer, self.contrast_widgets[vi]
-                    )
-
     def _style_half_slider(
         self,
         s,
@@ -230,7 +173,7 @@ class ViewerContrast:
         s_right.blockSignals(False)
 
     def _apply_contrast_from_ui(self, contrast_container, who: str):
-        """Read side-by-side sliders and set layer.contrast_limits."""
+        """Push the two slider positions onto the active layer's contrast_limits."""
         if not getattr(contrast_container, "_armed", False):
             return
 
@@ -292,7 +235,7 @@ class ViewerContrast:
         except (RuntimeError, AttributeError, TypeError, ValueError) as e:
             LOG.warning("[contrast] could not set contrast_limits: %s", e)
 
-    def _get_active_channel_layer(self, viewer) -> Image:
+    def _get_active_channel_layer(self, viewer) -> Image | None:
         """Return the active channel image layer for *viewer*, or None."""
         if viewer is None:
             return None
@@ -323,9 +266,7 @@ class ViewerContrast:
         outer.setSpacing(4)
 
         lbl = QLabel("α:")
-        f = lbl.font()
-        lbl.setFont(f)
-        lbl.setToolTip("Opacity of the selected mask")
+        lbl.setToolTip(TOOLTIPSTEXT.OPACITY)
         lbl.setSizePolicy(QSizePolicy.Maximum, QSizePolicy.Fixed)
         outer.addWidget(lbl, 0)
 
@@ -381,7 +322,6 @@ class ViewerContrast:
             for i in range(1, m_n + 1):
                 _set_mask_opacity(i)
         else:
-            # Single selected mask
             _set_mask_opacity(int(m_val))
 
     def _sync_opacity_ui_from_mask(self, viewer, opacity_container):

@@ -1,6 +1,7 @@
-"""Clickt to identify and right-click measurement picking for MainWindow: resolving a
-click to a filtered_df row, forwarding to the fuse dialog, writing the morphology
-anchor, and recomputing mask measurements for the current track.
+"""Click to identify and right-click measurement picking for MainWindow.
+
+Resolves a click to a filtered_df row, forwards it to the fuse dialog, writes
+the morphology anchor, and recomputes mask measurements for the current track.
 """
 
 import contextlib
@@ -40,7 +41,7 @@ LOG = logging.getLogger(__name__)
 
 
 class MeasurementPicking:
-    """Resolving viewer clicks to filtered_df rows and recomputing measurements."""
+    """Resolve viewer clicks to filtered_df rows and recompute measurements."""
 
     def _report_pick_identification(self, viewer, pick: dict) -> None:
         """Look up `pick` in filtered_df and report it on the viewer."""

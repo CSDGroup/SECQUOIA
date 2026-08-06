@@ -1,4 +1,4 @@
-"""Channel/mask dropdowns and assembly of each viewer's header-row toolbar."""
+"""Channel/mask dropdowns and assembly of each viewer's header toolbar."""
 
 import contextlib
 import functools
@@ -21,7 +21,7 @@ LOG = logging.getLogger(__name__)
 
 
 class ViewerToolbar:
-    """Channel/mask combo boxes and per-viewer header-row assembly."""
+    """Channel/mask combo boxes and per viewer header row assembly."""
 
     @staticmethod
     def _select_by_data(combo: QComboBox, target_val: int) -> bool:
@@ -95,7 +95,10 @@ class ViewerToolbar:
 
     @staticmethod
     def _find_header_row(outer_vbox) -> QWidget | None:
-        """Locate the header_row widget inside a viewer wrapper's layout, falling back to the first item."""
+        """Return the widget named "header_row" in a viewer wrapper's layout.
+
+        Falls back to the layout's first item if no widget carries that name.
+        """
         for i in range(outer_vbox.count()):
             w = outer_vbox.itemAt(i).widget()
             if isinstance(w, QWidget) and w.objectName() == "header_row":
@@ -344,7 +347,7 @@ class ViewerToolbar:
         )
 
     def update_channel_mask_dropdowns(self) -> None:
-        """Build CH and M dropdowns + per viewer contrast sliders."""
+        """Rebuild the CH/M dropdowns, contrast, opacity, tools and eye button for every viewer row."""
 
         ch_n = max(0, int(getattr(self, "n_channels", 0)))
         m_n = max(0, int(getattr(self, "n_masks", 0)))
@@ -361,10 +364,4 @@ class ViewerToolbar:
 
             with contextlib.suppress(RuntimeError, AttributeError, TypeError):
                 self._apply_minimize_layout_effects()
-
-        # Every path that adds or removes a channel or a mask ends up here --
-        # mask arithmetic, the channel/mask manager, project loading -- so this
-        # is the one place the inspector needs to hear about it. Outside the
-        # viewer-wrapper check because the inspector has its own dropdowns and
-        # does not depend on the viewer rows existing.
         notify_cell_inspector(self, "refresh_sources")

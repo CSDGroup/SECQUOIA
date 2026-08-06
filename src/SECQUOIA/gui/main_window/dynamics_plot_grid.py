@@ -29,7 +29,7 @@ LOG = logging.getLogger(__name__)
 
 
 class DynamicsPlotGrid:
-    """Build, rebuild, and resize the Dynamics plot grid and its row count."""
+    """Build, rebuild, and resize the dynamics plot grid and its row count."""
 
     def init_empty_plot(self) -> None:
         """Initialize an empty black plot (no axes, no ticks, no labels), and make
@@ -45,7 +45,6 @@ class DynamicsPlotGrid:
         canvas = FigureCanvas(fig)
         canvas.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
         self.graph3_layout.addWidget(canvas)
-        self.canvas = canvas
 
     def _clear_all_plots_ui(self):
         """Remove all plot, lineage, marker, and row-tool widgets."""
@@ -99,7 +98,7 @@ class DynamicsPlotGrid:
         self._sync_dynamics_plot_actions(busy=self._dynamics_plot_busy())
 
     def _init_plot_grid(self, ch_count: int, m_count: int) -> int:
-        """Reset plot-grid state and return the clamped number of plot rows to build."""
+        """Reset plot grid state and return the clamped number of plot rows to build."""
         self.plot_grid_container = QWidget()
         grid_layout = QGridLayout(self.plot_grid_container)
         grid_layout.setContentsMargins(0, 0, 0, 0)
@@ -137,7 +136,7 @@ class DynamicsPlotGrid:
 
         # Highlight mode state
         if not hasattr(self, "_hl_active"):
-            self._hl_active = False  # highlight mode toggle
+            self._hl_active = False
 
         self._hl_palette = {
             "Green": QColor(76, 175, 80),
@@ -259,7 +258,7 @@ class DynamicsPlotGrid:
         self._request_dynamics_plot_rebuild()
 
     def _sync_dynamics_plot_actions(self, busy: bool = False) -> None:
-        """Enable/disable dynamics plot menu actions safely."""
+        """Enable/disable dynamics plot menu actions."""
         count = self._current_dynamics_plot_row_count()
         ready = self._dynamics_plots_ready()
 
@@ -273,8 +272,7 @@ class DynamicsPlotGrid:
             remove_action.setEnabled(ready and (not busy) and count > 1)
 
     def _request_dynamics_plot_rebuild(self) -> None:
-        """Schedule a debounced dynamics plot rebuild on the next event-loop tick."""
-
+        """Schedule a plot rebuild on the next event-loop tick, if none is pending."""
         if self._dynamics_plot_busy():
             return
 
@@ -284,7 +282,7 @@ class DynamicsPlotGrid:
         QTimer.singleShot(0, self._run_dynamics_plot_rebuild)
 
     def _run_dynamics_plot_rebuild(self) -> None:
-        """Actually rebuild the Dynamics plot once it is safe to do so."""
+        """Rebuild the plot grid with updates disabled, then hand off to the finish step."""
         self._dynamics_plot_rebuild_running = True
         self._dynamics_plot_rebuild_pending = False
 
@@ -334,7 +332,7 @@ class DynamicsPlotGrid:
 
     def _defaults_for_row(
         self, row_idx: int, ch_count: int, m_count: int
-    ) -> tuple[int | None, int | None]:
+    ) -> tuple[str | None, int | None]:
         """Return the default (channel, mask) selection for a new plot row.
 
         The channel defaults to the first configured channel; the mask
@@ -352,7 +350,7 @@ class DynamicsPlotGrid:
         return (ch, m if m_count > 0 else None)
 
     def fit_plot_row(self, plot_row: int) -> None:
-        """Auto-zoom the given plot row after the next event-loop tick."""
+        """Autozoom the given plot row after the next event-loop tick."""
         pw = getattr(self, f"plot_widget_{plot_row}", None)
         if not pw:
             return
@@ -367,8 +365,6 @@ class DynamicsPlotGrid:
             new identification would still show the previous one's scale.
             """
             if str(getattr(self, "ident", "")) != scheduled_for:
-                # Held down arrow key: the row now shows another Tree-ID, and
-                # that one queued a fit of its own.
                 return
 
             axis_fs = getattr(self, "_plot_params", {}).get(

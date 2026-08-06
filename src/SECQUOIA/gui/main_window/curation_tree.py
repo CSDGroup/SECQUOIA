@@ -1,9 +1,4 @@
-"""MainWindow's interaction with the curation tree: item lookup, status cycling, context menu.
-
-The tree-building free functions this class calls into (apply_curation_status,
-apply_active_state, update_list, ...) live in SECQUOIA.gui.curation_tree, since
-core/outlier_detection/, core/tracking/, and others need them independent of MainWindow.
-"""
+"""MainWindow's interaction with the curation tree: item lookup, status cycling, context menu."""
 
 import qtawesome as qta
 from qtpy.QtCore import QPoint
@@ -100,7 +95,7 @@ class CurationTree:
             ] = inspected_val
 
     def _aggregate_parent_inspected_from_df(self, ident) -> tuple[int, object]:
-        """Compute parent inspected value and status from all rows of a Tree-ID."""
+        """Compute parent inspected value and status from all rows of a Tree ID."""
         df_all = getattr(self, "filtered_df", None)
         if df_all is None or {"Identification", "inspected"} - set(
             df_all.columns
@@ -119,7 +114,7 @@ class CurationTree:
         return 2, CURATIONSTATUS.CURATION_CHECKED
 
     def _sync_children_visuals_from_df(self, parent_item) -> None:
-        """Update each child’s icon/tooltips from DataFrame values."""
+        """Update each child's icon/tooltips from DataFrame values."""
         ident = self._resolve_ident_from_item(parent_item)
         if not ident:
             return
@@ -155,7 +150,7 @@ class CurationTree:
                 apply_curation_status(ch, CURATIONSTATUS.CURATION_NOT_CHECKED)
 
     def _apply_parent_status_from_children(self, parent_item) -> None:
-        """Refresh parent icon/status based on its children’s rows in dataframe."""
+        """Refresh a parent item's status from that Identification's rows in filtered_df."""
         ident = self._resolve_ident_from_item(parent_item)
         if not ident:
             return

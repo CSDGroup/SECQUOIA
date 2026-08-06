@@ -1,4 +1,4 @@
-"""The Dynamics plot lineage sub-panel: top bar, highlight picker, and collapse/expand."""
+"""The dynamics plot lineage subpanel: top bar, highlight picker, and collapse/expand."""
 
 import contextlib
 
@@ -26,11 +26,10 @@ from SECQUOIA.gui.lineage_tree.lineage_selection import (
 )
 from SECQUOIA.gui.lineage_tree.lineage_tree import lineage_tree
 from SECQUOIA.utils.helpers import clear_highlight_paints
-from SECQUOIA.utils.plotting import update_plot
 
 
 class DynamicsPlotLineagePanel:
-    """Build and control the lineage sub-panel next to the Dynamics plot grid."""
+    """Build and control the lineage subpanel next to the dynamics plot grid."""
 
     def _build_lineage_graph_placeholder(self) -> None:
         """Create the lineage plot's container widget and its placeholder view."""
@@ -117,13 +116,11 @@ class DynamicsPlotLineagePanel:
 
             return act
 
-        # Build colored entries
         for name, qcol in self._hl_palette.items():
             menu.addAction(_mk_color_action(menu, name, qcol))
 
         menu.addSeparator()
 
-        # Clear painted highlights
         act_clear = menu.addAction("Clear painted highlights")
         act_clear.triggered.connect(
             lambda: (clear_highlight_paints(self), menu.close())
@@ -273,7 +270,8 @@ class DynamicsPlotLineagePanel:
 
     def _toggle_lineage_visibility(self, visible: bool | None = None) -> None:
         """Collapse/expand lineage pane without removing it.
-        Collapsed = only the top bar stays as a thin strip at the bottom."""
+        Collapsed = only the top bar stays as a thin strip at the bottom.
+        """
         if not hasattr(self, "plots_and_lineage_splitter"):
             return
 
@@ -360,14 +358,6 @@ class DynamicsPlotLineagePanel:
             sp.setSizes([1, collapsed_h])
         except (RuntimeError, AttributeError, TypeError, ValueError):
             pass
-
-    def _redraw_lineage_and_plots(self) -> None:
-        """Redraw lineage tree + plots together so their x-axes align."""
-        with contextlib.suppress(
-            RuntimeError, AttributeError, TypeError, ValueError
-        ):
-            lineage_tree(self)
-            update_plot(self)
 
     def _autorange_lineage(self) -> None:
         """Mimic clicking pyqtgraph's default 'A' (auto-range) button on the lineage plot."""

@@ -48,15 +48,17 @@ def install_time_menu(plot_item: pg.PlotItem, main_window) -> None:
 
     sub = QMenu("Change Time Plotting", vb_menu)
 
-    act_t = QAction("Time point", sub, checkable=True)
-    act_c = QAction("Time", sub, checkable=True)
-    act_r = QAction("RealTime", sub, checkable=True)
+    # These labels are matched by text in _sync_time_menu_checks — keep in sync.
+    act_t = QAction("Time point", sub, checkable=True)  # TIME_MODE_T
+    act_c = QAction("Time", sub, checkable=True)  # TIME_MODE_CALC
+    act_r = QAction("RealTime", sub, checkable=True)  # TIME_MODE_REAL
 
     for act in (act_t, act_c, act_r):
         act.setActionGroup(group)
         sub.addAction(act)
 
     def _set_mode(mode):
+        """Switch the active time mode and redraw the plots and lineage tree."""
         main_window._time_mode = mode
         update_plot(main_window)
         from SECQUOIA.gui.lineage_tree.lineage_tree import lineage_tree

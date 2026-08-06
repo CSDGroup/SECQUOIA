@@ -27,7 +27,7 @@ class TracksLayer:
     """Tracking toolbar and the napari Tracks/TrackLabels layer sync."""
 
     def _toggle_tracking(self, checked: bool | None = None) -> None:
-        """Show or hide the tracking bar, building it lazily on first use and syncing the menu action's checked state."""
+        """Show or hide the tracking bar, building it on first use."""
         if not hasattr(self, "tracking_bar_container"):
             self.tracking_bar_container = self._build_tracking_bar()
             try:
@@ -236,7 +236,7 @@ class TracksLayer:
         }
 
     def _restore_line_render_state(self, layer, cfg):
-        """Restore a tracks layer's tail/line render settings from a backup."""
+        """Restore a tracks layer's tail/head render settings, or fall back to cfg."""
         meta = getattr(layer, "metadata", {})
         backup = meta.get("__lines_backup__")
         if backup:
@@ -514,7 +514,7 @@ class TracksLayer:
         return viewer.layers["TrackLabels"]
 
     def _update_track_label_layer(self, viewer, df):
-        """Update the custom text labels shown in napari."""
+        """Refresh the TrackLabels points/text from df, clearing it when df is empty."""
         label_layer = self._ensure_track_label_layer(viewer)
 
         if df is None or len(df) == 0:

@@ -1,5 +1,5 @@
-"""Mouse-triggered interaction for MainWindow: napari canvas drag callbacks
-(paint/erase/pick) and dynamics-plot clicks.
+"""Mouse triggered interaction for MainWindow: napari canvas drag callbacks
+(paint/erase/pick) and dynamics plot clicks.
 """
 
 import contextlib
@@ -38,7 +38,7 @@ class MouseBindings:
     def _restrict_labels_draw_to_left_click(
         self, labels_layer: Labels | None = None
     ) -> None:
-        """Block right/middle-click drawing on labels layers; left-click still uses whatever mode (paint/fill/erase) is currently active."""
+        """Make labels drawing respond to left-click only."""
 
         def _draw_left_only(layer, event):
             """Block right and middle mouse drawing in labels layers."""
@@ -65,7 +65,7 @@ class MouseBindings:
             _lb.draw = _draw_left_only
 
     def ctrl_right_click_viewer(self, viewer, event):
-        """Napari drag-callback: on Ctrl+Right-click, report the picked cell.
+        """On Ctrl+Right-click, report the picked cell.
 
         Picks the segmentation label under the cursor, resolves it to a
         row of ``self.filtered_df`` at the current time point, and shows
@@ -94,8 +94,9 @@ class MouseBindings:
     def _is_right_click_suppressed(self, event) -> bool:
         """True if this event must not be handled as a segmentation pick.
 
-        Ctrl+right-click is reserved for napari's own bindings, and the
-        callback fires for the whole drag, so only the initial press counts.
+        Ctrl+right-click is handled separately by ``ctrl_right_click_viewer``,
+        and the callback fires for the whole drag, so only the initial press
+        counts.
         """
         if QApplication.keyboardModifiers() & Qt.ControlModifier:
             return True
@@ -170,6 +171,7 @@ def add_mouse_drag_to_segmentation_layer(
     """Attach paint, erase, and optional right-click callbacks to segmentation layers."""
 
     def _is_seg_label(name: str) -> bool:
+        """True for a segmentation layer name: base, base_<key>, or base<n>."""
         if name == base_name:
             return True
         if name.startswith(base_name + "_"):
@@ -193,6 +195,7 @@ def add_mouse_drag_to_segmentation_layer(
                 yield v
 
     def _unique(seq):
+        """Yield items in order, skipping ones already seen by identity."""
         seen = set()
         for x in seq:
             xid = id(x)
@@ -235,7 +238,7 @@ def add_mouse_drag_to_segmentation_layer(
         )
         return
 
-    # Attach layer-level paint/erase
+    # Attach layer level paint/erase
     for v in viewers:
         for layer in list(v.layers):
             if isinstance(layer, napari.layers.Labels) and _is_seg_label(
@@ -331,7 +334,6 @@ def _resolve_feature_selection(main_window, row):
         if ch_idx is None and ch_combo is not None:
             ch_idx = ch_combo.currentData()
 
-        # normalize to a zero-padded string, same as update_plot()
         try:
             ch_idx = f"{int(ch_idx):02d}"
         except (ValueError, TypeError):

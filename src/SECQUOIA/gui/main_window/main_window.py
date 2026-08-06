@@ -1,4 +1,4 @@
-"""MainWindow class (menus, layouts)"""
+"""MainWindow: the top-level widget, its instance state, menus, and layout."""
 
 import logging
 import webbrowser
@@ -16,7 +16,6 @@ from qtpy.QtWidgets import (
     QAction,
     QButtonGroup,
     QCheckBox,
-    QFormLayout,
     QHBoxLayout,
     QHeaderView,
     QLabel,
@@ -116,9 +115,8 @@ class MainWindow(
 ):
     """Main application window for SECQUOIA."""
 
-    _SUMMARY_COLORS = (
-        ColorStyle.as_dict()
-    )  # Colors used for summary displays in the UI
+    # Colour lookup for the row summary labels (feature / mask / channel / operator).
+    _SUMMARY_COLORS = ColorStyle.as_dict()
 
     def __init__(self) -> None:
         """Initialize the main window, state, menus, viewers, and layouts."""
@@ -127,7 +125,7 @@ class MainWindow(
         self._build_ui()
 
     def _init_state(self) -> None:
-        """Initialize instance state: dataframes, selection/position state, viewer refs, and UI attribute placeholders."""
+        """Declare every instance attribute with its default value."""
         if not hasattr(self, "n_channels"):
             self.track_df = (
                 None  # pd.dataframe of all information of each position
@@ -153,7 +151,9 @@ class MainWindow(
             self.current_TrackNumber_plot = (
                 None  # current TrackNumber in the plot
             )
-            self.current_position_index = 0  # 0-based, index into main_window.position_folders (zero-based).
+            self.current_position_index = (
+                0  # index into self.position_folders (0-based)
+            )
             self.current_outlier_index = (
                 0  # index in the list of unique outlier IDs
             )
@@ -230,7 +230,7 @@ class MainWindow(
                 False,
             ]  # Minimized state per viewer
             self._global_hotkeys_installed = (
-                False  #  Global hotkeys are installed
+                False  # True once install_global_hotkeys() has run
             )
 
             self._edit_cache = {}  # Cache for labels layer edits
@@ -422,7 +422,6 @@ class MainWindow(
                 None  # QLabel for displaying save/load status messages
             )
             self.seg_layers_by_viewer = None  # Dictionary mapping viewer indices (0,1) to their segmentation layers mapping {mask_idx: layer_name}. Used to track which layer name corresponds to which mask index in each viewer.
-            self.canvas = None  # Graph plot interface
             self._lineage_y_map = (
                 {}
             )  # Dictionary mapping track numbers to Y-axis positions in the lineage tree
@@ -444,9 +443,6 @@ class MainWindow(
         self.layout2 = QVBoxLayout()
 
         # Define Font Size
-        font = QFont()
-        font.setPointSize(STYLE.FONT_SIZE)
-        font.setBold(True)
         font2 = QFont(STYLE.FONT_FAMILY, STYLE.FONT_SIZE)
 
         # Add plots
@@ -458,7 +454,7 @@ class MainWindow(
         plot_widget_1.setBackground("black")
         plot_widget_1.setMouseEnabled(x=False, y=False)
 
-        # Cell history layout, Initialize an empty plot
+        # Lineage panel: container plus the black placeholder plot
         self.graph3_layout = QVBoxLayout()
         self.graph3_layout.setContentsMargins(0, 0, 0, 0)
         self.graph3_layout.setSpacing(0)
@@ -470,8 +466,6 @@ class MainWindow(
         self.init_empty_plot()
 
         # Define Cell fate
-        description_label8 = QLabel("Define cell fate")
-        description_label8.setFont(font)
         self.btn_healthy = QPushButton("Healthy")
         self.btn_healthy.setToolTip(TOOLTIPSTEXT.HEALTHY)
         self.btn_healthy.setFont(font2)
@@ -550,7 +544,7 @@ class MainWindow(
                 }}
             """)
 
-        # Connect the click event to a function
+        # Tree-ID panel
         self.tree_widget = QTreeWidget()
         self.tree_widget.setHeaderLabel("Tree-ID")
         self.tree_widget.setVerticalScrollBarPolicy(Qt.ScrollBarAlwaysOn)
@@ -603,7 +597,6 @@ class MainWindow(
         self.create_napari_viewers()
 
         # Set up the layout
-        form_layout = QFormLayout()
         self.setStyleSheet(
             f"QLabel {{ font-size: {STYLE.FONT_SIZE}pt; }} QLineEdit {{ font-size: {STYLE.FONT_SIZE}pt; }}"
         )
@@ -687,9 +680,10 @@ class MainWindow(
 
         layout.addLayout(graph_layout)
 
-        ##Create the main layout
+        # Create the main layout
         self.main_layout = QVBoxLayout()
 
+        # Menu bar
         ##File menu
         menu_bar = QMenuBar(self)
         menu_bar.setNativeMenuBar(False)
@@ -729,7 +723,7 @@ class MainWindow(
             background: #666;
         }
         """)
-        # Add splitter to your main layout
+        # Add splitter to the main layout
         self.main_layout.addWidget(self.splitter, 1)
         self.fate_bar = hbox
         self.fate_bar_container = QWidget()
@@ -880,7 +874,7 @@ class MainWindow(
         view_menu.addAction(plot_params_action)
 
         # Lineage / Heat Tree Appearance
-        plot_params_action = QAction("Lineage parameters(Ctrl+Shift+L)", self)
+        plot_params_action = QAction("Lineage parameters (Ctrl+Shift+L)", self)
         plot_params_action.triggered.connect(
             lambda: open_lineage_style_dialog(self)
         )
@@ -895,7 +889,7 @@ class MainWindow(
 
         # Channel / Mask manager
         channel_mask_manager_action = QAction(
-            "Channel/Segmentation manager(Ctrl+Shift+C)", self
+            "Channel/Segmentation manager (Ctrl+Shift+C)", self
         )
         channel_mask_manager_action.triggered.connect(
             partial(open_channel_mask_manager, self)
@@ -962,7 +956,6 @@ class MainWindow(
             graph_layout,
             left_layout,
             self.right_layout,
-            form_layout,
         ):
             L.setContentsMargins(0, 0, 0, 0)
             L.setSpacing(0)

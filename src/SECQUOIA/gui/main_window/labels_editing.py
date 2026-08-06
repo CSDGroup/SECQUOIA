@@ -1,5 +1,8 @@
-"""Labels layer edit history for MainWindow: picking the undo/redo target, and the
-paint/erase/undo/redo edit engine.
+"""Labels layer edit history for MainWindow.
+
+Picks the undo/redo target layer, snapshots each edit, writes the edited slice
+back into ``self.labels``, and runs the shared post-edit refresh. The paint and
+erase mouse callbacks that feed this engine live in ``mouse_bindings``.
 """
 
 import contextlib
@@ -20,7 +23,7 @@ LOG = logging.getLogger(__name__)
 
 
 class LabelsEditing:
-    """Undo/redo target resolution and the paint/erase/undo/redo edit engine."""
+    """Undo/redo target resolution and the shared labels-edit write-back engine."""
 
     def _labels_target_for_history(self):
         """Pick a Labels layer to apply undo/redo."""
@@ -67,7 +70,7 @@ class LabelsEditing:
         return None
 
     def _fallback_segmentation_layer(self, viewer):
-        """Return the most recent Labels layer with a segmentation-like name."""
+        """Return the most recent Labels layer with a segmentation like name."""
         if viewer is None:
             return None
         for lyr in reversed(viewer.layers):
@@ -98,10 +101,9 @@ class LabelsEditing:
         except (RuntimeError, AttributeError, TypeError, ValueError):
             pass
 
-    def _binding_from_layer_name(self, layer_name: str) -> dict:
+    def _binding_from_layer_name(self, layer_name: str) -> dict | None:
         """Map a segmentation layer name to its label source."""
-        BASE_SEG_NAME = "Segmentation"
-        base = getattr(self, "BASE_SEG_NAME", BASE_SEG_NAME)
+        base = "Segmentation"
 
         if layer_name == base:
             return {"kind": "ndarray", "key": None, "tag": base}
@@ -262,7 +264,7 @@ class LabelsEditing:
         """Boolean mask of pixels changed between `pre` and `post`.
 
         No prior slice, or a shape mismatch, is treated as "no change"
-        (an all-False mask) since a pixel-wise comparison isn't possible.
+        (an all False mask) since a pixel-wise comparison isn't possible.
         """
         if pre is not None and pre.shape == post.shape:
             return pre != post
@@ -271,7 +273,7 @@ class LabelsEditing:
     def _build_edit_info(
         self, layer, t: int, mode: str, pre, post, diff
     ) -> dict:
-        """Assemble the edit-info dict: changed-pixel count, bbox, label deltas."""
+        """Assemble the edit info dict: changed pixel count, bbox, label deltas."""
         info = {
             "layer_name": layer.name,
             "t": t,
@@ -334,7 +336,7 @@ class LabelsEditing:
     def _refresh_lineage_after_edit(self) -> None:
         """Repaint the lineage tree after a mask edit.
 
-        Measurement-only changes (paint/erase/undo/redo/right-click) never
+        Measurement only changes (paint/erase/undo/redo/right-click) never
         change which Identification is shown, so the existing plot widget is
         redrawn in place. The user's current zoom on the lineage tree and on
         each row plot is captured up front and reapplied afterward, since
@@ -372,7 +374,12 @@ class LabelsEditing:
                     )
 
     def _finish_labels_edit(self, layer, mode: str) -> None:
-        """Common tail shared by paint/erase/undo/redo: log, recompute edit info, write back the slice, remeasure, and refresh the lineage tree."""
+        """Shared tail for paint, erase, undo and redo.
+
+        Computes the edit diff, writes the edited slice back into self.labels,
+        remeasures the current track, then refreshes the lineage tree and any
+        copy of the layer held by the other viewer.
+        """
         LOG.debug(
             "[%s] '%s' updated at T=%s",
             mode,
@@ -400,7 +407,11 @@ class LabelsEditing:
         self._edit_cache = cache
 
     def undo_labels_edit(self, layer):
-        """Undo the last Labels edit using napari's history, then update the state + measurements just like paint()/erase()."""
+        """Undo the last Labels edit via napari's own layer history.
+
+        Runs the same post-edit tail as a paint or erase drag, so measurements
+        and the lineage tree stay in sync with the reverted mask.
+        """
         if layer is None or not hasattr(layer, "undo"):
             LOG.warning("[undo] layer has no undo()")
             return
@@ -416,7 +427,11 @@ class LabelsEditing:
         self._finish_labels_edit(layer, "undo")
 
     def redo_labels_edit(self, layer):
-        """Redo the last undone Labels edit using napari's history, then update the state + measurements just like paint()/erase()."""
+        """Redo the last undone Labels edit via napari's own layer history.
+
+        Runs the same post-edit tail as a paint or erase drag, so measurements
+        and the lineage tree stay in sync with the restored mask.
+        """
         if layer is None or not hasattr(layer, "redo"):
             LOG.warning("[redo] layer has no redo()")
             return

@@ -1,4 +1,4 @@
-"""Building and wiring the widgets inside a single Dynamics plot row."""
+"""Building and wiring the widgets inside a single dynamics plot row."""
 
 from functools import partial
 
@@ -102,7 +102,7 @@ class DynamicsPlotRowWidgets:
         return ch_label, ch_combo
 
     def _build_row_metric_buttons(self) -> tuple[QPushButton, QPushButton]:
-        """Build the metrics and arithmetic buttons for a plot row, sized to their text."""
+        """Build the metrics and arithmetic buttons for a plot row, sized to their icons."""
         btn_r = QPushButton()
         btn_r.setToolTip(TOOLTIPSTEXT.BTN_R)
         btn_r.setCursor(Qt.PointingHandCursor)
@@ -139,7 +139,7 @@ class DynamicsPlotRowWidgets:
         return eye_btn
 
     def _build_row_summary_labels(self) -> tuple[QLabel, QLabel]:
-        """Build the selection-summary and labels shown in a plot row's top bar."""
+        """Build the selection summary and ID/time labels for a plot row's top bar."""
         summary_lbl = QLabel("")
         summary_lbl.setTextFormat(Qt.RichText)
         summary_lbl.setStyleSheet(ColorStyle.font_css())
@@ -204,7 +204,7 @@ class DynamicsPlotRowWidgets:
             )
         )
 
-        def _mark_r_black_and_update(plot_row: int) -> None:
+        def _redraw_row_after_change(plot_row: int) -> None:
             """Redraw plots and refresh a row's summary/IGT labels after a combo change."""
             update_plot(self)
             self.fit_plot_row(plot_row)
@@ -212,13 +212,13 @@ class DynamicsPlotRowWidgets:
             self._update_row_igt_label(plot_row)
 
         feat_combo.currentIndexChanged.connect(
-            lambda _ix, r=row: _mark_r_black_and_update(r)
+            lambda _ix, r=row: _redraw_row_after_change(r)
         )
         m_combo.currentIndexChanged.connect(
-            lambda _ix, r=row: _mark_r_black_and_update(r)
+            lambda _ix, r=row: _redraw_row_after_change(r)
         )
         ch_combo.currentIndexChanged.connect(
-            lambda _ix, r=row: _mark_r_black_and_update(r)
+            lambda _ix, r=row: _redraw_row_after_change(r)
         )
 
         plot_widget.scene().sigMouseClicked.connect(

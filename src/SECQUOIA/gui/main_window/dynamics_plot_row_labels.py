@@ -1,4 +1,4 @@
-"""Row summary/ID-time label text for Dynamics plot rows, and derived-metric deletion."""
+"""Row summary/ID-time label text for dynamics plot rows, and derived metric deletion."""
 
 import re
 
@@ -97,7 +97,7 @@ class DynamicsPlotRowLabels:
         *,
         font_size: int | None = None,
     ) -> str:
-        """Return an HTML span using the configured summary-label font styling."""
+        """Return an HTML span using the configured summary label font styling."""
         weight_css = (
             f"font-weight:{weight};"
             if weight is not None
@@ -425,7 +425,7 @@ class DynamicsPlotRowLabels:
         return True
 
     def delete_all_derived_metrics(self) -> list[str]:
-        """Delete every calculated metric, returning the names that were removed."""
+        """Delete every derived metric, returning the names that were removed."""
         registry = getattr(self, "_derived_features", None) or {}
         deleted = [
             key for key in list(registry) if self._purge_derived_metric(key)

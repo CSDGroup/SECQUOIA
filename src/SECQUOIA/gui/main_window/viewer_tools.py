@@ -28,7 +28,7 @@ LOG = logging.getLogger(__name__)
 class ViewerTools:
     """Brush/erase/pan drawing tools and new mask-ID creation."""
 
-    def _labels_layer_for_viewer(self, viewer) -> Labels:
+    def _labels_layer_for_viewer(self, viewer) -> Labels | None:
         """Return the active (or last) Labels layer in *viewer*, or None."""
         if viewer is None:
             return None
@@ -47,7 +47,7 @@ class ViewerTools:
         return None
 
     def _focus_canvas(self, viewer):
-        """Force *viewer* into 2D display and give its canvas keyboard focus."""
+        """Force the viewer into 2D display and give its canvas keyboard focus."""
         try:
             qt_viewer = viewer.window._qt_viewer
             with contextlib.suppress(RuntimeError, AttributeError, TypeError):
@@ -258,7 +258,7 @@ class ViewerTools:
         """Create a new label ID in the current segmentation layer for the given viewer."""
         show_all_masks(self)
 
-        # Determine "current" segmentation layer for this viewer
+        # Determine current segmentation layer for this viewer
         m_sel = int(self._mask_selection_for_viewer(viewer) or 0)
         sel = getattr(getattr(viewer, "layers", None), "selection", None)
         layer = getattr(sel, "active", None) if sel is not None else None
@@ -306,8 +306,11 @@ class ViewerTools:
         return 0
 
     def _enforce_tool_state_for_mask(self, viewer, tool_strip):
-        """Enable/disable Brush/Erase depending on the mask selection.
-        If ALL -> disable Brush/Erase and force Pan mode."""
+        """Enable or disable Brush/Erase according to the mask selection.
+
+        With "ALL" selected (mask id 0) there is no single target layer to draw
+        into, so both are disabled and Pan is forced on.
+        """
         if viewer is None or tool_strip is None:
             return
         is_all = self._mask_selection_for_viewer(viewer) == 0

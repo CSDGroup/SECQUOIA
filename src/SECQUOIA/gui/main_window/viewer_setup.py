@@ -13,7 +13,6 @@ from qtpy.QtWidgets import (
     QGridLayout,
     QHBoxLayout,
     QSizePolicy,
-    QToolBar,
     QVBoxLayout,
     QWidget,
 )
@@ -34,7 +33,7 @@ class ViewerSetup:
     """Napari viewer creation, layout, camera linking, and minimize/restore."""
 
     def create_napari_viewers(self) -> None:
-        """Create two Napari viewers and reuse them if they already exist."""
+        """Ensure viewer_1 and viewer_2 exist, creating only the ones that don't."""
         self.viewer_fluorescence = []
         self.viewer_fluorescence_windows = []
 
@@ -116,7 +115,7 @@ class ViewerSetup:
             ]
 
     def add_viewers_to_layout2(self) -> None:
-        """Rebuild the Napari area inside self.layout2 with splitter."""
+        """Rebuild the napari area inside self.layout2 as a one-column grid."""
         if not hasattr(self, "_napari_container"):
             self._napari_container = QWidget()
             self._napari_grid = QGridLayout(self._napari_container)
@@ -213,7 +212,11 @@ class ViewerSetup:
             self._move_fate_buttons_to_bottom_bar()
 
     def add_empty_segmentation_image_layer(self, viewer) -> Image:
-        """Add an empty Labels layer and an empty channel Image layer to *viewer*, and return the image layer."""
+        """Seed a viewer with an empty Segmentation1 and Channel w00 layer.
+
+        Returns the image layer. Called for each newly created viewer, before
+        any experiment has been loaded.
+        """
         empty_labels = np.zeros((512, 512), dtype=int)
 
         viewer.add_labels(
@@ -226,7 +229,7 @@ class ViewerSetup:
         return image_layer
 
     def _hide_napari_left_panel(self, obj) -> None:
-        """Hide napari's left sidebar (Layers + Controls)."""
+        """Hide napari's left sidebar (Layers list + layer Controls)."""
         viewer = None
         qt_main = None
 
@@ -236,7 +239,7 @@ class ViewerSetup:
 
         elif hasattr(obj, "_qt_window"):
             qt_main = obj._qt_window
-        elif hasattr(obj, "findChildren"):  # already a QWidget
+        elif hasattr(obj, "findChildren"):
             qt_main = obj
 
         if viewer is not None:
@@ -259,36 +262,6 @@ class ViewerSetup:
                         dock.hide()
             except (RuntimeError, AttributeError, TypeError):
                 pass
-
-    def _hide_napari_chrome(
-        self, viewer, *, menu=True, toolbars=True, status=True
-    ):
-        """Hide top UI chrome of a napari viewer (menu bar, toolbars, status)."""
-        if viewer is None:
-            return
-        try:
-            qt_main = viewer.window._qt_window
-        except (RuntimeError, AttributeError, TypeError):
-            return
-
-        try:
-            if menu and qt_main.menuBar():
-                qt_main.menuBar().setVisible(False)
-        except (RuntimeError, AttributeError, TypeError):
-            pass
-
-        try:
-            if toolbars:
-                for tb in qt_main.findChildren(QToolBar):
-                    tb.setVisible(False)
-        except (RuntimeError, AttributeError, TypeError):
-            pass
-
-        try:
-            if status and qt_main.statusBar():
-                qt_main.statusBar().setVisible(False)
-        except (RuntimeError, AttributeError, TypeError):
-            pass
 
     def unlink_viewers_2d(self) -> None:
         """Disconnect previous camera links."""

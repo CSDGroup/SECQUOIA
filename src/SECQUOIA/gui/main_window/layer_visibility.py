@@ -27,7 +27,7 @@ LOG = logging.getLogger(__name__)
 
 
 class LayerVisibility:
-    """Channel/segmentation layer show/hide, zoom-to-track, and viewer population."""
+    """Channel/segmentation layer show/hide, zoom to track, and viewer population."""
 
     def _get_seg_layer(self, viewer, m_idx: int):
         """Find the segmentation layer for mask id m_idx in this viewer."""
@@ -316,7 +316,7 @@ class LayerVisibility:
 
     def update_napari_viewer(self) -> None:
         """Update the napari viewer with current image stacks + segmentation,
-        and LIVE-sync time sliders across viewer_1 and viewer_2."""
+        and live-sync time sliders across viewer_1 and viewer_2."""
         self.current_time_index = 0
         self.update_fluorescence_viewers()
 
@@ -349,7 +349,10 @@ class LayerVisibility:
             return arr
 
         def _add_labels_flex(viewer, source, base_name, opacity) -> list:
-            """Add labels layer(s) from flexible source (ndarray | list/tuple | dict).Returns a list of (layer, desired_name)."""
+            """Add labels layer(s) from an ndarray, list/tuple or dict source.
+
+            Returns a list of (layer, desired_name) pairs.
+            """
             created = []
             if isinstance(source, dict):
                 for key, stk in source.items():
@@ -401,7 +404,7 @@ class LayerVisibility:
             return created
 
         def _apply_drag_helper_to(viewer, lyr, desired_name):
-            """Make the layer active, call the mouse-drag helper, then restore name."""
+            """Make the layer active, call the mouse drag helper, then restore name."""
             with contextlib.suppress(RuntimeError, AttributeError, TypeError):
                 viewer.layers.selection.select_only(lyr)
             with contextlib.suppress(RuntimeError, AttributeError, TypeError):
@@ -567,7 +570,7 @@ class LayerVisibility:
                 pass
 
     def update_fluorescence_viewers(self) -> None:
-        """Add every channel's image stack as layers to viewer_1 and _2."""
+        """Replace both viewers' layers with one image layer per channel."""
 
         def _as_stacked(arr_or_list) -> np.ndarray:
             """Convert image data to a stacked array."""
