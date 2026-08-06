@@ -43,7 +43,7 @@ def _column_for_row(main_window, feature_defs: dict, row_idx: int):
 
 
 def _clear_outlier_markers(main_window, rows=None) -> None:
-    """Remove star markers, from ``rows`` if given, otherwise from every row."""
+    """Remove star markers from `rows`, or from every row when `rows` is None."""
     stored = getattr(main_window, "_outlier_marker_items", {})
     targets = list(stored) if rows is None else list(rows)
     for row in targets:
@@ -59,7 +59,7 @@ def _clear_outlier_markers(main_window, rows=None) -> None:
 
 
 def _new_star_symbol() -> str:
-    """ "star" when pyqtgraph supports it, else the round fallback."""
+    """Return "star" if pyqtgraph supports that symbol, else the round fallback."""
     with contextlib.suppress(
         RuntimeError, AttributeError, TypeError, ValueError
     ):
@@ -122,9 +122,9 @@ def _draw_outlier_row(
 
 
 def update_outlier_marker(main_window) -> None:
-    """Draw orange star markers where the current lineage is flagged as an outlier.
+    """Draw orange star markers wherever the current ident is flagged as an outlier.
 
-    A star sits on every row at each time point whose ``Outlier_detection`` is
+    A star sits on every row at each time point whose `Outlier_detection` is
     "Outlier", using that row's own selected feature column.
     """
     df_all = getattr(main_window, "filtered_df", None)

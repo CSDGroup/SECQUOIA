@@ -156,7 +156,7 @@ def reset_outlier_state(
     refresh_plots: bool = True,
     show_message: bool = True,
 ) -> None:
-    """Clear saved outlier rules, outlier list, and markers."""
+    """Clear every trace of a previous outlier run, in the UI and in the data."""
     _clear_saved_outlier_rules(main_window)
     _teardown_sliding_window_rows(main_window)
     _reset_sliding_window_form(main_window)

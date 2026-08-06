@@ -1,4 +1,4 @@
-"""The outlier detection window: composes the threshold, sliding-window, run, and load tabs."""
+"""The outlier detection window: composes the threshold, sliding-window, load, and run tabs."""
 
 from __future__ import annotations
 
@@ -30,7 +30,11 @@ __all__ = ["OutlierDetectionWindow", "open_outlier_detection_window"]
 
 
 def _resolve_feature_keys(main_window) -> list:
-    """Return the numeric feature columns to offer in the rule builders."""
+    """Return the feature names to offer in the rule builders.
+
+    Uses the keys of `_feature_defs`, falling back to the numeric columns of
+    `filtered_df` and finally to a single default feature name.
+    """
     feature_keys = []
     with contextlib.suppress(RuntimeError, AttributeError, TypeError):
         feature_keys = list(getattr(main_window, "_feature_defs", {}).keys())
@@ -77,17 +81,9 @@ class OutlierDetectionWindow(QWidget):
         outer.addWidget(self.tabs)
 
         out_bar, out_helpers = add_progress_bar(outer)
-        self.progress_bar = out_bar
         self.set_progress = out_helpers["set"]
-        self.bump_progress = out_helpers["bump"]
         self.finish_progress = out_helpers["finish"]
         self.set_progress_step = out_helpers["step"]
-
-        main_window.outlier_progress_bar = out_bar
-        main_window.outlier_set_progress = out_helpers["set"]
-        main_window.outlier_bump_progress = out_helpers["bump"]
-        main_window.outlier_finish_progress = out_helpers["finish"]
-        main_window.outlier_step_progress = out_helpers["step"]
 
         self.threshold_tab = ThresholdRulesTab(
             main_window, self, feature_keys, m_n, ch_n, channel_ids

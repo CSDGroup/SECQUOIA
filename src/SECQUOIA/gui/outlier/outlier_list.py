@@ -1,9 +1,8 @@
-"""Building and rebuilding the OUT tree (the outliers only view of the track list)."""
+"""Building and rebuilding the OUT tree (the outliers-only view of the track list)."""
 
 from __future__ import annotations
 
 import contextlib
-import logging
 import re
 
 from qtpy.QtCore import QTimer
@@ -17,8 +16,6 @@ from SECQUOIA.gui.curation_tree import (
 )
 from SECQUOIA.gui.track_selection import handle_item_click
 from SECQUOIA.utils.helpers import extract_unique_tracknumbers
-
-LOG = logging.getLogger(__name__)
 
 __all__ = ["_update_outlier_list", "auto_select_first_item"]
 
@@ -81,7 +78,11 @@ def _outlier_sort_key(ident):
 
 
 def _update_outlier_list(main_window, *, interactive: bool = True) -> None:
-    """Rebuild the OUT tree to show only outliers, keeping the same parent/child structure and curation-status/active symbols as the full tree."""
+    """Rebuild the OUT tree so it lists only the outlier idents.
+
+    Keeps the same parent/child structure and the same curation status and
+    active symbols as the full tree.
+    """
     main_window.tree_widget.clear()
 
     outliers = getattr(main_window, "unique_outliers_ids", None)
@@ -139,7 +140,7 @@ def _rebuild_active_list(main_window) -> None:
 
 
 def auto_select_first_item(main_window) -> None:
-    """Select the first top-level item in the list."""
+    """Select the first top-level item once control returns to the event loop."""
 
     def _select():
         tw = getattr(main_window, "tree_widget", None)

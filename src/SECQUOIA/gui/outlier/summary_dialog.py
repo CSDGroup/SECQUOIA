@@ -242,7 +242,7 @@ class OutlierPlotsDialog(QDialog):
         parent: QWidget | None = None,
         max_cols: int = 3,
     ):
-        """Build one histogram per rule."""
+        """Store the rules to plot and build the dialog."""
         super().__init__(parent or main_window)
         self.main_window = main_window
         self.rules = list(rules)
@@ -337,11 +337,7 @@ class OutlierPlotsDialog(QDialog):
         return title
 
     def _build_button_row(self) -> QHBoxLayout:
-        """Build the Save / Close row, centred.
-
-        Returns:
-            The button layout.
-        """
+        """Build the Save / Close row, centred."""
         save_btn = QPushButton("Save Composite…", self)
         close_btn = QPushButton("Close", self)
         save_btn.setToolTip(TOOLTIPSTEXT.SAVE_COMPOSITE_BTN)
@@ -428,7 +424,7 @@ class OutlierParametersDialog(QDialog):
     """Tables listing the saved outlier rules and sliding-window configs."""
 
     def __init__(self, main_window, parent: QWidget | None = None):
-        """Read the saved parameters and display them."""
+        """Read the saved rules pack and build the parameter tables."""
         super().__init__(parent or main_window)
         self.main_window = main_window
 

@@ -240,7 +240,7 @@ class SlidingWindowTab:
         update_row_remove_buttons(self.rows_widgets)
 
     def add_row(self):
-        """Add a new sliding window row after the requested position."""
+        """Append an empty sliding-window row at the end of the grid."""
         w = self._make_row_widgets()
         self.rows_widgets.append(w)
         wire_row_buttons(w, self._on_add_after, self._on_remove)

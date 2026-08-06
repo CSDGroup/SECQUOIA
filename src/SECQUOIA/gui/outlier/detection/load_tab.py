@@ -191,7 +191,7 @@ class LoadTab:
         return True
 
     def _on_choose_clicked(self):
-        """Choosing a saved rule file and applying it to the UI."""
+        """Load a rules file and switch to the Run tab when it succeeds."""
         if self._on_load_rules_returning_success():
             self.run_tab.refresh_summary()
             self.tabs.setCurrentWidget(self.run_tab.page)

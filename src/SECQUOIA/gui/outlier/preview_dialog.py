@@ -107,7 +107,7 @@ def _open_outlier_preview_dialog(
     _grid_rows_applied = {"count": 0}
 
     def _remove_by_group(group_widget):
-        """Remove all preview panels belonging to a row group."""
+        """Remove the preview panel belonging to `group_widget`."""
         for i, p in enumerate(panels):
             if p["group"] is group_widget:
                 panels.pop(i)
@@ -193,7 +193,6 @@ def _open_outlier_preview_dialog(
         vb.setContentsMargins(6, 6, 6, 6)
         vb.setSpacing(6)
 
-        # line 1: Feature + Mask(s) + Channel(s)
         controls_line1 = QHBoxLayout()
         controls_line1.setContentsMargins(0, 0, 0, 0)
         controls_line1.setSpacing(6)
@@ -312,7 +311,7 @@ def _open_outlier_preview_dialog(
         val2_sp.setToolTip(TOOLTIPSTEXT.VAL2_SP)
 
         def _sync_val2():
-            """Synchronize visibility and enabled state of the second threshold controls."""
+            """Enable the Val2 spin box only when a second operator is selected."""
             val2_sp.setEnabled(op2_cb.currentData() is not None)
 
         op2_cb.currentIndexChanged.connect(_sync_val2)
@@ -407,7 +406,6 @@ def _open_outlier_preview_dialog(
             fig.tight_layout()
             canvas.draw_idle()
 
-        _recompute_data()
         _redraw()
 
         # Dragging
@@ -585,7 +583,7 @@ def _open_outlier_preview_dialog(
                 idxf = row["feat"].findText(str(feat_txt))
                 if idxf >= 0:
                     row["feat"].setCurrentIndex(idxf)
-                # Masks/channels to main GUI
+
                 with contextlib.suppress(
                     RuntimeError, AttributeError, TypeError
                 ):
@@ -594,7 +592,7 @@ def _open_outlier_preview_dialog(
                     RuntimeError, AttributeError, TypeError
                 ):
                     set_combo_checks(row["ch_multi"], ch_sel)
-                # ops/vals/comb
+
                 row["op1"].setCurrentText(op1_txt)
                 row["val1"].setValue(val1_v)
                 if op2_txt is None:
@@ -605,12 +603,8 @@ def _open_outlier_preview_dialog(
                 row["combine"].setCurrentText(comb_txt)
         dlg.accept()
 
-    def _on_close():
-        """Close the preview dialog without applying changes."""
-        dlg.reject()
-
     submit_btn.clicked.connect(_on_submit)
-    close_btn.clicked.connect(_on_close)
+    close_btn.clicked.connect(dlg.reject)
 
     open_at_screen_frac(dlg)
     dlg.exec_()

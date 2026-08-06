@@ -205,7 +205,7 @@ class ThresholdRulesTab:
         val2_spin.setToolTip(TOOLTIPSTEXT.VAL2_SP)
 
         def _sync_val2_enabled():
-            """Enable the second threshold controls only when a second operator is selected."""
+            """Enable the Val2 spin box only when a second operator is selected."""
             val2_spin.setEnabled(op2_combo.currentData() is not None)
 
         op2_combo.currentIndexChanged.connect(_sync_val2_enabled)
@@ -281,18 +281,15 @@ class ThresholdRulesTab:
         widgets = self._make_row_widgets()
         self.rows_widgets.append(widgets)
 
-        # Set feature
         idx = widgets["feat"].findText(str(feat))
         if idx >= 0:
             widgets["feat"].setCurrentIndex(idx)
 
-        # Set masks/channels checks if provided
         if masks is not None:
             set_combo_checks(widgets["m_multi"], masks)
         if channels is not None:
             set_combo_checks(widgets["ch_multi"], channels)
 
-        # Set ops/values
         widgets["op1"].setCurrentText(str(op1))
         widgets["val1"].setValue(float(val1))
         if op2 is None:
@@ -309,7 +306,7 @@ class ThresholdRulesTab:
         self._update_remove_buttons()
 
     def add_row(self):
-        """Add a new threshold-rule row after the requested position."""
+        """Append an empty threshold-rule row at the end of the grid."""
         widgets = self._make_row_widgets()
         self.rows_widgets.append(widgets)
         self._rebuild_grid_positions()
@@ -356,7 +353,7 @@ class ThresholdRulesTab:
         self._update_remove_buttons()
 
     def clear_all_rows(self):
-        """Remove all threshold rule rows and restore a single empty row."""
+        """Remove every threshold-rule row, leaving the grid empty."""
         while self.rows_widgets:
             row = self.rows_widgets.pop(0)
             for w in [row[k] for k in self._FIELD_KEYS] + [row["btn_bar"]]:

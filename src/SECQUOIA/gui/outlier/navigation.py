@@ -27,7 +27,10 @@ __all__ = ["change_outlier", "change_to_next_outlier"]
 
 
 def change_outlier(main_window: QWidget, direction: str) -> None:
-    """Change the current outlier index based on the direction `next` or `previous`."""
+    """Step to the next or previous outlier ident and refresh the whole view.
+
+    ''direction'' is "next" or "previous"; the index wraps around at both ends.
+    """
     if "Outlier_detection" not in main_window.track_df.columns:
         LOG.warning("Please perform outlier detection first")
         return
@@ -76,7 +79,12 @@ def change_outlier(main_window: QWidget, direction: str) -> None:
 
 
 def change_to_next_outlier(main_window, direction: int = +1) -> None:
-    """Jump to next (direction=+1) / previous (direction=-1) time point `t` where Outlier_detection == 'Outlier' for the current Identification."""
+    """Jump to the next or previous outlier time point for the current ident.
+
+    `direction` is +1 for forwards and -1 for backwards. The search wraps
+    around to the first (or last) outlier time point when none is left in that
+    direction.
+    """
     df = getattr(main_window, "filtered_df", None)
     if df is None or df.empty:
         return

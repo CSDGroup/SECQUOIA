@@ -14,7 +14,7 @@ def outlier_window_stylesheet(arrows: dict[str, str]) -> str:
         font-size: {STYLE.FONT_SIZE_outlier}pt;
         font-family: "{STYLE.FONT_outlier}";
         color: #E6E6E6;           /* light text everywhere */
-        background: #2B2B2B;      /* dark background to match your UI */
+        background: #2B2B2B;      /* dark background matching the main window  */
     }}
 
     /* --- Tabs --- */
@@ -52,7 +52,7 @@ def outlier_window_stylesheet(arrows: dict[str, str]) -> str:
         color: #777;
     }}
 
-    /* Optional: make buttons/combos match the dark theme (nice to have) */
+    /* Buttons and combos in the same dark theme */
     QPushButton {{
         background: #3A3A3A;
         border: 1px solid #555;
