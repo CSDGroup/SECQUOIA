@@ -17,9 +17,6 @@ from SECQUOIA.core.quantification.naming import (
 
 LOG = logging.getLogger(__name__)
 
-# Every intensity feature the measurement engine can generate, across both
-# BaSiC variants. Column pruning is restricted to this closed set so that
-# user-defined arithmetic metrics are never mistaken for measurements.
 _ALL_INTENSITY_FEATURES = frozenset(
     f"{metric}{variant}"
     for metric in FEATURES.METRIC_PREFIXES
@@ -27,10 +24,7 @@ _ALL_INTENSITY_FEATURES = frozenset(
 )
 
 # Shape features written once per mask, without a channel token.
-_SHAPE_FEATURES = frozenset(FEATURES.MORPH_PREFIXES) | {
-    "XMorphology",
-    "YMorphology",
-}
+_SHAPE_FEATURES = frozenset(FEATURES.MORPH_PREFIXES)
 
 # ``<feature>Ch<nn>M<n>`` - an intensity metric of one channel and mask.
 _INTENSITY_COL_RE = re.compile(r"^(?P<feat>[A-Za-z0-9_]+)Ch(\d+)M(?P<m>\d+)$")
@@ -45,7 +39,12 @@ _MASK_INDEXED_COL_RE = re.compile(
 def init_mask_channel_columns(
     df: pd.DataFrame, mask_indices, naming: FeatureNaming
 ) -> pd.DataFrame:
-    """Make sure every measurement column exists with the right dtype."""
+    """Create the per mask intensity, shape, label and distance columns.
+
+    Existing columns are kept and only cast to their expected dtype.
+    Lineage displacement (``step_disp_px_m*``) is not created here -
+    `add_lineage_step_distance` writes it after matching.
+    """
     to_add: dict = {}
     fill_zero_cols: list[str] = []
     float_cols: list[str] = []
@@ -115,19 +114,7 @@ def expected_measurement_columns(
 def stale_measurement_columns(
     columns, naming: FeatureNaming, mask_indices
 ) -> list[str]:
-    """Columns of a generated measurement family the current config no longer writes.
-
-    A column is stale when it belongs to one of the closed families the
-    quantify pipeline generates - intensity metrics, per mask shape metrics,
-    and the per mask label/distance/displacement columns - but is not part of
-    :func:`expected_measurement_columns`. That covers a BaSiC variant that has
-    been switched off, a channel or mask that is no longer loaded, and a
-    channel token written with different padding.
-
-    Everything else is left alone: identifiers, curation and outlier columns,
-    real-time columns and user-defined arithmetic metrics never match these
-    patterns, so they can never be pruned.
-    """
+    """Columns of a generated family the current config no longer writes."""
     keep = expected_measurement_columns(naming, mask_indices)
     masks = {int(mask_idx) for mask_idx in mask_indices}
 
@@ -165,13 +152,7 @@ def drop_stale_measurement_columns(
     *,
     log_prefix: str = "columns",
 ) -> pd.DataFrame:
-    """Return `df` without the measurement columns the current config no longer writes.
-
-    Dropping is what makes a configuration change visible: switching BaSiC off
-    otherwise leaves the ``BaSiCBgCorrected*`` columns in ``track_df`` (and so
-    in ``filtered_df`` and the feature dropdowns) holding the values of the
-    previous run forever.
-    """
+    """Return `df` without the measurement columns the current config no longer writes."""
     if not isinstance(df, pd.DataFrame):
         return df
 
@@ -194,7 +175,7 @@ def _value_count(df: pd.DataFrame, column: str) -> int:
     """Number of non-null values in `column`, 0 if it cannot be counted."""
     try:
         values = df[column]
-        if isinstance(values, pd.DataFrame):  # duplicated column label
+        if isinstance(values, pd.DataFrame):
             values = values.iloc[:, 0]
         return int(values.notna().sum())
     except (KeyError, TypeError, ValueError):

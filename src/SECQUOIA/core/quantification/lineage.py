@@ -18,7 +18,13 @@ def _compute_lineage_step_distance(
     x_fallback="XMorphology",
     y_fallback="YMorphology",
 ) -> pd.Series:
-    """Return a pandas Series with per frame displacement (pixels) for a given mask index, respecting lineage splits at TrackNumber changes."""
+    """Per frame displacement (pixels) of every row, for one mask index.
+
+    Positions come from ``XMorphologyM{mask_idx}`` /
+    ``YMorphologyM{mask_idx}``, falling back to `x_fallback` /
+    `y_fallback` when those are absent. Within one `id_col`, each row
+    is compared with the previous time point of the same `tr_col`.
+    """
     xcol, ycol = f"XMorphologyM{mask_idx}", f"YMorphologyM{mask_idx}"
     if xcol not in df.columns or ycol not in df.columns:
         xcol, ycol = x_fallback, y_fallback
@@ -150,7 +156,7 @@ def compute_step_distance_for_row(
     x_fallback: str = "XMorphology",
     y_fallback: str = "YMorphology",
 ) -> tuple[float, int | None]:
-    """Compute the per frame step distance for the row (ident, track_no, t)."""
+    """Step distance of the single row (ident, track_no, t) for one mask."""
     if not isinstance(df, pd.DataFrame) or df.empty:
         return 0.0, None
 

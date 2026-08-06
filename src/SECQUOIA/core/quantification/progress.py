@@ -6,7 +6,12 @@ from qtpy.QtWidgets import QApplication
 
 
 class ProgressReporter:
-    """Thin wrapper around the optional `progress_cb` of `quantify`."""
+    """Reporter for the optional `progress_cb` of `quantify`.
+
+    Reports at most every `min_interval` seconds, and calls
+    ``QApplication.processEvents()`` on each report so the GUI stays
+    responsive.
+    """
 
     def __init__(
         self, callback, total_steps: int, *, min_interval: float = 0.05
@@ -41,7 +46,7 @@ class ProgressReporter:
         QApplication.processEvents()
 
     def stage(self, message: str) -> None:
-        """Advance one step and always report it (used between pipeline stages)."""
+        """Advance one step and report it."""
         self.tick(message, force=True)
 
     def finish(self, message: str = "Measurements done") -> None:

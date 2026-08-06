@@ -9,7 +9,7 @@ from SECQUOIA.core.quantification.naming import (
     label_column,
 )
 
-# per mask geometry columns copied from the objects onto the tracks.
+# Per mask geometry columns precreated on the tracks before matching.
 GEOMETRY_PREFIXES = (
     "XMorphology",
     "YMorphology",
@@ -29,9 +29,11 @@ def greedy_nearest_assign(
 ) -> tuple[np.ndarray, np.ndarray]:
     """Assign each track to its nearest object within `max_dist`.
 
-    Returns ``(object_index_per_track, distance_per_track)`` where an index of
-    -1 / a distance of inf means "unmatched". With `one_to_one`, pairs are
-    resolved shortest-distance-first and each object is used at most once.
+    Returns ``(object_index_per_track, distance_per_track)`` where an
+    index of -1 and a distance of inf mean "unmatched". With
+    `one_to_one`, pairs are resolved shortest-distance-first and each
+    object is used at most once; a track whose nearest object is already
+    taken falls back to the closest free one still within `max_dist`.
     """
     n_tracks, n_objects = tracks_xy.shape[0], objects_xy.shape[0]
     if n_tracks == 0 or n_objects == 0:

@@ -1,4 +1,4 @@
-"""Re-measure a single object after an interactive mask edit.
+"""Remeasure a single object after an interactive mask edit.
 
 This is the interactive counterpart to ``measure_objects`` in
 :mod:`SECQUOIA.core.quantification`. Where that function measures every object
@@ -112,7 +112,7 @@ def frame_missing(main_window, channel: str, t: int) -> bool:
 
 
 def current_position(main_window) -> int | None:
-    """Return the 1-based position number parsed from the current position folder."""
+    """Return the 1-based number of the currently selected position."""
     return position_number_at_current_index(main_window)
 
 
@@ -270,14 +270,12 @@ class MeasuredEdit:
     missing_channel: dict[str, bool]
     measured: bool
 
-    @property
-    def has_object(self) -> bool:
-        """False when nothing was measured: a new cell, or a background click."""
-        return self.measured
-
 
 def active_images(main_window, t: int, missing_channel: dict[str, bool]):
-    """Return the (variant, channel) pairs with a usable frame at `t`, and their images."""
+    """The (variant, channel) pairs usable at `t`, and their images.
+
+    Channels flagged in `missing_channel` are skipped.
+    """
     specs: list[tuple[str, str]] = []
     images: list[np.ndarray] = []
 
@@ -340,10 +338,11 @@ def measure_edit(main_window, target: EditTarget) -> MeasuredEdit:
 
 
 def measurement_columns(main_window, mask_idx: int) -> tuple[list[str], str]:
-    """Return the measurement columns an edit of `mask_idx` touches, and the label column.
+    """Columns an edit of `mask_idx` touches, plus its label column.
 
-    Ordered channel -> variant -> metric, then morphology, so that the change
-    log reads in a stable order.
+    Ordered channel -> variant -> metric, then morphology.
+    `changed_columns` walks this list, so the order fixes how the
+    change log reads.
     """
     naming = FeatureNaming.from_main_window(main_window)
     variants = basic_variants(main_window)
@@ -399,9 +398,9 @@ def _write_label_id(df: pd.DataFrame, row_idx, lab_col: str, label_id: int):
         df.at[row_idx, lab_col] = int(label_id)
 
 
-def _intensity_value(measured: MeasuredEdit, key, channel: str, metric: str):
+def _intensity_value(measured: MeasuredEdit, key, channel: str):
     """Return the value to write for one intensity column."""
-    if measured.missing_channel[channel] or not measured.has_object:
+    if measured.missing_channel[channel] or not measured.measured:
         return np.nan
     return measured.intensity.get(key, 0.0)
 
@@ -428,7 +427,7 @@ def write_measurements(
                     f"{metric}{variant}", channel, target.mask_idx
                 )
                 df.at[target.row_idx, column] = _intensity_value(
-                    measured, (variant, channel, metric), channel, metric
+                    measured, (variant, channel, metric), channel
                 )
 
     return df

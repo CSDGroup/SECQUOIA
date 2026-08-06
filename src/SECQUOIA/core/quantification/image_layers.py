@@ -28,6 +28,7 @@ def _collect_label_stacks(source) -> list[tuple[int, np.ndarray]]:
 
 
 def _ensure_int_labels(stack: np.ndarray) -> np.ndarray:
+    """Return `stack` with an integer dtype, casting only when needed."""
     if np.issubdtype(stack.dtype, np.integer):
         return stack
     return stack.astype(np.int32, copy=False)
@@ -42,6 +43,12 @@ def _presence_flags(main_window, channel):
 
 
 def _is_frame_present(present_flags, t: int, n_frames: int) -> bool:
+    """Whether `channel` was acquired at frame `t`.
+
+    Returns True when the flags are unknown or do not cover `n_frames`,
+    so a mismatched flag list disables presence filtering rather than
+    dropping every frame.
+    """
     if present_flags is None or len(present_flags) != n_frames:
         return True
     return bool(present_flags[t])

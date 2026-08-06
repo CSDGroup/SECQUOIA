@@ -21,7 +21,7 @@ from SECQUOIA.core.quantification.naming import (
 )
 from SECQUOIA.core.quantification.progress import ProgressReporter
 
-# regionprops properties measured once per mask (channel independent).
+# Regionprops properties measured once per (mask, frame); channel independent.
 SHAPE_PROPERTIES = (
     "centroid",
     "area",
@@ -33,7 +33,9 @@ SHAPE_PROPERTIES = (
     "axis_minor_length",
 )
 
-# regionprops properties measured for every (mask, channel, frame).
+# Regionprops properties measured against the intensity image. One
+# regionprops call per (mask, frame) covers every channel at once; the
+# results come back suffixed with the layer index.
 INTENSITY_PROPERTIES = (
     "mean_intensity",
     "min_intensity",
@@ -41,10 +43,10 @@ INTENSITY_PROPERTIES = (
     "intensity_std",
 )
 
-# metrics written per image layer; "Sum"/"CV" are derived, not measured.
+# Metrics written per image layer; "Sum"/"CV" are derived, not measured.
 INTENSITY_METRICS = tuple(FEATURES.METRIC_PREFIXES)
 
-# regionprops key -> SECQUOIA column prefix (see :class:`FeatureNaming`).
+# Regionprops key -> SECQUOIA column prefix (see :class:`FeatureNaming`).
 SHAPE_PROP_TO_PREFIX = {
     "area": "AreaMorphology",
     "perimeter": "PerimeterMorphology",
@@ -56,7 +58,7 @@ SHAPE_PROP_TO_PREFIX = {
 
 
 def sum_intensity(region_mask, intensity_image) -> float:
-    """Return the per-pixel intensity sum over a boolean region mask."""
+    """Sum the intensities inside one region."""
     return float(np.sum(intensity_image[region_mask], dtype=np.float64))
 
 
@@ -105,7 +107,7 @@ def _stack_intensity_images(images: list[np.ndarray]) -> np.ndarray | None:
 
 
 def _regionprops_for_frame(labels, intensity_stack):
-    """Run regionprops **once** for one (mask, frame)."""
+    """Run regionprops once for one (mask, frame)."""
     properties = list(SHAPE_PROPERTIES)
     if intensity_stack is None:
         props = regionprops_table(labels, properties=properties)
@@ -220,7 +222,6 @@ def measure_single_object(
     if measurements is None:
         return None
 
-    # Centroids are relative to the crop: shift them back onto the full frame.
     measurements.y = measurements.y + rows.start
     measurements.x = measurements.x + cols.start
     return measurements

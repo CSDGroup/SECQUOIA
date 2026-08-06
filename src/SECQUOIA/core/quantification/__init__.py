@@ -62,12 +62,16 @@ __all__ = [
 
 LOG = logging.getLogger(__name__)
 
-# number of post processing stages reported to `progress_cb` after measuring.
+# Number of post processing stages reported to `progress_cb` after measuring.
 POST_PROCESSING_STEPS = 8
 
 
 def _position_has_identifications(main_window, position, id_col: str) -> bool:
-    """Return True if the tracks at `position` carry a non-empty identification."""
+    """Return True if the tracks at `position` carry an identification.
+
+    Only the first of `id_col` / ``"Identification"`` that exists as a
+    column is consulted; an empty one is not retried against the other.
+    """
     pos_rows = main_window.track_df.loc[
         main_window.track_df.get("Position", -1) == position
     ]
@@ -121,7 +125,7 @@ def _write_empty_measurement_columns(
 
 
 def _recompute_derived_metrics(main_window, position) -> None:
-    """Re-run the main window's derived-column hook for every row of `position`."""
+    """Run the main window's derived-column hook for every row of `position`."""
     recompute_row = getattr(main_window, "_recompute_derived_for_row", None)
     if not callable(recompute_row):
         return
@@ -209,34 +213,17 @@ def quantify(
     id_col: str = "ID",
     progress_cb=None,
 ) -> None:
-    """Measure per mask, per channel intensities and attach them to ``track_df``.
+    """Measure per mask, per channel intensities into ``track_df``.
 
-    Pipeline
+    Pipeline:
+
     1. `measure_objects` - regionprops per (mask, channel, frame),
        aggregated by label into one row per segmented object.
-    2. _merge_objects_into_tracks` - nearest-neighbour matching of the
-       objects to the existing tracks at the same time point `t`.
-    3. Derived metrics, column ordering, displacement and CSV export.
+    2. `_merge_objects_into_tracks` - nearest-neighbour matching of the
+       objects onto the existing tracks at the same time point `t`.
+    3. Derived metrics, stale-column pruning, column ordering, lineage
+       displacement and the per position CSV export.
     """
-    _quantify_impl(
-        main_window,
-        label_src_attr=label_src_attr,
-        max_pixel_distance=max_pixel_distance,
-        one_to_one=one_to_one,
-        id_col=id_col,
-        progress_cb=progress_cb,
-    )
-
-
-def _quantify_impl(
-    main_window,
-    *,
-    label_src_attr: str = "labels",
-    max_pixel_distance: float | None = None,
-    one_to_one: bool = True,
-    id_col: str = "ID",
-    progress_cb=None,
-) -> None:
     naming = FeatureNaming.from_main_window(main_window)
 
     label_entries = _collect_label_stacks(
@@ -299,9 +286,6 @@ def _quantify_impl(
 
     # 3 Finalise
     _replace_position_rows(main_window, merged_df, position)
-    # The measured configuration (BaSiC variants, channels, masks) is global,
-    # so any measurement column outside it is stale for every position - and
-    # the concat above would otherwise carry it back in from the others.
     main_window.track_df = drop_stale_measurement_columns(
         main_window.track_df,
         naming,
@@ -342,13 +326,17 @@ def _quantify_impl(
 
 
 def _ensure_consistent_types(df) -> pd.DataFrame:
-    """Ensure consistent data types for merging."""
+    """Coerce `Position` to int so tracks and objects compare equal."""
     df["Position"] = df["Position"].astype(int, errors="ignore")
     return df
 
 
 def _resolve_column_conflicts(df, suffix="_new") -> pd.DataFrame:
-    """Resolve column naming conflicts after merging."""
+    """Fold any ``<base><suffix>`` column back into ``<base>``.
+
+    A safeguard rather than a step of the current pipeline: nothing in
+    `quantify` writes suffixed columns any more.
+    """
     for col in df.columns:
         if col.endswith(suffix):
             base_col = col[: -len(suffix)]

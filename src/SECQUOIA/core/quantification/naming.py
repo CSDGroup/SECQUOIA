@@ -88,7 +88,11 @@ class FeatureNaming:
     def intensity_column(
         self, prefix: str, channel: str, mask_idx: int
     ) -> str:
-        """Column name for an intensity metric, e.g. `MeanCh1M2`."""
+        """Column name for an intensity metric.
+
+        `prefix` carries both the metric and the BaSiC variant, so a
+        full name looks like ``MeanNoBgCorrectedCh01M2``.
+        """
         return intensity_column(prefix, channel, mask_idx)
 
     def shape_column(self, prefix: str, mask_idx: int) -> str:
