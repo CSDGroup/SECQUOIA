@@ -43,10 +43,17 @@ def _show_no_outliers_dialog(main_window) -> None:
 
 
 def _recheck_all_outliers_toggle(main_window) -> None:
-    """Re-check the 'ALL' toggle button, if present, after finding no outliers."""
-    if hasattr(main_window, "ALL"):
-        with contextlib.suppress(RuntimeError, AttributeError):
-            main_window.ALL.setChecked(True)
+    """Switch back to the ALL view and make sure the tree is actually rebuilt."""
+    all_cb = getattr(main_window, "ALL", None)
+    if all_cb is None:
+        update_list(main_window)
+        return
+
+    with contextlib.suppress(RuntimeError, AttributeError):
+        already_checked = all_cb.isChecked()
+        all_cb.setChecked(True)
+        if already_checked:
+            update_list(main_window)
 
 
 def _coerce_to_list(outliers):
@@ -83,14 +90,14 @@ def _update_outlier_list(main_window, *, interactive: bool = True) -> None:
     Keeps the same parent/child structure and the same curation status and
     active symbols as the full tree.
     """
-    main_window.tree_widget.clear()
-
     outliers = getattr(main_window, "unique_outliers_ids", None)
     if _outliers_is_empty(outliers):
         if interactive:
             _show_no_outliers_dialog(main_window)
         _recheck_all_outliers_toggle(main_window)
         return
+
+    main_window.tree_widget.clear()
 
     sorted_outliers = sorted(_coerce_to_list(outliers), key=_outlier_sort_key)
 
@@ -128,12 +135,7 @@ def _rebuild_active_list(main_window) -> None:
 
     outs = getattr(main_window, "unique_outliers_ids", None) or []
     if len(outs) == 0:
-        all_cb = getattr(main_window, "ALL", None)
-        if all_cb is not None:
-            with contextlib.suppress(RuntimeError, AttributeError):
-                all_cb.setChecked(True)
-                return
-        update_list(main_window)
+        _recheck_all_outliers_toggle(main_window)
         return
 
     _update_outlier_list(main_window, interactive=False)

@@ -251,7 +251,7 @@ def load_position(main_window: QWidget, direction: str) -> None:
             )
             ensure_current_df_subset(main_window)
             update_unique_outliers_ids(main_window, outcol="Outlier_detection")
-            _update_outlier_list(main_window)
+            _update_outlier_list(main_window, interactive=False)
             if hasattr(main_window, "Outliers") and not _outliers_is_empty(
                 getattr(main_window, "unique_outliers_ids", None)
             ):
@@ -443,7 +443,7 @@ def switch_to_position_with_progress(
                 update_unique_outliers_ids(
                     main_window, outcol="Outlier_detection"
                 )
-                _update_outlier_list(main_window)
+                _update_outlier_list(main_window, interactive=False)
                 if hasattr(main_window, "Outliers") and not _outliers_is_empty(
                     getattr(main_window, "unique_outliers_ids", None)
                 ):
