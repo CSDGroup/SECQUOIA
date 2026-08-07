@@ -406,6 +406,7 @@ def build_segmentation_tab(main_window, UiSize):
     # Background correction widgets
     main_window.bg_correct_chk = QCheckBox()
     main_window.bg_correct_chk.setToolTip(TOOLTIPSTEXT.BG)
+    main_window.bg_correct_chk.setEnabled(False)
     main_window.bg_correct_combo = QComboBox()
     main_window.bg_correct_combo.setToolTip(TOOLTIPSTEXT.BG_COMBO)
     main_window.bg_correct_combo.setSizeAdjustPolicy(

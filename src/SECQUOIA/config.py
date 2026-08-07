@@ -251,6 +251,9 @@ class TOOLTIPSTEXT:
     BG_COMBO: str = (
         "Select a BaSiC* folder from the Analysis directory to use for background correction."
     )
+    BG_NONE: str = (
+        "No BaSiC* folder found in the Analysis directory of this experiment."
+    )
     CP: str = "If enabled (tTt only), links tracks across different positions."
     TRACKING_TREE: str = (
         "Check a Position to (de)select all its lineage trees. Expand to select/deselect individual trees."

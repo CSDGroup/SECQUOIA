@@ -8,6 +8,7 @@ import os
 from qtpy.QtCore import Qt, QTimer
 from qtpy.QtWidgets import QApplication, QMessageBox
 
+from SECQUOIA.config import TOOLTIPSTEXT
 from SECQUOIA.core.logging_setup import attach_experiment_log
 from SECQUOIA.core.project_state import save_project_state
 from SECQUOIA.core.tracking.track_data import (
@@ -111,9 +112,13 @@ def _on_load_data_clicked(main_window):
         if basic_names:
             main_window.bg_correct_combo.addItems(basic_names)
             main_window.bg_correct_combo.setEnabled(True)
+            main_window.bg_correct_chk.setEnabled(True)
         else:
             main_window.bg_correct_combo.addItem("(no BaSiC folders found)")
             main_window.bg_correct_combo.setEnabled(False)
+            main_window.bg_correct_chk.setChecked(False)
+            main_window.bg_correct_chk.setEnabled(False)
+            main_window.bg_correct_chk.setToolTip(TOOLTIPSTEXT.BG_NONE)
 
         # Import Real time [ms] (images*.csv in experiment folder)
         images_csv = _find_images_csvs(main_window)

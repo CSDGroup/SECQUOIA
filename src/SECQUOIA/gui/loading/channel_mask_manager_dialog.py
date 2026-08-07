@@ -372,7 +372,11 @@ def open_channel_mask_manager(main_window: QWidget) -> None:
         idx = bg_correct_combo.findText(os.path.basename(initial_basic_path))
         if idx >= 0:
             bg_correct_combo.setCurrentIndex(idx)
-    bg_correct_chk.setChecked(initial_basic_flag)
+
+    bg_correct_chk.setEnabled(bool(basic_names))
+    bg_correct_chk.setChecked(initial_basic_flag and bool(basic_names))
+    if not basic_names:
+        bg_correct_chk.setToolTip(TOOLTIPSTEXT.BG_NONE)
 
     def _selected_basic_path() -> str | None:
         """Return the BaSiC folder the dialog currently selects, or None."""
