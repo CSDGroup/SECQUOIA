@@ -1,6 +1,6 @@
 """Tests for SECQUOIA quantification.
 
-This test uses a tiny artificial dataset:
+These tests share a tiny artificial dataset:
 
 - one position
 - one cell
@@ -24,7 +24,6 @@ Expected values:
 from __future__ import annotations
 
 import importlib
-import importlib.util
 import sys
 from pathlib import Path
 from types import ModuleType, SimpleNamespace
@@ -34,6 +33,7 @@ import pandas as pd
 import pytest
 from conftest import (
     assert_column_values,
+    find_module_name,
     make_fake_images,
     make_fake_labels,
     make_fake_main_window,
@@ -79,28 +79,9 @@ def test_quantify_imports():
 SQRT_HALF = 0.7071067811865475
 
 
-def find_metric_dialog_module_name() -> str:
-    """Locate the module holding ``MetricDialog`` inside the package."""
-    spec = importlib.util.find_spec("SECQUOIA")
-    if spec is None or not spec.submodule_search_locations:
-        raise ModuleNotFoundError(
-            "SECQUOIA is not importable. Run `pip install -e '.[testing]'`."
-        )
-
-    root = Path(next(iter(spec.submodule_search_locations)))
-    matches = sorted(root.rglob("metric_dialog.py"))
-    if not matches:
-        raise ModuleNotFoundError(
-            f"No metric_dialog.py found anywhere under {root}."
-        )
-
-    relative = matches[0].relative_to(root).with_suffix("")
-    return ".".join(("SECQUOIA", *relative.parts))
-
-
 def metric_dialog_module():
     """Import the module holding MetricDialog, build_column_names, side_tag."""
-    return importlib.import_module(find_metric_dialog_module_name())
+    return importlib.import_module(find_module_name("metric_dialog.py"))
 
 
 def make_feature_defs() -> dict:
@@ -424,11 +405,7 @@ def test_apply_normalization_missing_column_is_a_no_op():
 @pytest.mark.smoke
 def test_metric_dialog_imports():
     """The metric dialog pulls in Qt, so it is marked as a GUI test."""
-    name = find_metric_dialog_module_name()
-    print(f"\nResolved metric dialog module: {name}")
-
     dialog = metric_dialog_module()
-
     assert callable(dialog.build_column_names)
     assert callable(dialog.side_tag)
 

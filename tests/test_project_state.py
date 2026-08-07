@@ -13,7 +13,6 @@ import os
 
 import pandas as pd
 import pytest
-from qtpy.QtWidgets import QMessageBox
 
 from SECQUOIA.core.project_state import (
     _measurements_output_path,
@@ -24,21 +23,6 @@ from SECQUOIA.core.project_state import (
 )
 
 pytestmark = pytest.mark.gui
-
-
-@pytest.fixture
-def no_modals(monkeypatch):
-    """Silence the modal boxes and record that they were shown."""
-    shown = []
-    monkeypatch.setattr(
-        QMessageBox, "exec_", lambda self: shown.append("exec"), raising=False
-    )
-    monkeypatch.setattr(
-        QMessageBox,
-        "critical",
-        classmethod(lambda cls, *a, **k: shown.append("critical")),
-    )
-    return shown
 
 
 def track_frame() -> pd.DataFrame:
@@ -63,7 +47,7 @@ def experiment(tmp_path):
 
 
 @pytest.fixture
-def saved_window(fake_main_window, experiment, qapp, no_modals):
+def saved_window(fake_main_window, experiment, qapp, silence_modals):
     """A window whose project has been saved to disk."""
     main_window = fake_main_window(
         folder=str(experiment),
@@ -137,16 +121,17 @@ class TestSaveTrackDf:
         assert "_m1_ch2" in name
 
     def test_warns_and_stops_without_a_loaded_folder(
-        self, fake_main_window, no_modals
+        self, fake_main_window, silence_modals
     ):
+        """A root that does not exist is dropped without a modal warning."""
         main_window = fake_main_window(folder_list=[])
 
         save_track_df(main_window)
 
-        assert shown_once(no_modals)
+        assert shown_once(silence_modals)
 
     def test_stops_on_an_invalid_experiment_root(
-        self, fake_main_window, no_modals
+        self, fake_main_window, silence_modals
     ):
         main_window = fake_main_window(
             folder_list=["something"], folder="/does/not/exist"
@@ -154,11 +139,11 @@ class TestSaveTrackDf:
 
         save_track_df(main_window)
 
-        assert not no_modals
+        assert not silence_modals
 
 
 def shown_once(shown) -> bool:
-    return shown == ["exec"]
+    return shown == ["QMessageBox"]
 
 
 class TestSavePositionMeasurements:
@@ -321,7 +306,7 @@ class TestLoadProjectState:
         )
 
     def test_refuses_a_project_whose_csv_has_gone(
-        self, fake_main_window, saved_window, no_modals
+        self, fake_main_window, saved_window, silence_modals
     ):
         """Losing the CSV must be reported, not silently loaded as empty."""
         with open(saved_window.project_state_path) as f:
@@ -333,7 +318,7 @@ class TestLoadProjectState:
         )
 
         assert result is False
-        assert "critical" in no_modals
+        assert "critical" in silence_modals
 
     def test_a_round_trip_preserves_the_measurements(
         self, fake_main_window, saved_window

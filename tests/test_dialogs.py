@@ -9,6 +9,7 @@ boxes are replaced, since they would otherwise sit and wait for a click.
 from __future__ import annotations
 
 import pytest
+from conftest import combo_entries
 from qtpy.QtWidgets import (
     QComboBox,
     QDialog,
@@ -24,15 +25,6 @@ pytestmark = pytest.mark.gui
 def _no_modals(silence_modals):
     """No dialog in this module may block the run."""
     return silence_modals
-
-
-def combo_entries(widget, *, lower: bool = False) -> set[str]:
-    """Every entry offered by every combo box under ``widget``."""
-    return {
-        combo.itemText(i).lower() if lower else combo.itemText(i)
-        for combo in widget.findChildren(QComboBox)
-        for i in range(combo.count())
-    }
 
 
 # Plot parameters
@@ -189,7 +181,7 @@ class TestMaskArithmeticDialog:
         assert any("ignore" in entry for entry in entries)
 
     def test_the_module_imports_on_its_own(self):
-        """This module used to be circular with main_window."""
+        """It was once circular with main_window; it must stay importable."""
         import importlib
 
         assert importlib.import_module(
@@ -224,7 +216,7 @@ class TestLineageStyleDialog:
     def test_is_parented_to_the_main_window(
         self, lineage_style_dialog, dialog_main_window
     ):
-        """Guards the trap above: unparented, the dialog reads nothing."""
+        """Unparented, the dialog cannot read the main window's mode combo."""
         assert lineage_style_dialog.parent() is dialog_main_window
 
     def test_reports_the_mode_selected_on_the_main_window(

@@ -10,10 +10,9 @@ Three groups:
     ``quantify()`` and this method are two implementations of the same
     measurement. On identical input they must produce identical columns.
 
-``Phase C`` - known divergences.
-    Cases where the two implementations are currently known to disagree.
-    These encode the behaviour we want after the refactor and are expected to
-    fail today; see the docstring on each one.
+``Phase C`` - parity in the awkward cases.
+    Sparse acquisition, all-zero frames, centroid updates: places where the
+    interactive path and ``quantify()`` could plausibly drift apart.
 
 The artificial dataset from ``test_quantify.py``:
 one position, one cell, two time points, channel ``w01``, and two masks
@@ -23,40 +22,18 @@ one position, one cell, two time points, channel ``w01``, and two masks
 from __future__ import annotations
 
 import importlib
-import importlib.util
 import logging
-from pathlib import Path
 from types import SimpleNamespace
 
 import numpy as np
 import pandas as pd
 import pytest
-from conftest import make_fake_labels, make_fake_main_window
+from conftest import find_module_name, make_fake_labels, make_fake_main_window
 
 from SECQUOIA.core.quantification import quantify
 
 ANCHOR_X = 3
 ANCHOR_Y = 3
-
-
-# Locating MainWindow
-def find_module_name(filename: str) -> str:
-    """Return the dotted module name for `filename` inside the package."""
-    spec = importlib.util.find_spec("SECQUOIA")
-    if spec is None or not spec.submodule_search_locations:
-        raise ModuleNotFoundError(
-            "SECQUOIA is not importable. Run `pip install -e '.[testing]'`."
-        )
-
-    root = Path(next(iter(spec.submodule_search_locations)))
-    matches = sorted(root.rglob(filename))
-    if not matches:
-        raise ModuleNotFoundError(
-            f"No {filename} found anywhere under {root}."
-        )
-
-    relative = matches[0].relative_to(root).with_suffix("")
-    return ".".join(("SECQUOIA", *relative.parts))
 
 
 def main_window_module():
@@ -238,10 +215,7 @@ def test_update_touches_no_other_mask(edit_main_window, patch_collaborators):
 
 @pytest.mark.gui
 def test_update_is_idempotent(edit_main_window, patch_collaborators):
-    """Running twice on unchanged labels must not change any value.
-
-    Also pins the log: the second run reports no column changes.
-    """
+    """Running twice on unchanged labels must not change any value."""
     mask_1, _ = make_fake_labels()
     layer = make_layer("Segmentation1", mask_1)
     edit_main_window.current_time_index = 0
@@ -283,7 +257,7 @@ def test_update_reports_changed_columns(
 def test_update_refreshes_downstream_state(
     edit_main_window, patch_collaborators
 ):
-    """Phase 8 must run: filtered_df rebuilt, tracks refreshed, row inspected."""
+    """Downstream state must be refreshed, not just track_df."""
     mask_1, _ = make_fake_labels()
     edit_main_window.current_time_index = 0
 
@@ -553,18 +527,16 @@ def test_label_id_column_keeps_its_integer_dtype(
     assert main_window.track_df["label_id_m1"].dtype == dtype_before
 
 
-# Phase C - parity with the batch pipeline
+# Phase C - Parity with the batch pipeline
 @pytest.mark.gui
 def test_all_zero_frame_flagged_present_is_measured_like_the_pipeline(
     tmp_path, no_progress, patch_collaborators
 ):
     """A dark frame flagged as acquired is measured by both paths.
 
-    This was expected to diverge and does not: when ``image_present`` has a
-    usable flag array, ``_frame_missing`` honours it and never reaches its
-    all-zero fallback. The fallback only fires when ``image_present`` is
-    absent or unusable, which is also when the pipeline would treat the frame
-    as present. Keep the test - it guards the behaviour during the refactor.
+    With a usable ``image_present`` flag array, ``_frame_missing`` honours it
+    and never reaches its all-zero fallback  which only fires when
+    ``image_present`` is absent.
     """
     main_window = make_edit_main_window(tmp_path)
     main_window.images["w01"][0, :, :] = 0

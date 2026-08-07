@@ -10,8 +10,8 @@ locking checked.
 from __future__ import annotations
 
 import pytest
+from conftest import combo_entries
 from qtpy.QtWidgets import (
-    QComboBox,
     QDialog,
     QPushButton,
     QTabWidget,
@@ -141,10 +141,11 @@ class TestExperimentLoaderDialog:
         assert select_btn.text()
         assert load_btn.text()
 
-    def test_the_help_button_is_an_icon_only_tool_button(
-        self, experiment_loader
-    ):
-        """The annotation says QPushButton, but it is a QToolButton."""
+    def test_the_help_button_is_a_tool_button(self, experiment_loader):
+        """The factory's annotation says QPushButton; it is a QToolButton.
+
+        Pinned so a later annotation fix does not silently change the type.
+        """
         from qtpy.QtWidgets import QToolButton
 
         _dialog, _select, _load, help_btn = experiment_loader
@@ -182,32 +183,17 @@ class TestImageMovieExporter:
         assert exporter.windowTitle() == "Image & Movie Exporter"
 
     def test_offers_the_loaded_channels(self, exporter):
-        entries = {
-            combo.itemText(i)
-            for combo in exporter.findChildren(QComboBox)
-            for i in range(combo.count())
-        }
-
+        entries = combo_entries(exporter)
         assert {"w00", "w01"} <= entries
         assert "Channel 1" not in entries
 
     def test_offers_a_choice_per_loaded_mask(self, exporter):
         """Two masks are loaded, plus the "no mask" entry."""
-        entries = {
-            combo.itemText(i)
-            for combo in exporter.findChildren(QComboBox)
-            for i in range(combo.count())
-        }
-
+        entries = combo_entries(exporter)
         assert {"None", "Mask 1", "Mask 2"} <= entries
 
     def test_offers_the_loaded_identification(self, exporter):
-        entries = {
-            combo.itemText(i)
-            for combo in exporter.findChildren(QComboBox)
-            for i in range(combo.count())
-        }
-
+        entries = combo_entries(exporter)
         assert "exp-p0001-001" in entries
 
     def test_has_export_controls(self, exporter):

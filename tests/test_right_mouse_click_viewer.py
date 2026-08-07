@@ -2,47 +2,25 @@
 
 These pin the observable behaviour of the right-click anchor path: what
 lands in ``track_df``, which measurement refreshes are triggered, and which
-guard paths do nothing. They assert on outputs only, never on internal
-structure, so they stay green across the extraction of the helper methods.
+guard paths do nothing.
 
 Groups:
 
 ``TestGuards``           - events that must be ignored entirely.
 ``TestPicking``          - which layer wins, coordinate handling, label 0.
 ``TestAnchorWrite``      - dataframe mutation, column creation, dtype coercion.
-``TestMeasurementRefresh`` - single-mask vs ALL dispatch.
+``TestMeasurementRefresh`` - single mask vs ALL dispatch.
 """
 
 from __future__ import annotations
 
 import importlib
-import importlib.util
-from pathlib import Path
 from types import SimpleNamespace
 
 import numpy as np
 import pandas as pd
 import pytest
-
-
-# Locating MainWindow (mirrors test_mask_measurement_update.py)
-def find_module_name(filename: str) -> str:
-    """Return the dotted module name for `filename` inside the package."""
-    spec = importlib.util.find_spec("SECQUOIA")
-    if spec is None or not spec.submodule_search_locations:
-        raise ModuleNotFoundError(
-            "SECQUOIA is not importable. Run `pip install -e '.[testing]'`."
-        )
-
-    root = Path(next(iter(spec.submodule_search_locations)))
-    matches = sorted(root.rglob(filename))
-    if not matches:
-        raise ModuleNotFoundError(
-            f"No {filename} found anywhere under {root}."
-        )
-
-    relative = matches[0].relative_to(root).with_suffix("")
-    return ".".join(("SECQUOIA", *relative.parts))
+from conftest import find_module_name
 
 
 @pytest.fixture(scope="module")
@@ -364,8 +342,7 @@ class TestAnchorWrite:
     def test_unknown_identification_aborts(self, main_window, viewer):
         main_window.ident = "does-not-exist"
         run(main_window, viewer, make_event())
-        # The columns are created lazily, so an aborted write leaves the
-        # dataframe exactly as it was.
+        """Columns are created lazily, so an aborted write changes nothing."""
         assert "XMorphology" not in main_window.track_df.columns
 
     def test_ident_falls_back_to_unique_ids(self, main_window, viewer):

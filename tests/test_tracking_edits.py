@@ -6,6 +6,7 @@ from types import SimpleNamespace
 
 import pandas as pd
 import pytest
+from conftest import FakeLineEdit
 
 from SECQUOIA.core import tracking
 from SECQUOIA.core.tracking import (
@@ -49,19 +50,6 @@ TIME_INTERVAL_SECONDS = 300.0
 
 
 # Fakes
-class FakeLineEdit:
-    """Replacement for Qt QLineEdit."""
-
-    def __init__(self, value: str = "") -> None:
-        self.value = value
-
-    def text(self) -> str:
-        return self.value
-
-    def clear(self) -> None:
-        self.value = ""
-
-
 class FakeSpinBox:
     """Replacement for Qt QSpinBox."""
 
@@ -187,7 +175,6 @@ def silence_ui(monkeypatch):
         tracking.history, "build_realtime_lookup", lambda mw: None
     )
     monkeypatch.setattr(_messages, "show_folder_warning", lambda mw=None: None)
-    return None
 
 
 @pytest.fixture

@@ -5,14 +5,35 @@ import os
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 os.environ.setdefault("MPLBACKEND", "Agg")
 
+import importlib.util  # noqa: E402
 import logging  # noqa: E402
 import tempfile  # noqa: E402
 from dataclasses import dataclass  # noqa: E402
+from pathlib import Path  # noqa: E402
 from types import SimpleNamespace  # noqa: E402
 
 import numpy as np  # noqa: E402
 import pandas as pd  # noqa: E402
 import pytest  # noqa: E402
+
+
+def find_module_name(filename: str) -> str:
+    """Return the dotted module name for ``filename`` inside the package."""
+    spec = importlib.util.find_spec("SECQUOIA")
+    if spec is None or not spec.submodule_search_locations:
+        raise ModuleNotFoundError(
+            "SECQUOIA is not importable. Run `pip install -e '.[testing]'`."
+        )
+
+    root = Path(next(iter(spec.submodule_search_locations)))
+    matches = sorted(root.rglob(filename))
+    if not matches:
+        raise ModuleNotFoundError(
+            f"No {filename} found anywhere under {root}."
+        )
+
+    relative = matches[0].relative_to(root).with_suffix("")
+    return ".".join(("SECQUOIA", *relative.parts))
 
 
 @pytest.fixture(autouse=True, scope="session")
@@ -215,7 +236,6 @@ def silence_modals(monkeypatch):
 @pytest.fixture
 def dialog_main_window(fake_main_window_widget, tmp_path):
     """A ``QWidget`` main window populated the way a loaded session is."""
-    import numpy as np
 
     experiment = tmp_path / "exp"
     (experiment / "exp_p0001").mkdir(parents=True)
@@ -286,10 +306,13 @@ def dialog_main_window(fake_main_window_widget, tmp_path):
 class FakeLineEdit:
     """Replacement for the Qt QLineEdit the GUI code reads."""
 
-    value: str
+    value: str = ""
 
     def text(self) -> str:
         return self.value
+
+    def clear(self) -> None:
+        self.value = ""
 
 
 class FakeBasicCorrection:
@@ -440,3 +463,14 @@ def assert_column_values(
 @pytest.fixture
 def quant_main_window():
     return make_fake_main_window
+
+
+def combo_entries(widget, *, lower: bool = False) -> set[str]:
+    """Every entry offered by every combo box under ``widget``."""
+    from qtpy.QtWidgets import QComboBox
+
+    return {
+        combo.itemText(i).lower() if lower else combo.itemText(i)
+        for combo in widget.findChildren(QComboBox)
+        for i in range(combo.count())
+    }
