@@ -501,7 +501,7 @@ def load_ultrack_with_tracknumber(folder: str | Path) -> pd.DataFrame:
 
 
 BTRACK_MISSING_MESSAGE = (
-    "SECQUOIA does not automatically install btrack in this enviorment,\n\n"
+    "SECQUOIA does not automatically install btrack in this enviorment.\n\n"
     "Install it yourself with:\n\n"
     f'    pip install "{BTRACK_REQUIREMENT}"\n\n'
     "Then restart SECQUOIA and load the data again."
