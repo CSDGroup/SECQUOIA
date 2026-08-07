@@ -8,6 +8,7 @@ import os
 from qtpy.QtCore import Qt, QTimer
 from qtpy.QtWidgets import QApplication, QMessageBox
 
+from SECQUOIA.core.logging_setup import attach_experiment_log
 from SECQUOIA.core.project_state import save_project_state
 from SECQUOIA.core.tracking.track_data import (
     BTRACK_MISSING_MESSAGE,
@@ -87,6 +88,7 @@ def _on_load_data_clicked(main_window):
             return
 
         _ensure_analysis_dirs(main_window)
+        attach_experiment_log(main_window.folder)
 
         if main_window.tracking_format == "tTt":
             exp_folder = getattr(main_window, "folder", None)

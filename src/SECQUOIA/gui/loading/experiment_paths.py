@@ -388,7 +388,6 @@ def _select_experiment_folder(main_window, dlg=None):
     main_window.folder = folder
     base = _apply_experiment_folder_to_widgets(main_window, folder)
 
-    _ensure_analysis_dirs(main_window)
     attach_experiment_log(folder)
 
     main_window.experiment_name = base

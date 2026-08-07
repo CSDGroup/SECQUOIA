@@ -16,7 +16,13 @@ def project_analysis_dir(
     if experiment_root is None:
         experiment_root = getattr(main_window, "folder", None)
     if tracking_format is None:
-        tracking_format = getattr(main_window, "tracking_format", "unknown")
+        tracking_format = getattr(main_window, "tracking_format", None)
+    if not tracking_format:
+        raise ValueError(
+            "tracking_format is not set; the project folder cannot be named "
+            "before the experiment is loaded."
+        )
+
     project = (getattr(main_window, "project_name", "") or "Project_1").strip()
     return os.path.join(
         experiment_root,
