@@ -560,7 +560,7 @@ def _draw_lineage_marker(main_window, df_id, current_time) -> None:
         main_window._lineage_time_line = None
 
         try:
-            xmap, _, _, _ = _time_mapper_for_ident(df_id, main_window)
+            xmap, _ = _time_mapper_for_ident(df_id, main_window)
             xpos = float(xmap(float(current_time)))
         except (RuntimeError, AttributeError, TypeError, ValueError):
             xpos = float(current_time)
