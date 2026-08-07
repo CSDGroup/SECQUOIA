@@ -300,7 +300,6 @@ def transformer(qtbot, silence_modals):
 
     widget = TttDataFormatTransformer()
     qtbot.addWidget(widget)
-    widget._shown = silence_modals
     return widget
 
 

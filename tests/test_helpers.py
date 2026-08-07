@@ -40,8 +40,8 @@ from SECQUOIA.utils.plotting import TIME_MODE_CALC
 class FakeDims:
     """Records the time step a viewer was moved to."""
 
-    def __init__(self, n_dims: int = 3, *, broken: bool = False):
-        self.current_step = tuple([0] * n_dims)
+    def __init__(self, *, broken: bool = False):
+        self.current_step = (0, 0, 0)
         self.broken = broken
 
     def set_current_step(self, axis: int, value: int) -> None:

@@ -200,8 +200,10 @@ def test_division_span_is_none_for_unknown_track(geometry):
 
 
 def test_clamped_span_never_exceeds_the_track_end():
-    # A division recorded after the parent's last frame: the plain tree would
-    # draw past the end, the heatmap clamps. Both behaviours are preserved.
+    """A division recorded after the parent's last frame.
+
+    The plain tree draws past the end, the heatmap clamps. Both are kept.
+    """
     tracks = pd.DataFrame(
         {"TrackNumber": [1], "t_start": [0.0], "t_end": [5.0]}
     )
@@ -211,7 +213,7 @@ def test_clamped_span_never_exceeds_the_track_end():
     assert geom.clamped_span(1) == (0.0, 5.0)
 
 
-def test_renderers_use_the_unclamped_span(lineage_df, ident):
+def test_renderers_use_the_unclamped_span():
     """A child normally starts on the frame after the parent's last one."""
     tracks = pd.DataFrame(
         {"TrackNumber": [1], "t_start": [0.0], "t_end": [13.0]}

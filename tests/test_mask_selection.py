@@ -45,8 +45,8 @@ class FakeLayerList(dict):
         self.selection = SimpleNamespace(active=None)
 
 
-def labels_layer(name: str, shape=(4, 8, 8)) -> Labels:
-    return Labels(np.zeros(shape, dtype=np.uint16), name=name)
+def labels_layer(name: str) -> Labels:
+    return Labels(np.zeros((4, 8, 8), dtype=np.uint16), name=name)
 
 
 def fake_viewer(**layers):

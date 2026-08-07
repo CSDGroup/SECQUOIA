@@ -40,11 +40,11 @@ from SECQUOIA.core.segmentation.mask_arithmetic import (
 FRAME = (10, 10)
 
 
-def make_stack(*regions: tuple[slice, slice], label_value: int = 1):
+def make_stack(*regions: tuple[slice, slice]):
     """Build a single time point label stack with the given regions filled."""
     stack = np.zeros((1, *FRAME), dtype=np.uint16)
     for rows, cols in regions:
-        stack[0, rows, cols] = label_value
+        stack[0, rows, cols] = 1
     return stack
 
 
@@ -56,11 +56,6 @@ def big_mask():
 def small_mask():
     """The 2 x 2 mask, area 4, nested inside the 3 x 3 mask."""
     return make_stack((slice(2, 4), slice(2, 4)))
-
-
-def binary_of(stack) -> np.ndarray:
-    """Reduce a label stack to booleans, for shape comparisons."""
-    return stack[0] > 0
 
 
 def filled_coordinates(stack) -> set[tuple[int, int]]:
@@ -207,7 +202,7 @@ def test_dilation_applies_to_each_side_independently():
         big_mask(), small_mask(), "UNI", False, False, 0, 1
     )
 
-    # small (2 x 2 at [2:4, 2:4]) dilated by disk(1), unioned with the 3 x 3.
+    # Small (2 x 2 at [2:4, 2:4]) dilated by disk(1), unioned with the 3 x 3.
     dilated_small = block(1, 5, 2, 4) | block(2, 4, 1, 5)
     expected = block(2, 5, 2, 5) | dilated_small
 
@@ -217,9 +212,9 @@ def test_dilation_applies_to_each_side_independently():
 def test_dilation_over_multiple_timepoints():
     """Each time slice is dilated independently."""
     stack = np.zeros((3, *FRAME), dtype=np.uint16)
-    stack[0, 2:5, 2:5] = 1  # 3 x 3
-    stack[1] = 0  # empty frame
-    stack[2, 5:7, 5:7] = 1  # 2 x 2 elsewhere
+    stack[0, 2:5, 2:5] = 1
+    stack[1] = 0
+    stack[2, 5:7, 5:7] = 1
 
     result = compute_bitwise_mask(stack, None, "NONE", False, False, 1, 0)
 
@@ -262,7 +257,6 @@ def test_union_of_touching_masks_stays_split_with_keep_separate():
         f"Frame:\n{result[0][1:5, 1:7]}"
     )
 
-    # Each keeps its own four pixels; the seed offset makes the right block 2.
     assert filled_coordinates(result) == block(2, 4, 2, 6)
     assert int((result == 1).sum()) == 4
     assert int((result == 2).sum()) == 4
@@ -295,8 +289,9 @@ def test_keep_separate_dilation_fast_path_preserves_input_labels():
 
 
 def test_keep_separate_falls_back_when_no_seeds_survive():
-    """With both inputs inverted there are no seed stacks, so plain labelling
-    is used and the result is still a valid single component."""
+    """With no seed stacks, plain labelling is used and the result is
+    still a valid single component.
+    """
     empty = np.zeros((1, *FRAME), dtype=np.uint16)
 
     result = relabel_separated((empty > 0) | (big_mask() > 0), [])

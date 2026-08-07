@@ -80,9 +80,7 @@ def test_loads_frames_into_memmap_and_tracks_missing_ones(tmp_path):
 
 
 def test_channel_without_identifier_is_marked_empty(tmp_path):
-    main_window = make_fake_main_window(
-        tmp_path, second_channel_identifier=None
-    )
+    main_window = make_fake_main_window(tmp_path)
     main_window.n_channels = 2
     main_window.ids_channels = ["w01", "w02"]
     # No FL_identifiers_2 attribute set -> channel 2 has no identifier.
@@ -106,19 +104,15 @@ def test_channel_with_no_matching_files_is_marked_empty(tmp_path):
     assert main_window.image_present["w02"].shape == (0,)
 
 
-def test_zero_length_t_range_marks_all_channels_empty(tmp_path):
+def test_zero_length_t_range_marks_all_channels_empty(tmp_path, monkeypatch):
     main_window = make_fake_main_window(tmp_path)
-    main_window.time_min_selected = 5
-    main_window.time_max_selected = 1
 
     import SECQUOIA.core.fluorescence_loading as fluorescence_loading
 
-    original = fluorescence_loading._current_t_range
-    fluorescence_loading._current_t_range = lambda mw: (5, 4, 4, 3)
-    try:
-        load_fl_channels(main_window)
-    finally:
-        fluorescence_loading._current_t_range = original
+    monkeypatch.setattr(
+        fluorescence_loading, "_current_t_range", lambda mw: (5, 4, 4, 3)
+    )
+    load_fl_channels(main_window)
 
     assert main_window.images["w01"] is None
     assert main_window.image_present["w01"].shape == (0,)

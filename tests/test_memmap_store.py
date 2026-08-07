@@ -2,7 +2,7 @@
 
 This is the only part of SECQUOIA that deletes a folder tree, so most of
 these check what must not be deleted. The data is a temporary folder holding
-two small memmap files and a lock file. The clean up routine reads the
+two small memmap files and a lock file. The cleanup routine reads the
 system temp folder, so those tests point it at a test folder first.
 """
 
@@ -15,7 +15,6 @@ from types import SimpleNamespace
 import numpy as np
 import pytest
 
-from SECQUOIA.core import memmap_store
 from SECQUOIA.core.memmap_store import (
     _close_memmap,
     _delete_file_list,
@@ -94,9 +93,6 @@ class TestDirLock:
 def fake_tempdir(tmp_path, monkeypatch):
     """Point the reaper at a temporary directory, never the real one."""
     monkeypatch.setattr(tempfile, "gettempdir", lambda: str(tmp_path))
-    monkeypatch.setattr(
-        memmap_store.tempfile, "gettempdir", lambda: str(tmp_path)
-    )
     return tmp_path
 
 
