@@ -495,7 +495,6 @@ class TttDataFormatTransformer(QtWidgets.QWidget):
             )
             return
 
-        # Validate required fields
         date_compact = yymmdd_compact(self.ed_date.text())
         initials = normalize_initials(self.ed_initials.text())
         setup = normalize_setup(self.ed_setup.text())
@@ -505,7 +504,6 @@ class TttDataFormatTransformer(QtWidgets.QWidget):
         self.ed_initials.setText(initials)
         self.ed_setup.setText(setup)
 
-        # Require these to be present
         req_missing = []
         if not date_compact:
             req_missing.append(
@@ -533,18 +531,15 @@ class TttDataFormatTransformer(QtWidgets.QWidget):
 
         exp_name = f"{date_compact}{initials}{setup}"
 
-        # Create output root and Analysis folder
         out_root = os.path.join(self.out_folder, exp_name)
         analysis_dir = os.path.join(out_root, "Analysis")
         os.makedirs(analysis_dir, exist_ok=True)
 
-        # Collect all images
         files = list(iter_image_files(self.in_folder))
         if not files:
             self._warn("No images", no_images_message(self.in_folder))
             return
 
-        # Progress bar becomes "files done"
         self.progress.setRange(0, len(files))
         self.progress.setValue(0)
 
