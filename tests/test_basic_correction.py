@@ -1,9 +1,7 @@
 """Tests for SECQUOIA BaSiC background correction.
 
-It reads a darkfield image, a flatfield image and two per frame text
-series off disk, and applies them. So these tests write a small
-BaSiC folder into a temporary directory instead of mocking anything,
-and the result is the same on every run.
+The correction reads a darkfield image, a flatfield image and two
+per frame text series off disk, then applies them.
 
 ``apply_basic_correction`` documents the two corrections it writes:
 

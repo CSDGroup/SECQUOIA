@@ -43,7 +43,6 @@ from SECQUOIA.utils.positions import (
 )
 
 
-# utils.positions
 class TestCoerceInt:
     def test_returns_the_first_convertible_candidate(self):
         assert coerce_int(None, "nope", "7", 9) == 7
@@ -182,7 +181,7 @@ class TestCurrentPositionNumber:
     def test_at_current_index_ignores_the_cached_number(
         self, fake_main_window
     ):
-        """This is the whole reason the second function exists."""
+        """Unlike ``current_position_number``, this one ignores the cache."""
         main_window = fake_main_window(
             current_position_number=8,  # stale cache
             current_position_index=0,
@@ -197,11 +196,6 @@ class TestCurrentPositionNumber:
             current_position_index=5, position_folders=["/e/exp_p0001"]
         )
         assert position_number_at_current_index(main_window) is None
-
-
-# ---------------------------------------------------------------------------
-# utils.intervals
-# ---------------------------------------------------------------------------
 
 
 class TestResolveMulti:
@@ -298,11 +292,6 @@ class TestIntersectIntervals:
         assert intersect_intervals([(0, 1)], []) == []
 
 
-# ---------------------------------------------------------------------------
-# utils.io_reload
-# ---------------------------------------------------------------------------
-
-
 class TestReadWithReload:
     def test_returns_the_value_on_first_success(self):
         assert read_with_reload(lambda p: f"read {p}", "file.csv") == (
@@ -374,11 +363,6 @@ class TestReadWithReload:
         write_text_with_reload(path, "hello")
 
         assert read_text_with_reload(path) == "hello"
-
-
-# ---------------------------------------------------------------------------
-# core.experiment_layout
-# ---------------------------------------------------------------------------
 
 
 @pytest.fixture

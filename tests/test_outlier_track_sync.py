@@ -347,7 +347,7 @@ class TestUpdateUniqueOutliersIds:
         assert main_window.unique_outliers_ids == ["p1_a"]
 
     def test_ignores_a_short_id_column(self, fake_main_window):
-        """Only Identification and its lowercase spelling name a cell."""
+        """Only Identification and its lowercase spelling identify a cell."""
         df = filtered_frame(1, [("p1_a", 0)]).rename(
             columns={"Identification": "ID"}
         )

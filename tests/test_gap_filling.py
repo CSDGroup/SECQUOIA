@@ -80,7 +80,7 @@ class TestTrackWindows:
         assert list(windows[1]) == [0, 1, 2, 3, 4, 5]
 
     def test_a_late_detected_daughter_is_born_with_its_sister(self):
-        """This is the point of the sister rule.
+        """The sister rule at work.
 
         Daughter 3 was first measured at frame 5, but its sister 2 appeared at
         frame 3, so the division happened at 3 and daughter 3 gets rows back

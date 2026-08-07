@@ -125,7 +125,9 @@ def window_with_metrics():
     )
 
 
-def test_the_metric_names_are_listed_for_the_confirmation(window_with_metrics):
+def test_the_metric_names_are_listed_for_the_confirmation_dialog(
+    window_with_metrics,
+):
     assert _calculated_metric_names(window_with_metrics) == [
         "Area per label",
         "BaSiC ratio",
@@ -172,7 +174,7 @@ def test_deleting_is_safe_without_any_metrics():
 
 
 def test_a_window_that_cannot_delete_is_tolerated(fake_main_window):
-    """A stand-in without the mixin must not break the apply."""
+    """A window without the metric-deletion mixin must not break Apply."""
     main_window = fake_main_window(_derived_features=metric("R", "a", "b"))
 
     assert _clear_calculated_metrics(main_window) == []
@@ -197,7 +199,7 @@ def flagged_window(fake_main_window):
 
 
 def test_applying_discards_the_saved_rules(flagged_window):
-    """They must be gone, not re-applied on the next position switch."""
+    """The rules must be gone, not re-applied on the next position switch."""
     _clear_outlier_state(flagged_window)
 
     assert not getattr(flagged_window, "_last_outlier_rules", None)
