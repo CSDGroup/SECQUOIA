@@ -115,7 +115,7 @@ def test_ctc_to_long_ignores_comment_lines(tmp_path):
     assert len(ctc_to_long(folder)) == 9
 
 
-def test_ctc_to_long_drops_frames_outside_a_labels_lifespan(tmp_path):
+def test_ctc_to_long_drops_frames_outside_a_label_lifespan(tmp_path):
     """A label present in a mask outside its B..E window is not a track row."""
     blocks = {frame: dict(labels) for frame, labels in BLOCKS.items()}
     blocks[0][3] = (6, 6)  # label 3 appears long before it is born at t=3
@@ -324,7 +324,7 @@ def test_assign_track_numbers_ignores_children_outside_the_track_list():
     assert 404 not in numbers
 
 
-def test_assign_track_numbers_treats_a_missing_root_as_its_own(btrack_lineage):
+def test_assign_track_numbers_treats_a_missing_root_as_its_own():
     solo = fake_track(5, range(4), root=None)
 
     assert assign_track_numbers([solo]) == {5: 1}

@@ -1,9 +1,10 @@
-"""Tests for SECQUOIA outlier marker columns.
+"""Tests for the SECQUOIA outlier marker helpers.
 
-These work out which dataframe column a dynamics plot row is showing. The
-test data is a small feature dictionary with three entries: one carrying a
-channel and a mask, one carrying only a mask, and one plain column name.
-That covers every template shape the markers have to fill in.
+``_column_for_row`` works out which dataframe column a dynamics plot row is
+showing. The test data is a small feature dictionary with three entries: one
+carrying a channel and a mask, one carrying only a mask, and one plain column
+name. That covers every template shape the markers have to fill in.
+``_new_star_symbol`` is covered separately at the end.
 """
 
 from __future__ import annotations
@@ -66,5 +67,5 @@ def test_column_for_row_returns_none_when_no_feature_is_selected():
     assert _column_for_row(main_window, CH_M_DEFS, 1) == (None, None)
 
 
-def test_new_star_symbol_prefers_star_when_supported():
+def test_new_star_symbol_is_star():
     assert _new_star_symbol() == "star"

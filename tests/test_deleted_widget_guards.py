@@ -66,7 +66,7 @@ def test_a_live_widget_is_reused(qtbot, fake_main_window):
 
 
 def test_a_deleted_widget_is_rebuilt(qtbot, fake_main_window):
-    """Reopening the loading window after a run all must not touch the corpse."""
+    """Reopening must rebuild the combo, not reuse the destroyed one."""
     parent = QWidget()
     qtbot.addWidget(parent)
     combo = QComboBox(parent)
@@ -115,7 +115,7 @@ def window_with_dead_combos(fake_main_window, tmp_path):
 
 
 def test_saving_survives_a_deleted_combo(window_with_dead_combos, qapp):
-    """The crash reported at the end of a run all pass."""
+    """Saving must survive a combo destroyed by an earlier window close."""
     save_project_state(window_with_dead_combos)
 
     path = window_with_dead_combos.project_state_path

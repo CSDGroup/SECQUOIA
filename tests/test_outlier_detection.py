@@ -34,13 +34,13 @@ COLUMNS = [
     "MeanNoBgCorrectedCh2M1",
     "MeanNoBgCorrectedCh1M10",
     "MeanNoBgCorrectedCh10M1",
-    "Ratio",  # no mask/channel tokens at all
+    "Ratio",
 ]
 
 
 @pytest.fixture
 def wide_df() -> pd.DataFrame:
-    """One row per column layout, plus a non-numeric column."""
+    """Three rows spanning every column layout, plus a non-numeric column."""
     data = {col: [1.0, 2.0, 3.0] for col in COLUMNS}
     data["Identification"] = ["a", "a", "a"]
     data["t"] = [0, 1, 2]

@@ -85,7 +85,7 @@ def test_expected_columns_cover_every_written_family():
 
 
 def test_switching_basic_off_drops_only_the_basic_variants():
-    """The user's case: BaSiC run first, then the same data without BaSiC."""
+    """The common case: BaSiC run first, then the same data without BaSiC."""
     frame = measured_frame()
 
     pruned = drop_stale_measurement_columns(
