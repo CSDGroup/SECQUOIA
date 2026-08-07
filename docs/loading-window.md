@@ -8,10 +8,10 @@ This window is used to load experiment data, define segmentation and channel set
 
 1. Assign a project name (e.g., Project_1, Project_2, etc.).
 2. Enter user initials (e.g., MA or LA).
-3. Select the experiment folder (e.g., `20251012MA40`) in the [tTt folder structure](https://github.com/CSDGroup/SECQUOIA/blob/main/docs/data-formats.md).
+3. Select the experiment folder (e.g., `20251012MA40`) in the [tTt folder structure](data-formats.md).
 4. Select the image format for the input images and masks.
 5. Select the tracking input format: either [btrack](https://github.com/quantumjot/btrack?tab=readme-ov-file), [Cell Tracking Challenge (CTC)](https://celltrackingchallenge.net/), [tTt](https://bsse.ethz.ch/csd/software/ttt-and-qtfy.html), or [Ultrack](https://github.com/royerlab/ultrack).
-6. Select a [tracking folder](https://github.com/CSDGroup/SECQUOIA/blob/main/docs/data-formats.md).
+6. Select a [tracking folder](data-formats.md).
 7. Click `Load experiment` to load the tracking data. If the `tTt` tracking format is selected, the position comments are also read from `TATexp.xml`. Only after loading the data are the other tabs enabled.
 8. Once the data are loaded, specific Positions and Identifications can be chosen for further data analysis. The number of selected Identifications and Positions is displayed. Use `Select all` or `Unselect all` to select or deselect all Positions and Identifications.
 

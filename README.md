@@ -2,9 +2,8 @@
   <img src="src/SECQUOIA/resources/images/splash.png" alt="SECQUOIA" width="800">
 </p>
 
-[![License BSD-3](https://img.shields.io/pypi/l/SECQUOIA.svg?color=green)](https://github.com/CSDGroup/SECQUOIA/raw/main/LICENSE)
-[![PyPI](https://img.shields.io/pypi/v/SECQUOIA.svg?color=green)](https://pypi.org/project/SECQUOIA)
-[![Python Version](https://img.shields.io/pypi/pyversions/SECQUOIA.svg?color=green)](https://python.org)
+[![License BSD-3](https://img.shields.io/badge/license-BSD--3-green)](https://github.com/CSDGroup/SECQUOIA/raw/main/LICENSE)
+[![Python Version](https://img.shields.io/badge/python-3.10%20%7C%203.11%20%7C%203.12%20%7C%203.13-green)](https://python.org)
 [![tests](https://github.com/CSDGroup/SECQUOIA/actions/workflows/test_and_deploy.yml/badge.svg)](https://github.com/CSDGroup/SECQUOIA/actions/workflows/test_and_deploy.yml)
 [![codecov](https://codecov.io/gh/CSDGroup/SECQUOIA/branch/main/graph/badge.svg)](https://codecov.io/gh/CSDGroup/SECQUOIA)
 [![Copier](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/copier-org/copier/master/img/badge/badge-grayscale-inverted-border-purple.json)](https://github.com/copier-org/copier)
@@ -28,7 +27,6 @@
 - [Switch to a different position](#switch-to-a-different-position)
 - [Save and export data](#save-and-export-data)
 - [Cytometric analysis](#cytometric-analysis)
-- [Citation](#citation)
 - [Contributing](#contributing)
 - [License](#license)
 - [Issues](#issues)
@@ -215,7 +213,4 @@ This GUI was generated with [copier] using the [napari-plugin-template].
 [BSD-3]: http://opensource.org/licenses/BSD-3-Clause
 [napari-plugin-template]: https://github.com/napari/napari-plugin-template
 [file an issue]: https://github.com/CSDGroup/SECQUOIA/issues
-[napari]: https://github.com/napari/napari
 [tox]: https://tox.readthedocs.io/en/latest/
-[pip]: https://pypi.org/project/pip/
-[PyPI]: https://pypi.org/
