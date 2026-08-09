@@ -7,13 +7,9 @@ importing each other.
 from __future__ import annotations
 
 from qtpy.QtCore import Qt
-from qtpy.QtGui import QCursor, QGuiApplication
 from qtpy.QtWidgets import QMessageBox, QWidget
 
 __all__ = ["show_folder_warning"]
-
-_WARNING_WIDTH_FRACTION = 0.35
-_WARNING_HEIGHT_FRACTION = 0.22
 
 
 def show_folder_warning(parent: QWidget | None = None) -> None:
@@ -30,16 +26,6 @@ def show_folder_warning(parent: QWidget | None = None) -> None:
     msg.setSizeGripEnabled(True)
     msg.setTextInteractionFlags(Qt.TextSelectableByMouse)
 
-    screen = (
-        QGuiApplication.screenAt(QCursor.pos())
-        or QGuiApplication.primaryScreen()
-    )
-    available = screen.availableGeometry()
-    msg.resize(
-        int(available.width() * _WARNING_WIDTH_FRACTION),
-        int(available.height() * _WARNING_HEIGHT_FRACTION),
-    )
-
-    msg.setStyleSheet("QLabel{min-width:420px;}")
+    msg.setMinimumWidth(420)
 
     msg.exec_()
