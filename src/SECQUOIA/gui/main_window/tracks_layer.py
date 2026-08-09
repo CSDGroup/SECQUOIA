@@ -70,7 +70,7 @@ class TracksLayer:
                     background: #2b2b2b;
                     color: #e6e6e6;
                     border: 1px solid #444;
-                    font-size: {STYLE.FONT_SIZE}pt;
+                    font-size: {STYLE.FONT_SIZE}px;
                 }}
                 QPushButton:hover {{ background: #3a3a3a; }}
                 QPushButton:pressed {{ background: #1f1f1f; }}

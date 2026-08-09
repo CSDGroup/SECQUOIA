@@ -210,7 +210,7 @@ class ViewerTools:
                 border-radius: 6px;
                 background: #2b2b2b;
                 color: #e6e6e6;
-                font-size: {STYLE.FONT_SIZE}pt;
+                font-size: {STYLE.FONT_SIZE}px;
             }}
             QPushButton[vtool="1"]:hover {{ border-color: #6a6a6a; }}
             QPushButton[vtool="1"]:checked {{

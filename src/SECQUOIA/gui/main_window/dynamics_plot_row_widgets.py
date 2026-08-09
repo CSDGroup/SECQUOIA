@@ -18,6 +18,7 @@ from qtpy.QtWidgets import (
 )
 
 from SECQUOIA.config import TOOLTIPSTEXT, ColorStyle
+from SECQUOIA.gui.common.ui_utils import use_fusion_widget_style
 from SECQUOIA.gui.dialogs.metric_dialog import open_metric_dialog
 from SECQUOIA.gui.main_window.mouse_bindings import on_plot_single_click
 from SECQUOIA.utils.plotting import update_plot
@@ -104,12 +105,14 @@ class DynamicsPlotRowWidgets:
     def _build_row_metric_buttons(self) -> tuple[QPushButton, QPushButton]:
         """Build the metrics and arithmetic buttons for a plot row, sized to their icons."""
         btn_r = QPushButton()
+        use_fusion_widget_style(btn_r)
         btn_r.setToolTip(TOOLTIPSTEXT.BTN_R)
         btn_r.setCursor(Qt.PointingHandCursor)
         btn_r.setIcon(qta.icon("fa5s.chart-bar", color="white"))
         btn_r.setIconSize(QSize(14, 14))
 
         btn_arith = QPushButton()
+        use_fusion_widget_style(btn_arith)
         btn_arith.setToolTip(TOOLTIPSTEXT.BTN_ARITH)
         btn_arith.setCursor(Qt.PointingHandCursor)
         btn_arith.setIcon(qta.icon("fa5s.layer-group", color="white"))
@@ -246,6 +249,9 @@ class DynamicsPlotRowWidgets:
         )
         btn_r, btn_arith = self._build_row_metric_buttons()
         eye_btn = self._build_row_eye_button()
+
+        for combo in (feat_combo, m_combo, ch_combo):
+            use_fusion_widget_style(combo)
 
         target_h = max(
             feat_combo.sizeHint().height(),

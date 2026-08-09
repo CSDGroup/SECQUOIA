@@ -6,6 +6,7 @@ from qtpy import QtCore, QtWidgets
 from qtpy.QtWidgets import QSizePolicy
 
 from SECQUOIA.config import TOOLTIPSTEXT
+from SECQUOIA.gui.common.ui_utils import use_fusion_widget_style
 from SECQUOIA.gui.lineage_tree.lineage_geometry import FeatureCatalog
 from SECQUOIA.utils.plotting import DEFAULT_FEATURE
 
@@ -67,6 +68,7 @@ class HeatmapControls(QtWidgets.QWidget):
         layout.addWidget(label)
 
         combo = QtWidgets.QComboBox()
+        use_fusion_widget_style(combo)
         combo.setToolTip(tooltip)
         combo.setStyleSheet(_LABEL_STYLE)
         combo.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)

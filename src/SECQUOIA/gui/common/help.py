@@ -208,7 +208,9 @@ class HelpPopup(QtWidgets.QDialog):
         self.text = QtWidgets.QTextEdit()
         self.text.setAcceptRichText(False)
         self.text.setLineWrapMode(QtWidgets.QTextEdit.WidgetWidth)
-        self.text.setFont(QtGui.QFont(STYLE.FONT_FAMILY, STYLE.FONT_SIZE_HELP))
+        help_font = QtGui.QFont(STYLE.FONT_FAMILY)
+        help_font.setPixelSize(STYLE.FONT_SIZE_HELP)
+        self.text.setFont(help_font)
         self.text.setReadOnly(True)
         root.addWidget(self.text, 10)
 

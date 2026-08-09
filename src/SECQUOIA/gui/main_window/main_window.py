@@ -443,7 +443,8 @@ class MainWindow(
         self.layout2 = QVBoxLayout()
 
         # Define Font Size
-        font2 = QFont(STYLE.FONT_FAMILY, STYLE.FONT_SIZE)
+        font2 = QFont(STYLE.FONT_FAMILY)
+        font2.setPixelSize(STYLE.FONT_SIZE)
 
         # Add plots
         plot_widget_1 = pg.PlotWidget()
@@ -529,7 +530,7 @@ class MainWindow(
                     background: #2b2b2b;
                     color: #e6e6e6;
                     border: 1px solid #444;
-                    font-size: {STYLE.FONT_SIZE}pt;
+                    font-size: {STYLE.FONT_SIZE}px;
                 }}
                 QPushButton:hover {{
                     background: #3a3a3a;
@@ -598,7 +599,7 @@ class MainWindow(
 
         # Set up the layout
         self.setStyleSheet(
-            f"QLabel {{ font-size: {STYLE.FONT_SIZE}pt; }} QLineEdit {{ font-size: {STYLE.FONT_SIZE}pt; }}"
+            f"QLabel {{ font-size: {STYLE.FONT_SIZE}px; }} QLineEdit {{ font-size: {STYLE.FONT_SIZE}px; }}"
         )
 
         left_layout = QVBoxLayout()
@@ -690,7 +691,7 @@ class MainWindow(
 
         menu_bar.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Preferred)
         f = menu_bar.font()
-        f.setPointSize(STYLE.FONT_SIZE)
+        f.setPixelSize(STYLE.FONT_SIZE)
         menu_bar.setFont(f)
         self.main_layout.setMenuBar(menu_bar)
 

@@ -173,12 +173,10 @@ def create_experiment_loader_dialog(
     seg_tree = QTreeWidget(opt)
     seg_tree.setHeaderLabels(["Select existing Segmentation (One or more)"])
     header_font = seg_tree.header().font()
-    header_font.setPointSize(header_font.pointSize())
     header_font.setBold(True)
     seg_tree.header().setFont(header_font)
 
     tree_font = seg_tree.font()
-    tree_font.setPointSize(tree_font.pointSize())
     seg_tree.setFont(tree_font)
 
     seg_tree.setColumnCount(1)

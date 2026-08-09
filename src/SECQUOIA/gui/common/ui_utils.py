@@ -54,12 +54,11 @@ __all__ = [
     "spinbox_arrow_pngs",
     "style_button_loading",
     "themed_icon",
+    "use_fusion_widget_style",
     "use_readable_combo_popup_on_macos",
     "reuse_widget",
     "widen_to_hint",
 ]
-
-_macos_combo_popup_style = None
 
 
 def is_widget_alive(widget) -> bool:
@@ -91,14 +90,22 @@ def reuse_widget(main_window, attr: str, factory):
     return widget
 
 
+_fusion_style = None
+
+
+def use_fusion_widget_style(widget: QWidget) -> None:
+    """Give one widget (and its children) Fusion metrics on every platform."""
+    global _fusion_style
+    if not is_widget_alive(_fusion_style):
+        _fusion_style = QStyleFactory.create("Fusion")
+    widget.setStyle(_fusion_style)
+
+
 def use_readable_combo_popup_on_macos(combo: QComboBox) -> None:
     """Apply the Fusion style to a combo so its popup honors the stylesheet."""
     if sys.platform != "darwin":
         return
-    global _macos_combo_popup_style
-    if not is_widget_alive(_macos_combo_popup_style):
-        _macos_combo_popup_style = QStyleFactory.create("Fusion")
-    combo.setStyle(_macos_combo_popup_style)
+    use_fusion_widget_style(combo)
 
 
 # Base icon size in 96-DPI pixels, scaled up on high-DPI screens.

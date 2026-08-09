@@ -12,8 +12,8 @@ if os.name == "nt":
     os.environ.setdefault("QT_QPA_PLATFORM", "windows:fontengine=freetype")
 
 from qtpy.QtCore import Qt
-from qtpy.QtWidgets import QApplication
 from qtpy.QtGui import QFont
+from qtpy.QtWidgets import QApplication
 
 
 def set_windows_app_id(app_id: str = "SECQUOIA.SECQUOIA.desktop.1") -> None:
@@ -54,7 +54,7 @@ def main():
             if getattr(STYLE, "FONT_SIZE", None)
             else 10
         )
-        f.setPointSize(max(8, sz))
+        f.setPixelSize(max(8, sz))
         app.setFont(f)
     except (ImportError, AttributeError, TypeError, ValueError):
         pass

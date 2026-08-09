@@ -35,15 +35,15 @@ class ViewerToolbar:
         return False
 
     def _style_combo_and_label(self, combo: QComboBox, label: QLabel) -> None:
-        """Apply the default 10pt style, then try to switch to the configured FONT_SIZE."""
+        """Apply the default 13px style, then try to switch to the configured FONT_SIZE."""
         combo.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Fixed)
-        combo.setStyleSheet("QComboBox{font-size:10pt; padding:0 4pt;}")
-        label.setStyleSheet("QLabel{font-size:10pt;}")
+        combo.setStyleSheet("QComboBox{font-size:13px; padding:0 4px;}")
+        label.setStyleSheet("QLabel{font-size:13px;}")
         try:
             combo.setStyleSheet(
-                f"QComboBox{{font-size:{STYLE.FONT_SIZE}pt; padding:0 4pt;}}"
+                f"QComboBox{{font-size:{STYLE.FONT_SIZE}px; padding:0 4px;}}"
             )
-            label.setStyleSheet(f"QLabel{{font-size:{STYLE.FONT_SIZE}pt;}}")
+            label.setStyleSheet(f"QLabel{{font-size:{STYLE.FONT_SIZE}px;}}")
         except (RuntimeError, AttributeError, TypeError):
             combo.setStyleSheet("")
             label.setStyleSheet("")

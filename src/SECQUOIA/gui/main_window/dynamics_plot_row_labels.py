@@ -46,7 +46,7 @@ class DynamicsPlotRowLabels:
         style = (
             f' style="color:white;'
             f"font-family:{ColorStyle.FONT_FAMILY};"
-            f"font-size:{font_size or ColorStyle.FONT_SIZE}pt;"
+            f"font-size:{font_size or ColorStyle.FONT_SIZE}px;"
             f'font-weight:{ColorStyle.FONT_WEIGHT};"'
         )
 
@@ -64,7 +64,7 @@ class DynamicsPlotRowLabels:
             f"<div>{content_html}<br>"
             f'<span style="color:{self._SUMMARY_COLORS["dim"]};'
             f"font-family:{ColorStyle.FONT_FAMILY};"
-            f'font-size:{ColorStyle.FONT_SIZE}pt;">{description}</span></div>'
+            f'font-size:{ColorStyle.FONT_SIZE}px;">{description}</span></div>'
         )
 
     def _update_row_igt_label(self, row: int) -> None:
@@ -106,7 +106,7 @@ class DynamicsPlotRowLabels:
         return (
             f'<span style="color:{color};'
             f"font-family:{ColorStyle.FONT_FAMILY};"
-            f"font-size:{font_size or ColorStyle.FONT_SIZE}pt;"
+            f"font-size:{font_size or ColorStyle.FONT_SIZE}px;"
             f'{weight_css}">{txt}</span>'
         )
 
