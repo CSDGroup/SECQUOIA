@@ -249,7 +249,7 @@ def open_at_screen_frac(window: QWidget, frac: float = 0.8) -> None:
 def equalize_min_widths(
     widgets: list[QWidget | None], target_width: int | None = None
 ) -> None:
-    """Give a group of widgets a common minimum width."""
+    """Give a group of widgets a common width."""
     hints = [w.sizeHint().width() for w in widgets if w]
     if not hints:
         return
@@ -257,8 +257,7 @@ def equalize_min_widths(
     for widget in widgets:
         if widget is None:
             continue
-        widget.setMinimumWidth(width)
-        widget.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
+        set_fixed_width(widget, width)
 
 
 def harmonize_form_labels(root: QWidget) -> None:

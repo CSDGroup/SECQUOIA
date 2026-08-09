@@ -92,6 +92,9 @@ def build_tracking_tab(main_window, UiSize):
     form = QFormLayout()
     form.setHorizontalSpacing(12)
     form.setVerticalSpacing(8)
+    form.setFormAlignment(Qt.AlignLeft | Qt.AlignTop)
+    form.setLabelAlignment(Qt.AlignLeft)
+    form.setFieldGrowthPolicy(QFormLayout.FieldsStayAtSizeHint)
 
     # Project name
     row = QWidget()
@@ -323,7 +326,6 @@ def build_tracking_tab(main_window, UiSize):
     set_fixed_width(main_window.load_data_btn, UiSize.select_w)
     load_h.addStretch(1)
     load_h.addWidget(main_window.load_data_btn, 0)
-    form.addRow("", load_row)
 
     # Result tree
     main_window.tracking_tree_group = QGroupBox("")
@@ -370,6 +372,7 @@ def build_tracking_tab(main_window, UiSize):
     g_v.addWidget(main_window.tracking_counts_label)
 
     t_v.addLayout(form)
+    t_v.addWidget(load_row)
     t_v.addWidget(main_window.tracking_tree_group)
     t_v.addStretch(1)
 
@@ -413,6 +416,7 @@ def build_segmentation_tab(main_window, UiSize):
         QComboBox.AdjustToMinimumContentsLengthWithIcon
     )
     main_window.bg_correct_combo.setMinimumContentsLength(0)
+    use_readable_combo_popup_on_macos(main_window.bg_correct_combo)
     set_fixed_width(main_window.bg_correct_combo, UiSize.min_w_select)
 
     _sync_bg_ui = _make_bg_sync_handler(
@@ -438,6 +442,7 @@ def build_segmentation_tab(main_window, UiSize):
         QComboBox.AdjustToMinimumContentsLengthWithIcon
     )
     main_window.import_rt_combo.setMinimumContentsLength(0)
+    use_readable_combo_popup_on_macos(main_window.import_rt_combo)
     set_min_expanding(main_window.import_rt_combo, UiSize.min_w_editor)
 
     main_window.use_import_rt = False
@@ -602,7 +607,7 @@ def build_channel_tab(main_window, UiSize):
     # Time [s] between time points
     main_window.time_input = QSpinBox()
     main_window.time_input.setToolTip(TOOLTIPSTEXT.TIME)
-    main_window.time_input.setRange(0, 10**9)
+    main_window.time_input.setRange(0, 86400)
     main_window.time_input.setSingleStep(30)
     main_window.time_input.setKeyboardTracking(True)
     cached = getattr(main_window, "time_interval", None)
