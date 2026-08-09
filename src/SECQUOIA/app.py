@@ -8,19 +8,12 @@ os.environ.setdefault("QT_API", "pyside6")
 os.environ.setdefault("QT_ENABLE_HIGHDPI_SCALING", "1")
 os.environ.setdefault("QT_AUTO_SCREEN_SCALE_FACTOR", "1")
 os.environ.setdefault("QT_SCALE_FACTOR_ROUNDING_POLICY", "PassThrough")
-
 if os.name == "nt":
-    with contextlib.suppress(Exception):
-        import ctypes
-
-        ctypes.windll.shcore.SetProcessDpiAwareness(2)
-    with contextlib.suppress(Exception):
-        import ctypes
-
-        ctypes.windll.user32.SetProcessDPIAware()
+    os.environ.setdefault("QT_QPA_PLATFORM", "windows:fontengine=freetype")
 
 from qtpy.QtCore import Qt
 from qtpy.QtWidgets import QApplication
+from qtpy.QtGui import QFont
 
 
 def set_windows_app_id(app_id: str = "SECQUOIA.SECQUOIA.desktop.1") -> None:
@@ -49,6 +42,7 @@ def main():
         QApplication.setAttribute(Qt.AA_UseHighDpiPixmaps, True)
 
     app = QApplication(sys.argv)
+    QFont.insertSubstitution("MS Sans Serif", "Segoe UI")
     from SECQUOIA.resources import app_icon
 
     try:
