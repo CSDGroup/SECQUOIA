@@ -32,6 +32,7 @@ from SECQUOIA.core.experiment_layout import (
     find_images_csvs,
 )
 from SECQUOIA.core.logging_setup import attach_experiment_log
+from SECQUOIA.gui.common.messages import apply_dialog_platform_style
 from SECQUOIA.utils.paths import project_analysis_dir
 
 LOG = logging.getLogger(__name__)
@@ -240,21 +241,30 @@ def _confirm_overwrite_project_dir(main_window) -> bool:
 
     parent = getattr(main_window, "mask_no_window", main_window)
 
-    reply = QMessageBox.question(
-        parent,
-        "Project already exists",
-        (
-            f"The project folder already exists:\n\n"
-            f"{project_dir}\n\n"
-            "Do you want to overwrite it?\n\n"
-            "This will permanently delete the old project folder and "
-            "create a new empty one."
-        ),
-        QMessageBox.Yes | QMessageBox.No,
-        QMessageBox.No,
+    dlg = QMessageBox(parent)
+    dlg.setWindowTitle("Project already exists")
+    dlg.setText("This project folder already exists. Overwrite it?")
+    dlg.setInformativeText(
+        f"{project_dir}\n\n"
+        "The old project folder is permanently deleted and replaced by a "
+        "new empty one."
     )
+    dlg.setIcon(QMessageBox.Warning)
+    dlg.setTextInteractionFlags(Qt.TextSelectableByMouse)
 
-    if reply != QMessageBox.Yes:
+    btn_overwrite = dlg.addButton("Overwrite", QMessageBox.AcceptRole)
+    btn_cancel = dlg.addButton("Cancel", QMessageBox.RejectRole)
+    dlg.setDefaultButton(btn_cancel)
+    dlg.setEscapeButton(btn_cancel)
+
+    apply_dialog_platform_style(dlg)
+
+    try:
+        dlg.exec_()
+    except AttributeError:
+        dlg.exec()
+
+    if dlg.clickedButton() is not btn_overwrite:
         if hasattr(main_window, "status_label") and main_window.status_label:
             main_window.status_label.setText(
                 "Status: Project creation cancelled."
@@ -264,11 +274,18 @@ def _confirm_overwrite_project_dir(main_window) -> bool:
     try:
         shutil.rmtree(project_dir)
     except OSError as e:
-        QMessageBox.warning(
-            parent,
-            "Could not overwrite project",
-            f"Could not delete the existing project folder:\n\n{e}",
-        )
+        err = QMessageBox(parent)
+        err.setWindowTitle("Could not overwrite project")
+        err.setText("The existing project folder could not be deleted.")
+        err.setInformativeText(str(e))
+        err.setIcon(QMessageBox.Critical)
+        err.setTextInteractionFlags(Qt.TextSelectableByMouse)
+        err.addButton(QMessageBox.Ok)
+        apply_dialog_platform_style(err)
+        try:
+            err.exec_()
+        except AttributeError:
+            err.exec()
         return False
 
     main_window.project_dir = project_dir

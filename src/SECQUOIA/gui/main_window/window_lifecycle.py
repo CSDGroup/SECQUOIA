@@ -5,7 +5,6 @@ sizing, the window title, and the Tree-ID filter checkbox.
 
 import contextlib
 import logging
-import sys
 from textwrap import dedent
 
 import pyqtgraph as pg
@@ -15,12 +14,8 @@ from qtpy.QtGui import QCloseEvent
 from qtpy.QtWidgets import (
     QAbstractButton,
     QApplication,
-    QDialogButtonBox,
     QMessageBox,
-    QProxyStyle,
     QPushButton,
-    QStyle,
-    QStyleFactory,
     QWidget,
 )
 
@@ -30,7 +25,10 @@ from SECQUOIA.core.segmentation.mask_io import save_masks_incremental
 from SECQUOIA.core.tracking.clt_io import CLTParser
 from SECQUOIA.gui.cell_inspector.integration import detach_cell_inspector
 from SECQUOIA.gui.common.help import HelpDocs, HelpPopup
-from SECQUOIA.gui.common.messages import show_folder_warning
+from SECQUOIA.gui.common.messages import (
+    apply_dialog_platform_style,
+    show_folder_warning,
+)
 from SECQUOIA.gui.curation_tree import update_list
 from SECQUOIA.gui.exporter import ImageMovieExporter
 from SECQUOIA.gui.outlier.outlier_list import _update_outlier_list
@@ -39,28 +37,6 @@ from SECQUOIA.utils.helpers import update_time_marker
 from SECQUOIA.utils.positions import position_number_at_current_index
 
 LOG = logging.getLogger(__name__)
-
-
-_EXIT_DIALOG_QSS = """
-QMessageBox QPushButton {
-    min-width: 88px;
-    padding: 5px 14px;
-    border-radius: 4px;
-}
-"""
-
-_WIN_BUTTON_LAYOUT = int(
-    getattr(QDialogButtonBox.WinLayout, "value", QDialogButtonBox.WinLayout)
-)
-
-
-class _WindowsButtonOrderStyle(QProxyStyle):
-    """Fusion, but with the Windows dialog button order."""
-
-    def styleHint(self, hint, option=None, widget=None, returnData=None):
-        if hint == QStyle.SH_DialogButtonLayout:
-            return _WIN_BUTTON_LAYOUT
-        return super().styleHint(hint, option, widget, returnData)
 
 
 class WindowLifecycle:
@@ -267,14 +243,7 @@ class WindowLifecycle:
         dlg.setDefaultButton(btn_no)
         dlg.setEscapeButton(btn_no)
 
-        if sys.platform == "darwin":
-            style = _WindowsButtonOrderStyle(QStyleFactory.create("Fusion"))
-            style.setParent(dlg)
-            dlg.setStyle(style)
-            for button in dlg.buttons():
-                button.setStyle(style)
-
-        dlg.setStyleSheet(_EXIT_DIALOG_QSS)
+        apply_dialog_platform_style(dlg)
 
         try:
             dlg.exec_()
