@@ -201,6 +201,9 @@ def clear_colorbar(plot: pg.PlotItem) -> None:
     if old_bar is not None:
         with contextlib.suppress(*QT_DRAW_ERRORS, ValueError):
             plot.layout.removeItem(old_bar)
+        with contextlib.suppress(*QT_DRAW_ERRORS, ValueError):
+            if old_bar.scene() is not None:
+                old_bar.scene().removeItem(old_bar)
     plot._heatbar = None
 
 
