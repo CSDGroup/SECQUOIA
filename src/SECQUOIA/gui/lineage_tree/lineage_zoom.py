@@ -304,8 +304,8 @@ def reset_lineage_zoom(main_window) -> None:
     y_map = getattr(main_window, "_last_lineage_y_map", None) or {}
     if y_map:
         ys = list(y_map.values())
-        y_min = float(min(ys)) - 0.6
-        y_max = float(max(ys)) + 0.6
+        y_min = float(min(ys)) - 0.35
+        y_max = float(max(ys)) + 0.35
     else:
         y_min, y_max = -1.0, 1.0
 

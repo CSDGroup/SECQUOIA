@@ -2,13 +2,12 @@
 
 from __future__ import annotations
 
-import contextlib
 import re
 
 import numpy as np
 import pandas as pd
 import pyqtgraph as pg
-from qtpy import QtGui, QtWidgets
+from qtpy import QtCore, QtGui, QtWidgets
 
 from SECQUOIA.config import PLOTPARAMETERS
 from SECQUOIA.gui.lineage_tree.lineage_geometry import (
@@ -27,7 +26,6 @@ from SECQUOIA.gui.lineage_tree.lineage_render import (
     clear_inline_multi_legend,
     draw_division_connector,
     draw_heat_segments,
-    install_colorbar,
     resolve_xmax,
     y_bounds,
 )
@@ -54,8 +52,7 @@ _EVENT_MARKERS = (
     ("Outlier", "star", EVENT_OUTLIER, False),
 )
 
-HEAT_TICK_FONT = QtGui.QFont("Arial", 9)
-HEAT_CBAR_WIDTH = 0
+
 HEAT_LINE_WIDTH = 20
 CONNECT_Z = 8
 HEAT_SEG_PAD = 0.12
@@ -77,6 +74,23 @@ HEAT_MULTI_LOW_COLORS = [
     QtGui.QColor(0, 255, 0),
     QtGui.QColor(255, 0, 255),
 ]
+
+
+LEGEND_CELL_MAX_W = 240.0
+
+
+def _fmt_tick(value: float) -> str:
+    """Compact tick text so wide feature values do not blow out a cell."""
+    v = float(value)
+    if v and (abs(v) >= 1e4 or abs(v) < 1e-2):
+        return f"{v:.2g}"
+    return f"{v:.2f}"
+
+
+def _channel_label(col: str) -> str:
+    """Channel digits from a feature column, else the column name itself."""
+    m = re.search(r"Ch(\d+)M\d+", str(col), re.IGNORECASE)
+    return m.group(1) if m else str(col)
 
 
 def _label_text_for(tn: int) -> str:
@@ -229,7 +243,7 @@ def _draw_lineage_heatmap(
     valid_times: dict[int, set[float]] | None = None,
     xmap=None,
     main_window=None,
-) -> None:
+) -> list:
     """Draw a lineage tree with one feature value encoded as line color."""
     if channel_col not in df_ident.columns:
         _draw_lineage_pg(
@@ -242,7 +256,7 @@ def _draw_lineage_heatmap(
             xmap=xmap,
             main_window=main_window,
         )
-        return
+        return []
 
     plot.clear()
     clear_inline_multi_legend(plot)
@@ -314,19 +328,19 @@ def _draw_lineage_heatmap(
         main_window,
     )
 
-    install_colorbar(
-        plot,
-        scale,
-        fg_color=FG_COLOR,
-        tick_font=HEAT_TICK_FONT,
-        bar_width=HEAT_CBAR_WIDTH,
-    )
-
     plot.plot(
         [xmap(0.0), xmap(0.0)],
         [y_min, y_max],
         pen=pg.mkPen(LINE_COLOR, width=LINEWIDTH),
     )
+    return [
+        (
+            _channel_label(channel_col),
+            scale.vmin,
+            scale.vmax,
+            HEAT_LOW_COLOR,
+        )
+    ]
 
 
 def _scatter_events_pg(
@@ -373,96 +387,98 @@ def _scatter_events_pg(
     plot.addItem(sp)
 
 
-def _multi_lane_offsets(
-    plot: pg.PlotItem, n_lanes: int
-) -> tuple[list[float], float, float]:
-    """Vertical offsets for ``n_lanes`` stacked strips, plus spacing and thickness."""
+LANE_ROW_FRACTION = 0.42
+LEGEND_CLEARANCE_PX = 6
+
+
+def _view_px_per_y(plot: pg.PlotItem) -> float:
+    """Data units per vertical pixel, guarded against an unrealised view."""
     try:
-        px_per_y = plot.vb.viewPixelSize()[1]
+        px_per_y = float(plot.vb.viewPixelSize()[1])
     except QT_DRAW_ERRORS:
         px_per_y = 1.0 / 80.0
+    if not np.isfinite(px_per_y) or px_per_y <= 0.0:
+        px_per_y = 1.0 / 80.0
+    return px_per_y
 
-    line_thick_y = HEAT_LINE_WIDTH_MULTI * px_per_y
-    center_sep_y = max(line_thick_y + 3 * px_per_y, 0.08)
+
+def _multi_lane_offsets(
+    plot: pg.PlotItem, n_lanes: int
+) -> tuple[list[float], float, float, int]:
+    """Lane offsets in row units, plus spacing, thickness and pen width."""
+    px_per_y = _view_px_per_y(plot)
+    center_sep_y = LANE_ROW_FRACTION / max(n_lanes, 1)
+    line_thick_y = center_sep_y * 0.9
     offsets = [(i - (n_lanes - 1) / 2) * center_sep_y for i in range(n_lanes)]
-    return offsets, center_sep_y, line_thick_y
+    max_px = max(1, int(round(float(HEAT_LINE_WIDTH_MULTI))))
+    lane_width_px = max(1, min(max_px, int(round(line_thick_y / px_per_y))))
+    return offsets, center_sep_y, line_thick_y, lane_width_px
 
 
-def _draw_multi_legend(
-    plot: pg.PlotItem,
-    labels: list[str],
-    scales: list[ChannelScale],
-    xmax: float,
-    y_min: float,
-    y_max: float,
-) -> None:
-    """Draw the inline per channel legend box in the top-left of the view."""
-    n_rows = max(1, len(labels))
-    x_span = max(float(xmax), 1.0)
-    y_span = max(float(y_max - y_min), 1.0)
+class ChannelLegendBar(QtWidgets.QWidget):
+    """Per channel colour key, as a fixed height row above the tree."""
 
-    box_w = 0.16 * x_span
-    box_h = min(0.25 * y_span, 0.7 + 0.30 * (n_rows - 1))
-    x0 = 0.02 * x_span
-    y1 = float(y_max) - 0.02 * y_span
-    y0 = y1 - box_h
+    def __init__(self, parent: QtWidgets.QWidget | None = None) -> None:
+        """Build an empty, hidden legend row."""
+        super().__init__(parent)
+        self._cells: list[tuple[str, float, float, QtGui.QColor]] = []
+        self.setFixedHeight(46)
+        self.setSizePolicy(
+            QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Fixed
+        )
+        self.setVisible(False)
 
-    items = []
-    background = QtWidgets.QGraphicsRectItem(x0, y0, box_w, box_h)
-    background.setPen(pg.mkPen((0, 0, 0, 0)))
-    background.setBrush(pg.mkBrush(0, 0, 0, 140))
-    plot.addItem(background)
-    background.setZValue(50)
-    items.append(background)
+    def set_cells(self, cells) -> None:
+        """Show one gradient cell per ``(label, vmin, vmax, low_color)``."""
+        self._cells = list(cells)
+        self.setVisible(bool(self._cells))
+        self.update()
 
-    row_h = box_h / n_rows
-    bar_w = box_w * 0.09
-    font_small = QtGui.QFont("Arial", 8)
-    font_label = QtGui.QFont("Arial", 9)
+    def paintEvent(self, _event) -> None:
+        """Paint label, gradient and the low / high value per channel."""
+        if not self._cells:
+            return
 
-    for i, (label, scale) in enumerate(zip(labels, scales, strict=False)):
-        bar_x = x0 + box_w * 0.02 + 0.06 * box_w
-        bar_y = y0 + i * row_h + 0.20 * row_h
-        bar_h = 0.60 * row_h
+        painter = QtGui.QPainter(self)
+        n_cells = len(self._cells)
+        cell_w = min(self.width() / n_cells, LEGEND_CELL_MAX_W)
+        x_off = 0.5 * (self.width() - n_cells * cell_w)
+        white = QtGui.QColor(255, 255, 255)
 
-        name = pg.TextItem(text=str(label), color=FG_COLOR, anchor=(1, 0.5))
-        with contextlib.suppress(*QT_DRAW_ERRORS):
-            name.setFont(font_label)
-        name.setPos(bar_x - 0.02 * box_w, bar_y + 0.5 * bar_h)
-        plot.addItem(name)
-        name.setZValue(51)
-        items.append(name)
+        for i, (label, vmin, vmax, low) in enumerate(self._cells):
+            x = x_off + i * cell_w
+            bar_x = x + 0.10 * cell_w
+            bar_w = 0.80 * cell_w
 
-        low = HEAT_MULTI_LOW_COLORS[i % len(HEAT_MULTI_LOW_COLORS)]
-        gradient = QtGui.QLinearGradient(0, 0, 0, 1)
-        gradient.setCoordinateMode(QtGui.QGradient.ObjectBoundingMode)
-        gradient.setColorAt(0.0, HEAT_HIGH_COLOR)
-        gradient.setColorAt(1.0, low)
-        bar = QtWidgets.QGraphicsRectItem(bar_x, bar_y, bar_w, bar_h)
-        bar.setPen(pg.mkPen((0, 0, 0, 0)))
-        bar.setBrush(QtGui.QBrush(gradient))
-        plot.addItem(bar)
-        bar.setZValue(51)
-        items.append(bar)
-
-        text_x = bar_x + bar_w + box_w * 0.02
-        mid = 0.5 * (scale.vmin + scale.vmax)
-        for value, offset in (
-            (scale.vmax, 0.0),
-            (mid, 0.5 * bar_h),
-            (scale.vmin, bar_h),
-        ):
-            tick = pg.TextItem(
-                text=f"{value:.2f}", color=FG_COLOR, anchor=(0, 0.5)
+            painter.setPen(white)
+            painter.setFont(QtGui.QFont("Arial", 10))
+            painter.drawText(
+                QtCore.QRectF(x, 0.0, cell_w, 17.0),
+                QtCore.Qt.AlignHCenter | QtCore.Qt.AlignVCenter,
+                str(label),
             )
-            with contextlib.suppress(*QT_DRAW_ERRORS, ValueError):
-                tick.setFont(font_small)
-            tick.setPos(text_x, bar_y + offset)
-            plot.addItem(tick)
-            tick.setZValue(51)
-            items.append(tick)
 
-    plot._multi_legend_items = items
+            gradient = QtGui.QLinearGradient(bar_x, 0.0, bar_x + bar_w, 0.0)
+            gradient.setColorAt(0.0, low)
+            gradient.setColorAt(1.0, HEAT_HIGH_COLOR)
+            painter.fillRect(
+                QtCore.QRectF(bar_x, 18.0, bar_w, 9.0),
+                QtGui.QBrush(gradient),
+            )
+
+            ticks = QtCore.QRectF(bar_x, 29.0, bar_w, 16.0)
+            painter.setFont(QtGui.QFont("Arial", 9))
+            painter.drawText(
+                ticks,
+                QtCore.Qt.AlignLeft | QtCore.Qt.AlignVCenter,
+                _fmt_tick(vmin),
+            )
+            painter.drawText(
+                ticks,
+                QtCore.Qt.AlignRight | QtCore.Qt.AlignVCenter,
+                _fmt_tick(vmax),
+            )
+        painter.end()
 
 
 def _draw_lineage_heatmap_multi(
@@ -476,7 +492,7 @@ def _draw_lineage_heatmap_multi(
     valid_times: dict[int, set[float]] | None = None,
     xmap=None,
     main_window=None,
-) -> None:
+) -> list:
     """Draw a lineage tree with multiple feature channels stacked per track."""
     plot.clear()
     clear_inline_multi_legend(plot)
@@ -486,8 +502,8 @@ def _draw_lineage_heatmap_multi(
 
     geom = LineageGeometry.from_tracks(tracks, edges)
     n_lanes = max(1, len(channel_cols))
-    lane_offsets, center_sep_y, line_thick_y = _multi_lane_offsets(
-        plot, n_lanes
+    lane_offsets, center_sep_y, line_thick_y, lane_width_px = (
+        _multi_lane_offsets(plot, n_lanes)
     )
 
     scales: list[ChannelScale] = []
@@ -499,7 +515,7 @@ def _draw_lineage_heatmap_multi(
                 df_ident.get(col),
                 low,
                 HEAT_HIGH_COLOR,
-                HEAT_LINE_WIDTH_MULTI,
+                lane_width_px,
             )
         )
         lane_values.append(build_value_map(df_ident, col, valid_times))
@@ -554,18 +570,18 @@ def _draw_lineage_heatmap_multi(
         stack(c, *geom.child_span(c, tdiv), yc)
 
     total_stack_y = (n_lanes - 1) * center_sep_y + line_thick_y
-    pad = 0.35 + 0.5 * total_stack_y
-    y_min, y_max = y_bounds(y_map, pad=0.6 + pad)
+    clearance = LEGEND_CLEARANCE_PX * _view_px_per_y(plot)
+    y_min, y_max = y_bounds(y_map, pad=0.5 * total_stack_y + clearance)
     xmax = resolve_xmax(xmax_override, [xmap(v) for v in geom.t_end.values()])
     apply_lineage_axis(plot, xmax, y_min, y_max, main_window)
 
-    labels = [
+    labels = [_channel_label(col) for col in channel_cols]
+    return [
         (
-            m.group(1)
-            if (m := re.search(r"Ch(\d+)M\d+", col, re.IGNORECASE))
-            else col
+            label,
+            scale.vmin,
+            scale.vmax,
+            HEAT_MULTI_LOW_COLORS[i % len(HEAT_MULTI_LOW_COLORS)],
         )
-        for col in channel_cols
+        for i, (label, scale) in enumerate(zip(labels, scales, strict=False))
     ]
-    with contextlib.suppress(*QT_DRAW_ERRORS, ValueError):
-        _draw_multi_legend(plot, labels, scales, xmax, y_min, y_max)

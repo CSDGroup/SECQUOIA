@@ -89,21 +89,32 @@ def build_track_table(df: pd.DataFrame, ident: str) -> pd.DataFrame:
     return out
 
 
+def _nearest_present_ancestor(n: int, present: set[int]) -> int | None:
+    """Closest ancestor of ``n`` still present, skipping missing levels."""
+    a = parent(int(n))
+    while a >= 1:
+        if a in present:
+            return a
+        a = parent(a)
+    return None
+
+
 def build_edges(tracks: pd.DataFrame) -> pd.DataFrame:
     """Build parent-child division edges from available track numbers."""
-    present = set(tracks["TrackNumber"])
-    t_start_map = dict(
-        zip(
+    present = {int(n) for n in tracks["TrackNumber"]}
+    t_start_map = {
+        int(k): float(v)
+        for k, v in zip(
             tracks["TrackNumber"],
             pd.to_numeric(tracks["t_start"], errors="coerce").astype(float),
             strict=False,
         )
-    )
+    }
     rows: list[tuple[int, int, float]] = []
-    for n in sorted(present):
-        for c in (left(int(n)), right(int(n))):
-            if c in present:
-                rows.append((int(n), int(c), float(t_start_map[c])))
+    for c in sorted(present):
+        p = _nearest_present_ancestor(c, present)
+        if p is not None:
+            rows.append((p, c, t_start_map[c]))
     edges = pd.DataFrame(rows, columns=["parent", "child", "t_div"])
 
     edges["t_div"] = pd.to_numeric(edges["t_div"], errors="coerce").astype(
@@ -117,10 +128,15 @@ def build_edges(tracks: pd.DataFrame) -> pd.DataFrame:
 def assign_y_tidy(tracks: pd.DataFrame) -> dict[int, float]:
     """Assign one y row per leaf track, parents centred above their children."""
     present = {int(n) for n in tracks["TrackNumber"]}
-    children = {
-        n: [c for c in (left(n), right(n)) if c in present] for n in present
-    }
-    roots = [n for n in present if parent(n) not in present] or [1]
+    children: dict[int, list[int]] = {n: [] for n in present}
+    roots: list[int] = []
+    for n in sorted(present):
+        anchor = _nearest_present_ancestor(n, present)
+        if anchor is None:
+            roots.append(n)
+        else:
+            children[anchor].append(n)
+    roots = roots or [1]
 
     y_map: dict[int, float] = {}
     next_row = 0

@@ -26,7 +26,6 @@ __all__ = [
     "clear_inline_multi_legend",
     "draw_division_connector",
     "draw_heat_segments",
-    "install_colorbar",
 ]
 
 QT_DRAW_ERRORS = (RuntimeError, AttributeError, TypeError)
@@ -65,15 +64,6 @@ class ChannelScale:
         """Return the pen that encodes ``value`` on this scale."""
         qcol = self.cmap.map(normalize(value, self.vmin, self.vmax), "qcolor")
         return pg.mkPen(qcol, width=self.width, cap="flat", join="miter")
-
-    def ticks(self) -> list[tuple[float, str]]:
-        """Low / mid / high tick pairs for a colour bar axis."""
-        mid = 0.5 * (self.vmin + self.vmax)
-        return [
-            (self.vmin, f"{self.vmin:.2f}"),
-            (mid, f"{mid:.2f}"),
-            (self.vmax, f"{self.vmax:.2f}"),
-        ]
 
 
 def draw_heat_segments(
@@ -205,50 +195,3 @@ def clear_colorbar(plot: pg.PlotItem) -> None:
             if old_bar.scene() is not None:
                 old_bar.scene().removeItem(old_bar)
     plot._heatbar = None
-
-
-def install_colorbar(
-    plot: pg.PlotItem,
-    scale: ChannelScale,
-    *,
-    fg_color,
-    tick_font: QtGui.QFont,
-    bar_width: int,
-) -> None:
-    """Replace the single-channel colour bar with one matching ``scale``."""
-    clear_colorbar(plot)
-
-    try:
-        cbar = pg.ColorBarItem(
-            values=(scale.vmin, scale.vmax),
-            colorMap=scale.cmap,
-            interactive=False,
-        )
-        plot.layout.addItem(cbar, 1, 0)
-        plot.layout.setColumnFixedWidth(0, bar_width + 40)
-        cbar.setFixedWidth(bar_width)
-
-        try:
-            cbar.setLabel(text="", color=fg_color)
-        except QT_DRAW_ERRORS:
-            axis = getattr(cbar, "axis", None)
-            if axis is not None:
-                axis.setLabel(text="")
-
-        plot._heatbar = cbar
-
-        axis = getattr(cbar, "axis", None)
-        if axis is None:
-            return
-        with contextlib.suppress(*QT_DRAW_ERRORS):
-            axis.setOrientation("left")
-        with contextlib.suppress(*QT_DRAW_ERRORS):
-            axis.setTextPen(pg.mkPen(fg_color))
-        with contextlib.suppress(*QT_DRAW_ERRORS):
-            axis.setPen(pg.mkPen(fg_color))
-        with contextlib.suppress(*QT_DRAW_ERRORS):
-            axis.setStyle(tickTextOffset=6, tickFont=tick_font)
-        with contextlib.suppress(*QT_DRAW_ERRORS):
-            axis.setTicks([scale.ticks(), []])
-    except QT_DRAW_ERRORS:
-        pass

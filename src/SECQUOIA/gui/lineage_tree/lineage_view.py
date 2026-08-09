@@ -21,6 +21,7 @@ from SECQUOIA.gui.lineage_tree.lineage_data import (
 from SECQUOIA.gui.lineage_tree.lineage_draw import (
     _EVENT_MARKERS,
     BG_COLOR,
+    ChannelLegendBar,
     _draw_lineage_heatmap,
     _draw_lineage_heatmap_multi,
     _draw_lineage_pg,
@@ -71,6 +72,7 @@ class LineageTreeView:
         self.plot = self.plot_widget.getPlotItem()
         self.widget: QtWidgets.QWidget = self.plot_widget
         self.controls: HeatmapControls | None = None
+        self.legend_bar: ChannelLegendBar | None = None
         self.state: dict = {}
         self._orig_vb_click = self.plot.vb.mouseClickEvent
 
@@ -146,18 +148,21 @@ class LineageTreeView:
             return None
 
     def _place_controls(self) -> None:
-        """Dock the control bar in the shared top bar, or in our own column."""
+        """Dock the control bar, and give the legend its own row on top."""
+        container = QtWidgets.QWidget()
+        column = QtWidgets.QVBoxLayout(container)
+        column.setContentsMargins(0, 0, 0, 0)
+        column.setSpacing(2)
+
         topbar = getattr(self.main_window, "lineage_dynamic_layout", None)
         if isinstance(topbar, QtWidgets.QLayout):
             clear_layout(topbar)
             topbar.addWidget(self.controls)
-            return
+        else:
+            column.addWidget(self.controls)
 
-        container = QtWidgets.QWidget()
-        column = QtWidgets.QVBoxLayout(container)
-        column.setContentsMargins(0, 0, 0, 0)
-        column.setSpacing(4)
-        column.addWidget(self.controls)
+        self.legend_bar = ChannelLegendBar()
+        column.addWidget(self.legend_bar)
         column.addWidget(self.plot_widget)
         self.widget = container
 
@@ -253,11 +258,15 @@ class LineageTreeView:
             "main_window": self.main_window,
         }
         if len(columns) == 1:
-            _draw_lineage_heatmap(*target, channel_col=columns[0], **options)
+            cells = _draw_lineage_heatmap(
+                *target, channel_col=columns[0], **options
+            )
         else:
-            _draw_lineage_heatmap_multi(
+            cells = _draw_lineage_heatmap_multi(
                 *target, channel_cols=columns, **options
             )
+        if self.legend_bar is not None:
+            self.legend_bar.set_cells(cells)
         self.overlay_highlight()
 
     def draw_plain(self, hl_white: bool) -> None:
