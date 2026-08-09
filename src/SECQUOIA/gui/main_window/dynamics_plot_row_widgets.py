@@ -4,7 +4,7 @@ from functools import partial
 
 import pyqtgraph as pg
 import qtawesome as qta
-from qtpy.QtCore import QSize, Qt
+from qtpy.QtCore import Qt
 from qtpy.QtWidgets import (
     QComboBox,
     QHBoxLayout,
@@ -18,7 +18,11 @@ from qtpy.QtWidgets import (
 )
 
 from SECQUOIA.config import TOOLTIPSTEXT, ColorStyle
-from SECQUOIA.gui.common.ui_utils import use_fusion_widget_style
+from SECQUOIA.gui.common.ui_utils import (
+    TOOLBAR_ICON_PX,
+    dpi_icon_size,
+    use_fusion_widget_style,
+)
 from SECQUOIA.gui.dialogs.metric_dialog import open_metric_dialog
 from SECQUOIA.gui.main_window.mouse_bindings import on_plot_single_click
 from SECQUOIA.utils.plotting import update_plot
@@ -109,14 +113,14 @@ class DynamicsPlotRowWidgets:
         btn_r.setToolTip(TOOLTIPSTEXT.BTN_R)
         btn_r.setCursor(Qt.PointingHandCursor)
         btn_r.setIcon(qta.icon("fa5s.chart-bar", color="white"))
-        btn_r.setIconSize(QSize(14, 14))
+        btn_r.setIconSize(dpi_icon_size(btn_r, TOOLBAR_ICON_PX))
 
         btn_arith = QPushButton()
         use_fusion_widget_style(btn_arith)
         btn_arith.setToolTip(TOOLTIPSTEXT.BTN_ARITH)
         btn_arith.setCursor(Qt.PointingHandCursor)
         btn_arith.setIcon(qta.icon("fa5s.layer-group", color="white"))
-        btn_arith.setIconSize(QSize(14, 14))
+        btn_arith.setIconSize(dpi_icon_size(btn_arith, TOOLBAR_ICON_PX))
 
         for b in (btn_r, btn_arith):
             fm = b.fontMetrics()
@@ -136,7 +140,7 @@ class DynamicsPlotRowWidgets:
         eye_btn.setChecked(True)
         eye_btn.setAutoRaise(True)
         eye_btn.setIcon(self._eye_icon(True))
-        eye_btn.setIconSize(QSize(14, 14))
+        eye_btn.setIconSize(dpi_icon_size(eye_btn, TOOLBAR_ICON_PX))
         eye_btn.setToolTip(TOOLTIPSTEXT.EYEP)
         eye_btn.setCursor(Qt.PointingHandCursor)
         return eye_btn
@@ -261,10 +265,6 @@ class DynamicsPlotRowWidgets:
 
         for w in (feat_combo, m_combo, ch_combo, btn_r, btn_arith, eye_btn):
             w.setFixedHeight(target_h)
-
-        eye_btn.setIconSize(
-            QSize(max(12, target_h - 8), max(12, target_h - 8))
-        )
 
         for b in (btn_r, btn_arith):
             b.setSizePolicy(QSizePolicy.MinimumExpanding, QSizePolicy.Fixed)

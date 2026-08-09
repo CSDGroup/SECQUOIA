@@ -52,7 +52,7 @@ class RunTab:
         self.summary_box.setMinimumHeight(200)
         content_v.addWidget(self.summary_box, 1)  # let it expand on the left
 
-        refresh_summary_btn = QPushButton("Refresh summary")
+        refresh_summary_btn = QPushButton("Refresh")
         refresh_summary_btn.setMinimumHeight(28)
         refresh_summary_btn.setSizePolicy(
             QSizePolicy.Expanding, QSizePolicy.Fixed

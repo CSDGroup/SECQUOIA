@@ -4,7 +4,7 @@ import contextlib
 import functools
 import logging
 
-from qtpy.QtCore import QSize, Qt
+from qtpy.QtCore import Qt
 from qtpy.QtWidgets import (
     QComboBox,
     QHBoxLayout,
@@ -16,6 +16,10 @@ from qtpy.QtWidgets import (
 
 from SECQUOIA.config import STYLE, TOOLTIPSTEXT
 from SECQUOIA.gui.cell_inspector.integration import notify_cell_inspector
+from SECQUOIA.gui.common.ui_utils import (
+    TOOLBAR_ICON_PX,
+    dpi_icon_size,
+)
 
 LOG = logging.getLogger(__name__)
 
@@ -125,7 +129,7 @@ class ViewerToolbar:
 
         eye_btn.setToolTip(TOOLTIPSTEXT.EYEV)
         eye_btn.setIcon(self._eye_icon(visible=True))
-        eye_btn.setIconSize(QSize(16, 16))
+        eye_btn.setIconSize(dpi_icon_size(eye_btn, TOOLBAR_ICON_PX))
 
         eye_btn.setChecked(True)
         eye_btn.toggled.connect(

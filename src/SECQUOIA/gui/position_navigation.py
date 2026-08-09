@@ -649,7 +649,7 @@ class PositionSelectDialog(QDialog):
         title = QLabel("List of positions")
         font = title.font()
         font.setBold(True)
-        font.setPixelSize(max(11, font.pixelSize() + 2))
+        font.setPointSizeF(font.pointSizeF() + 2)
         title.setFont(font)
         title.setToolTip(TOOLTIPSTEXT.ALL_POS)
         return title

@@ -29,6 +29,7 @@ from qtpy.QtWidgets import (
 
 __all__ = [
     "ContentWidthScrollArea",
+    "TOOLBAR_ICON_PX",
     "add_progress_bar",
     "clear_layout",
     "compact_combo",
@@ -110,6 +111,8 @@ def use_readable_combo_popup_on_macos(combo: QComboBox) -> None:
 
 # Base icon size in 96-DPI pixels, scaled up on high-DPI screens.
 _BASE_ICON_PX = 20
+TOOLBAR_ICON_PX = 14
+
 
 _LOADING_STYLESHEET = (
     "QPushButton { background-color: #2e7d32; color: #ffffff; "

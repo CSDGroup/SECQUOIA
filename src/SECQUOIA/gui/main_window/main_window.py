@@ -597,11 +597,6 @@ class MainWindow(
         # Initialize napari viewer
         self.create_napari_viewers()
 
-        # Set up the layout
-        self.setStyleSheet(
-            f"QLabel {{ font-size: {STYLE.FONT_SIZE}px; }} QLineEdit {{ font-size: {STYLE.FONT_SIZE}px; }}"
-        )
-
         left_layout = QVBoxLayout()
         top_bar = QWidget()
         cbox = QHBoxLayout(top_bar)

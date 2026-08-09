@@ -4,7 +4,7 @@ import contextlib
 
 import pyqtgraph as pg
 import qtawesome as qta
-from qtpy.QtCore import QSize, Qt, QTimer
+from qtpy.QtCore import Qt, QTimer
 from qtpy.QtGui import QColor
 from qtpy.QtWidgets import (
     QComboBox,
@@ -20,6 +20,11 @@ from qtpy.QtWidgets import (
 )
 
 from SECQUOIA.config import TOOLTIPSTEXT
+from SECQUOIA.gui.common.ui_utils import (
+    TOOLBAR_ICON_PX,
+    dpi_icon_size,
+    use_fusion_widget_style,
+)
 from SECQUOIA.gui.lineage_tree.lineage_selection import (
     _clear_track_selection,
     _select_all_tracks,
@@ -50,7 +55,7 @@ class DynamicsPlotLineagePanel:
         btn_hl.setAutoRaise(True)
         btn_hl.setCursor(Qt.PointingHandCursor)
         btn_hl.setIcon(qta.icon("fa5s.highlighter", color="white"))
-        btn_hl.setIconSize(QSize(14, 14))
+        btn_hl.setIconSize(dpi_icon_size(btn_hl, TOOLBAR_ICON_PX))
         btn_hl.setToolTip(TOOLTIPSTEXT.PAINT_LINEAGE)
 
         def _apply_hl_btn_style(checked: bool) -> None:
@@ -151,6 +156,7 @@ class DynamicsPlotLineagePanel:
         f_label = QLabel("Tree type:")
         f_label.setSizePolicy(QSizePolicy.Maximum, QSizePolicy.Fixed)
         f_combo = QComboBox()
+        use_fusion_widget_style(f_combo)
         f_combo.setMinimumWidth(52)
         f_combo.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Fixed)
         f_combo.setToolTip(TOOLTIPSTEXT.TREE)
@@ -161,7 +167,7 @@ class DynamicsPlotLineagePanel:
 
         btn_all = QToolButton()
         btn_all.setIcon(qta.icon("fa5s.sitemap", color="white"))
-        btn_all.setIconSize(QSize(14, 14))
+        btn_all.setIconSize(dpi_icon_size(btn_all, TOOLBAR_ICON_PX))
         btn_all.setToolTip(TOOLTIPSTEXT.HIGHLIGHT_ALL)
         btn_all.setAutoRaise(True)
         btn_all.setCursor(Qt.PointingHandCursor)
@@ -169,7 +175,7 @@ class DynamicsPlotLineagePanel:
 
         btn_e = QToolButton()
         btn_e.setIcon(qta.icon("fa5s.undo", color="white"))
-        btn_e.setIconSize(QSize(14, 14))
+        btn_e.setIconSize(dpi_icon_size(btn_e, TOOLBAR_ICON_PX))
         btn_e.setToolTip(TOOLTIPSTEXT.E_BTN)
         btn_e.setToolButtonStyle(Qt.ToolButtonTextBesideIcon)
         btn_e.setAutoRaise(True)
@@ -181,7 +187,7 @@ class DynamicsPlotLineagePanel:
         lin_eye_btn.setChecked(True)
         lin_eye_btn.setAutoRaise(True)
         lin_eye_btn.setIcon(self._eye_icon(True))
-        lin_eye_btn.setIconSize(QSize(14, 14))
+        lin_eye_btn.setIconSize(dpi_icon_size(lin_eye_btn, TOOLBAR_ICON_PX))
         lin_eye_btn.setToolTip(TOOLTIPSTEXT.EYEL)
         lin_eye_btn.setFixedSize(24, 22)
         lin_eye_btn.setCursor(Qt.PointingHandCursor)
@@ -190,15 +196,6 @@ class DynamicsPlotLineagePanel:
 
         for w in (f_combo, btn_e, lin_eye_btn, btn_all, btn_hl):
             w.setFixedHeight(target_h)
-
-        btn_hl.setIconSize(QSize(max(12, target_h - 8), max(12, target_h - 8)))
-        lin_eye_btn.setIconSize(
-            QSize(max(12, target_h - 8), max(12, target_h - 8))
-        )
-        btn_all.setIconSize(
-            QSize(max(12, target_h - 8), max(12, target_h - 8))
-        )
-        btn_e.setIconSize(QSize(max(12, target_h - 8), max(12, target_h - 8)))
 
         lin_h.addWidget(f_label)
         lin_h.addWidget(f_combo)

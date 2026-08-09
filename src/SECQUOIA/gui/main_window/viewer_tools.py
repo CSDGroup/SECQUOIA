@@ -6,7 +6,7 @@ import logging
 import numpy as np
 import qtawesome as qta
 from napari.layers import Labels
-from qtpy.QtCore import QSize, Qt
+from qtpy.QtCore import Qt
 from qtpy.QtWidgets import (
     QButtonGroup,
     QHBoxLayout,
@@ -20,6 +20,10 @@ from SECQUOIA.config import STYLE
 from SECQUOIA.core.segmentation.mask_selection import (
     show_all_masks,
     show_current_mask,
+)
+from SECQUOIA.gui.common.ui_utils import (
+    TOOLBAR_ICON_PX,
+    dpi_icon_size,
 )
 
 LOG = logging.getLogger(__name__)
@@ -154,7 +158,7 @@ class ViewerTools:
                         qta.icon(f"{prefix}.{names['pan']}", color="white")
                     )
                     for b in (btn_brush, btn_erase, btn_pan):
-                        b.setIconSize(QSize(14, 14))
+                        b.setIconSize(dpi_icon_size(b, TOOLBAR_ICON_PX))
                     used_icons = True
                     break
                 except (RuntimeError, AttributeError, TypeError):

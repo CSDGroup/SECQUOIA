@@ -54,7 +54,10 @@ def main():
             if getattr(STYLE, "FONT_SIZE", None)
             else 10
         )
-        f.setPixelSize(max(8, sz))
+        if sys.platform == "darwin":
+            f.setPointSizeF(max(8, sz))
+        else:
+            f.setPointSizeF(max(8, sz) * 0.75)
         app.setFont(f)
     except (ImportError, AttributeError, TypeError, ValueError):
         pass
