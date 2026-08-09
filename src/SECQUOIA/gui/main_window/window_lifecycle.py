@@ -5,21 +5,25 @@ sizing, the window title, and the Tree-ID filter checkbox.
 
 import contextlib
 import logging
+import sys
 from textwrap import dedent
 
 import pyqtgraph as pg
 import qtawesome as qta
 from qtpy.QtCore import Qt, QTimer
-from qtpy.QtGui import QCloseEvent, QFont
+from qtpy.QtGui import QCloseEvent
 from qtpy.QtWidgets import (
     QAbstractButton,
     QApplication,
+    QDialogButtonBox,
     QMessageBox,
+    QProxyStyle,
     QPushButton,
+    QStyle,
+    QStyleFactory,
     QWidget,
 )
 
-from SECQUOIA.config import STYLE
 from SECQUOIA.core.memmap_store import cleanup_memmaps
 from SECQUOIA.core.project_state import save_project_state, save_track_df
 from SECQUOIA.core.segmentation.mask_io import save_masks_incremental
@@ -37,8 +41,30 @@ from SECQUOIA.utils.positions import position_number_at_current_index
 LOG = logging.getLogger(__name__)
 
 
+_EXIT_DIALOG_QSS = """
+QMessageBox QPushButton {
+    min-width: 88px;
+    padding: 5px 14px;
+    border-radius: 4px;
+}
+"""
+
+_WIN_BUTTON_LAYOUT = int(
+    getattr(QDialogButtonBox.WinLayout, "value", QDialogButtonBox.WinLayout)
+)
+
+
+class _WindowsButtonOrderStyle(QProxyStyle):
+    """Fusion, but with the Windows dialog button order."""
+
+    def styleHint(self, hint, option=None, widget=None, returnData=None):
+        if hint == QStyle.SH_DialogButtonLayout:
+            return _WIN_BUTTON_LAYOUT
+        return super().styleHint(hint, option, widget, returnData)
+
+
 class WindowLifecycle:
-    """Subwindows, the time-marker toggle, save/close/export, layout sizing, title, and the tree filter."""
+    """Subwindows, the time marker toggle, save/close/export, layout sizing, title, and the tree filter."""
 
     def open_image_movie_exporter(self):
         """Open the single image and movie exporter for the loaded experiment."""
@@ -224,32 +250,31 @@ class WindowLifecycle:
             btn.setEnabled(True)
 
     def closeEvent(self, event: QCloseEvent) -> None:
-        """Confirm exit, offering Yes/Export data/No; Yes and Export both clean up memmaps before accepting the close."""
-        font = QFont()
-        font.setPointSize(STYLE.FONT_SIZE)
+        """Confirm exit with Close/Export data/Cancel.
 
+        Close releases the session resources and quits, Export data saves
+        first and then quits, Cancel only dismisses the popup.
+        """
         dlg = QMessageBox(self)
         dlg.setWindowTitle("Confirm Exit")
-        dlg.setText(
-            "Any unsaved changes will be lost.\nAre you sure you want to close SECQUOIA?"
-        )
-        dlg.setIcon(QMessageBox.Question)
-        dlg.setFont(font)
-        dlg.setStyleSheet(f"""
-            QMessageBox {{
-                font-size: {STYLE.FONT_SIZE + 2}px;
-            }}
-            QMessageBox QLabel {{
-                font-size: {STYLE.FONT_SIZE + 2}px;
-            }}
-            """)
+        dlg.setText("Are you sure you want to close SECQUOIA?")
+        dlg.setInformativeText("Any unsaved changes will be lost.")
+        dlg.setIcon(QMessageBox.Warning)
 
-        btn_yes = dlg.addButton("Yes", QMessageBox.AcceptRole)
+        btn_yes = dlg.addButton("Close", QMessageBox.AcceptRole)
         btn_export = dlg.addButton("Export data", QMessageBox.ActionRole)
-        btn_no = dlg.addButton("No", QMessageBox.RejectRole)
-        btn_yes.setFont(font)
-        btn_export.setFont(font)
-        btn_no.setFont(font)
+        btn_no = dlg.addButton("Cancel", QMessageBox.RejectRole)
+        dlg.setDefaultButton(btn_no)
+        dlg.setEscapeButton(btn_no)
+
+        if sys.platform == "darwin":
+            style = _WindowsButtonOrderStyle(QStyleFactory.create("Fusion"))
+            style.setParent(dlg)
+            dlg.setStyle(style)
+            for button in dlg.buttons():
+                button.setStyle(style)
+
+        dlg.setStyleSheet(_EXIT_DIALOG_QSS)
 
         try:
             dlg.exec_()
@@ -257,27 +282,39 @@ class WindowLifecycle:
             dlg.exec()
 
         clicked = dlg.clickedButton()
-        if clicked is btn_yes:
-            try:
-                detach_cell_inspector(self)
-                cleanup_memmaps(self)
-            except (RuntimeError, AttributeError, TypeError) as e:
-                LOG.warning("[close] memmap cleanup warning: %s", e)
-            event.accept()
 
-        elif clicked is btn_export:
+        if clicked is not btn_yes and clicked is not btn_export:
+            event.ignore()
+            return
+
+        if clicked is btn_export:
             try:
-                self.export_all()
-                detach_cell_inspector(self)
-                cleanup_memmaps(self)
-                event.accept()
+                self.on_save_clicked()
+            except (
+                OSError,
+                RuntimeError,
+                ValueError,
+                KeyError,
+                AttributeError,
+                TypeError,
+            ):
+                LOG.exception("[close] save before exit failed")
+                QMessageBox.warning(
+                    self,
+                    "Save failed",
+                    "Your data could not be saved, so SECQUOIA stays "
+                    "open. See the log for details.",
+                )
+                event.ignore()
                 return
-            except (RuntimeError, AttributeError, TypeError) as e:
-                LOG.warning("[close] export error: %s", e)
-            event.ignore()
 
-        else:
-            event.ignore()
+        try:
+            detach_cell_inspector(self)
+            cleanup_memmaps(self)
+        except (RuntimeError, AttributeError, TypeError) as e:
+            LOG.warning("[close] cleanup warning: %s", e)
+
+        event.accept()
 
     def export_all(self) -> None:
         """Export tracking data, project state, and masks."""
