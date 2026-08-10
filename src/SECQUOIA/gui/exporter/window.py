@@ -32,7 +32,7 @@ from qtpy.QtWidgets import (
 )
 
 from SECQUOIA.config import EXPORT, LINKS, TOOLTIPSTEXT
-from SECQUOIA.gui.common.ui_utils import make_help_button
+from SECQUOIA.gui.common.ui_utils import make_help_button, use_fusion_combos
 from SECQUOIA.utils.timing import current_t_range as _current_t_range
 
 LOG = logging.getLogger(__name__)
@@ -528,6 +528,7 @@ class _Window:
 
         # first tile
         self._add_panel(main_window)
+        use_fusion_combos(main_window.gif_window)
         main_window.gif_window.show()
 
         # global updates

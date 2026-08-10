@@ -15,6 +15,7 @@ from qtpy.QtWidgets import (
 )
 
 from SECQUOIA.config import TOOLTIPSTEXT
+from SECQUOIA.gui.common.ui_utils import use_fusion_widget_style
 
 LOG = logging.getLogger(__name__)
 
@@ -199,6 +200,7 @@ class _Lineage:
             row = QHBoxLayout()
             lbl = QLabel(f"Level {level}:")
             combo = QComboBox()
+            use_fusion_widget_style(combo)
             combo.addItem("— stop here —", None)
             for v in options:
                 combo.addItem(str(v), int(v))

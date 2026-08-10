@@ -58,6 +58,7 @@ __all__ = [
     "style_button_loading",
     "themed_icon",
     "use_fusion_widget_style",
+    "use_fusion_combos",
     "use_readable_combo_popup_on_macos",
     "reuse_widget",
     "widen_to_hint",
@@ -102,6 +103,12 @@ def use_fusion_widget_style(widget: QWidget) -> None:
     if not is_widget_alive(_fusion_style):
         _fusion_style = QStyleFactory.create("Fusion")
     widget.setStyle(_fusion_style)
+
+
+def use_fusion_combos(root: QWidget) -> None:
+    """Give every combo under ``root`` Fusion metrics and a themed popup."""
+    for combo in root.findChildren(QComboBox):
+        use_fusion_widget_style(combo)
 
 
 def use_readable_combo_popup_on_macos(combo: QComboBox) -> None:
