@@ -40,6 +40,7 @@ from SECQUOIA.gui.common.ui_utils import (
     add_progress_bar,
     fixed_label,
     make_help_button,
+    use_fusion_combos,
 )
 from SECQUOIA.gui.curation_tree import update_list
 from SECQUOIA.gui.main_window.mouse_bindings import (
@@ -430,6 +431,7 @@ class MaskArithmeticDialog(QDialog):
         root.addLayout(prog_row)
 
         root.addLayout(self._build_button_row())
+        use_fusion_combos(self)
 
     def _build_control_row(self) -> QHBoxLayout:
         """Build the M1 / operator / M2 control strip."""

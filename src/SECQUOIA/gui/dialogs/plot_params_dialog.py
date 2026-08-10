@@ -23,7 +23,7 @@ import SECQUOIA.gui.lineage_tree.lineage_draw as ld
 import SECQUOIA.gui.lineage_tree.lineage_tree as lt
 from SECQUOIA.config import PLOTPARAMETERS, TOOLTIPSTEXT
 from SECQUOIA.gui.common.messages import show_folder_warning
-from SECQUOIA.gui.common.ui_utils import spinbox_arrow_pngs
+from SECQUOIA.gui.common.ui_utils import spinbox_arrow_pngs, use_fusion_combos
 from SECQUOIA.utils.plotting import update_plot
 
 LOG = logging.getLogger(__name__)
@@ -199,6 +199,7 @@ class PlotParamsDialog(QDialog):
         layout.addWidget(self._build_lines_group())
         layout.addWidget(self._build_axes_group())
         layout.addLayout(self._build_button_row())
+        use_fusion_combos(self)
 
     def _build_markers_group(self) -> QGroupBox:
         """Build the marker symbol and size controls."""

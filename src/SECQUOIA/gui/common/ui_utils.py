@@ -38,6 +38,7 @@ __all__ = [
     "dpi_icon_size",
     "drop_dead_widget_attrs",
     "equalize_min_widths",
+    "fit_combo_popup",
     "fit_to_screen",
     "fixed_label",
     "form_row",
@@ -107,9 +108,13 @@ def use_fusion_widget_style(widget: QWidget) -> None:
 
 
 def use_fusion_combos(root: QWidget) -> None:
-    """Give every combo under ``root`` Fusion metrics and a themed popup."""
+    """Give every combo under ``root`` Fusion metrics and a readable popup."""
     for combo in root.findChildren(QComboBox):
         use_fusion_widget_style(combo)
+        fit_combo_popup(combo)
+        combo.model().rowsInserted.connect(
+            lambda *_, c=combo: fit_combo_popup(c)
+        )
 
 
 def use_readable_combo_popup_on_macos(combo: QComboBox) -> None:
@@ -633,3 +638,14 @@ def spinbox_stylesheet(arrow_color: str = "#e6e6e6") -> str:
         image: none;
     }}
     """
+
+
+def fit_combo_popup(combo: QComboBox) -> QComboBox:
+    """Widen a combo's popup so its entries are never elided."""
+    view = combo.view()
+    view.setTextElideMode(Qt.ElideNone)
+    width = view.sizeHintForColumn(0) + 2 * view.frameWidth()
+    if combo.count() > combo.maxVisibleItems():
+        width += view.verticalScrollBar().sizeHint().width()
+    view.setMinimumWidth(width)
+    return combo

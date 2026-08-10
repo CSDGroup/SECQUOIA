@@ -26,6 +26,7 @@ from qtpy.QtWidgets import (
 import SECQUOIA.gui.lineage_tree.lineage_draw as ld
 import SECQUOIA.gui.lineage_tree.lineage_tree as lt
 from SECQUOIA.config import TOOLTIPSTEXT
+from SECQUOIA.gui.common.ui_utils import use_fusion_combos
 from SECQUOIA.gui.dialogs.plot_params_dialog import ensure_plot_params
 from SECQUOIA.utils.plotting import update_plot
 
@@ -212,6 +213,8 @@ class LineageStyleDialog(QDialog):
         self.high_btn.clicked.connect(lambda: self._pick_single_color("high"))
         for i, btn in enumerate(self.multi_btns):
             btn.clicked.connect(lambda _, idx=i: self._pick_multi_color(idx))
+
+        use_fusion_combos(self)
 
     def _get_current_mode(self) -> str:
         """Return the currently selected lineage styling mode."""

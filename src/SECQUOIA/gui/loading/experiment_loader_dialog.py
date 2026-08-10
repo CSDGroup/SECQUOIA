@@ -33,6 +33,7 @@ from SECQUOIA.gui.common.ui_utils import (
     restore_button_loading,
     set_button_icon,
     style_button_loading,
+    use_fusion_combos,
 )
 from SECQUOIA.gui.loading.experiment_paths import (
     _add_seg_tree_item,
@@ -384,6 +385,7 @@ def create_experiment_loader_dialog(
         )
     )
 
+    use_fusion_combos(dlg)
     dlg.setSizeGripEnabled(True)
     dlg.adjustSize()
     screen = dlg.screen() or QGuiApplication.primaryScreen()

@@ -6,6 +6,11 @@ import contextlib
 
 from qtpy.QtWidgets import QComboBox, QListView
 
+from SECQUOIA.gui.common.ui_utils import (
+    fit_combo_popup,
+    use_fusion_widget_style,
+)
+
 __all__ = [
     "remove_grid_row",
     "reposition_grid_rows",
@@ -20,7 +25,10 @@ def use_qt_drawn_popup(combo: QComboBox) -> QComboBox:
     platform-native one, so a dark stylesheet actually applies to the
     dropdown. Native popups (notably on macOS) largely ignore QSS, which can
     leave dropdown items unreadable against a dark background."""
+    use_fusion_widget_style(combo)
     combo.setView(QListView())
+    fit_combo_popup(combo)
+    combo.model().rowsInserted.connect(lambda *_: fit_combo_popup(combo))
     return combo
 
 

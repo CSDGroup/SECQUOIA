@@ -28,6 +28,7 @@ from SECQUOIA.gui.common.ui_utils import (
     add_progress_bar,
     fixed_label,
     make_help_button,
+    use_fusion_combos,
 )
 from SECQUOIA.gui.outlier.markers import update_outlier_marker
 from SECQUOIA.utils.plotting import update_plot
@@ -187,6 +188,7 @@ class MetricDialog(QDialog):
         self.finish_progress = helpers["finish"]
 
         outer.addLayout(self._build_button_row())
+        use_fusion_combos(self)
 
     def _build_derived_box(self) -> QGroupBox:
         """Build the ``featureA <op> featureB`` row."""

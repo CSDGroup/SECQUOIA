@@ -43,6 +43,7 @@ from SECQUOIA.gui.common.ui_utils import (
     make_help_button,
     set_min_expanding,
     set_tree_rows,
+    use_fusion_combos,
 )
 from SECQUOIA.gui.loading.experiment_paths import (
     _add_seg_tree_item,
@@ -99,6 +100,25 @@ QPushButton:hover {{ background-color: #4a4a4a; }}
 QPushButton:disabled {{ color: #888888; }}
 QCheckBox {{ color: #ffffff; }}
 QLabel {{ color: #ffffff; }}
+QComboBox {{
+    background-color: #3a3a3a;
+    color: #ffffff;
+    border: 1px solid #555555;
+    padding: 2px 6px;
+    selection-background-color: #555555;
+    selection-color: #ffffff;
+}}
+QComboBox:disabled {{
+    background-color: #333333;
+    color: #888888;
+    border: 1px solid #444444;
+}}
+QComboBox QAbstractItemView {{
+    background-color: #3a3a3a;
+    color: #e6e6e6;
+    selection-background-color: #555555;
+    selection-color: #ffffff;
+}}
 """
 
 
@@ -640,4 +660,5 @@ def open_channel_mask_manager(main_window: QWidget) -> None:
     apply_btn.clicked.connect(_on_apply)
 
     main_window._channel_mask_manager_window = dlg
+    use_fusion_combos(dlg)
     dlg.show()
