@@ -61,7 +61,7 @@ To configure the sliding window, specify the following:
 
 The `Run` tab displays a summary of all defined rules (both threshold and sliding-window based).
 
-- Click `Refresh summary` to update the displayed summary.
+- Click `Refresh` to update the displayed summary.
 - Click `Apply` to start the outlier detection.
   - A progress bar indicates the status of the calculations.
   - A `.json` file is created containing all information used for the outlier detection.
