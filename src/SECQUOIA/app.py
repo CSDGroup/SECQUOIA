@@ -142,9 +142,14 @@ def main():
         """)
 
     with contextlib.suppress(Exception):
-        from SECQUOIA.gui.common.ui_utils import checkbox_stylesheet
+        from SECQUOIA.gui.common.ui_utils import (
+            checkbox_stylesheet,
+            spinbox_stylesheet,
+        )
 
-        app.setStyleSheet(app.styleSheet() + checkbox_stylesheet())
+        app.setStyleSheet(
+            app.styleSheet() + checkbox_stylesheet() + spinbox_stylesheet()
+        )
 
     splash, progress, finish = show_splash_with_bar(app)
     progress(10, "Initializing…")

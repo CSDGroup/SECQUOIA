@@ -55,6 +55,7 @@ __all__ = [
     "set_min_expanding",
     "set_tree_rows",
     "spinbox_arrow_pngs",
+    "spinbox_stylesheet",
     "style_button_loading",
     "themed_icon",
     "use_fusion_widget_style",
@@ -579,6 +580,56 @@ def checkbox_stylesheet(accent: str = "#0a84ff") -> str:
     QListView::indicator:disabled {{
         background: #333333;
         border: 1px solid #444444;
+        image: none;
+    }}
+    """
+
+
+def spinbox_stylesheet(arrow_color: str = "#e6e6e6") -> str:
+    """QSS drawing every spin box the same way on macOS and Windows."""
+    arrows = spinbox_arrow_pngs(arrow_color)
+    return f"""
+    QAbstractSpinBox {{
+        background: #3a3a3a;
+        border: 1px solid #555;
+        padding-right: 20px;
+    }}
+    QAbstractSpinBox:disabled {{
+        background: #333333;
+        color: #808080;
+        border: 1px solid #444;
+    }}
+    QAbstractSpinBox::up-button {{
+        subcontrol-origin: border;
+        subcontrol-position: top right;
+        width: 16px;
+        background: #3a3a3a;
+        border-left: 1px solid #555;
+        border-bottom: 1px solid #555;
+    }}
+    QAbstractSpinBox::down-button {{
+        subcontrol-origin: border;
+        subcontrol-position: bottom right;
+        width: 16px;
+        background: #3a3a3a;
+        border-left: 1px solid #555;
+    }}
+    QAbstractSpinBox::up-button:hover,
+    QAbstractSpinBox::down-button:hover {{
+        background: #2e2e2e;
+    }}
+    QAbstractSpinBox::up-arrow {{
+        image: url("{arrows['up']}");
+        width: 8px;
+        height: 8px;
+    }}
+    QAbstractSpinBox::down-arrow {{
+        image: url("{arrows['down']}");
+        width: 8px;
+        height: 8px;
+    }}
+    QAbstractSpinBox::up-arrow:disabled,
+    QAbstractSpinBox::down-arrow:disabled {{
         image: none;
     }}
     """
