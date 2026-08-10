@@ -34,7 +34,7 @@ class _BWInspector:
         t = int(main_window.start_t_input.value())
         st = self._get_panel_state_for_render(panel)
         channel_id = main_window.ids_channels[st["chan_abs_idx"]]
-        raw = Image.fromarray(main_window.images[channel_id][t])
+        raw = self._frame_as_gray8(main_window, channel_id, t)
         row = self._get_track_row_for_time(
             main_window,
             st["ident"],

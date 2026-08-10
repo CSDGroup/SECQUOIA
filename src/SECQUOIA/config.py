@@ -730,6 +730,10 @@ class EXPORT:
     BW_MAX: int = 255
     BW_DEFAULT_BLACK: int = 0
     BW_DEFAULT_WHITE: int = 255
+    DEPTH_LOW_PERCENTILE: float = 0.1
+    DEPTH_HIGH_PERCENTILE: float = 99.9
+    DEPTH_SAMPLE_FRAMES: int = 8
+    DEPTH_SAMPLE_STRIDE: int = 4
 
     CROP_FULL_MIN: int = 20
     CROP_FULL_MAX: int = 4096

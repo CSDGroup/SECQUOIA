@@ -125,6 +125,7 @@ def _reset_load_state(main_window) -> None:
         main_window._memmap_files = []
     else:
         main_window._memmap_files.clear()
+    main_window._export_display_range = {}
 
 
 def _mark_channel_empty(main_window, channel) -> None:

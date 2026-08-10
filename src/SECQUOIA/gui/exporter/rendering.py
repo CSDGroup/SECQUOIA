@@ -136,6 +136,39 @@ class _Rendering:
             st["chan_label_text"] = panel["ch_label_text"].strip()
         return st
 
+    def _display_range(self, main_window, channel_id) -> tuple[float, float]:
+        """Return the intensity span a channel maps onto 0-255 on screen."""
+        cache = getattr(main_window, "_export_display_range", None)
+        if cache is None:
+            cache = main_window._export_display_range = {}
+        if channel_id in cache:
+            return cache[channel_id]
+
+        stack = main_window.images[channel_id]
+        frame_step = max(1, len(stack) // EXPORT.DEPTH_SAMPLE_FRAMES)
+        pixel_step = EXPORT.DEPTH_SAMPLE_STRIDE
+        sample = np.asarray(
+            stack[::frame_step, ::pixel_step, ::pixel_step],
+            dtype=np.float32,
+        )
+        low, high = np.percentile(
+            sample,
+            (EXPORT.DEPTH_LOW_PERCENTILE, EXPORT.DEPTH_HIGH_PERCENTILE),
+        )
+        span = (float(low), float(max(high, low + 1.0)))
+        cache[channel_id] = span
+        return span
+
+    def _frame_as_gray8(self, main_window, channel_id, t: int) -> Image.Image:
+        """Return one frame as an 8 bit image, whatever its source depth."""
+        frame = main_window.images[channel_id][t]
+        if frame.dtype == np.uint8:
+            return Image.fromarray(frame)
+        low, high = self._display_range(main_window, channel_id)
+        scale = 255.0 / (high - low)
+        stretched = (np.asarray(frame, dtype=np.float32) - low) * scale
+        return Image.fromarray(np.clip(stretched, 0.0, 255.0).astype(np.uint8))
+
     def _apply_levels_gray(
         self, pil_img: Image.Image, black: int, white: int
     ) -> Image.Image:
@@ -180,13 +213,12 @@ class _Rendering:
         self, main_window, channel_id, st: dict, t_index: int, policy: str
     ) -> Image.Image:
         """Resolve the sample frame for t_index and apply black/white levels."""
-        stack = main_window.images[channel_id]
         sel_t = self._resolve_sample_t(
             main_window, st["chan_abs_idx"], t_index, policy
         )
         if sel_t is None:
             raise KeyError("MISSING_FRAME")
-        pil_img = Image.fromarray(stack[sel_t])
+        pil_img = self._frame_as_gray8(main_window, channel_id, sel_t)
         return self._apply_levels_gray(
             pil_img, st["black_point"], st["white_point"]
         )
