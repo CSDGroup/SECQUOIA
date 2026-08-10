@@ -14,11 +14,12 @@ from qtpy.QtWidgets import (
     QWidget,
 )
 
-from SECQUOIA.config import STYLE, TOOLTIPSTEXT
+from SECQUOIA.config import TOOLTIPSTEXT
 from SECQUOIA.gui.cell_inspector.integration import notify_cell_inspector
 from SECQUOIA.gui.common.ui_utils import (
     TOOLBAR_ICON_PX,
     dpi_icon_size,
+    use_fusion_widget_style,
 )
 
 LOG = logging.getLogger(__name__)
@@ -38,19 +39,10 @@ class ViewerToolbar:
                 return True
         return False
 
-    def _style_combo_and_label(self, combo: QComboBox, label: QLabel) -> None:
-        """Apply the default 13px style, then try to switch to the configured FONT_SIZE."""
+    def _style_combo(self, combo: QComboBox) -> None:
+        """Give a viewer combo the same sizing and style as the dynamics combos."""
         combo.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Fixed)
-        combo.setStyleSheet("QComboBox{font-size:13px; padding:0 4px;}")
-        label.setStyleSheet("QLabel{font-size:13px;}")
-        try:
-            combo.setStyleSheet(
-                f"QComboBox{{font-size:{STYLE.FONT_SIZE}px; padding:0 4px;}}"
-            )
-            label.setStyleSheet(f"QLabel{{font-size:{STYLE.FONT_SIZE}px;}}")
-        except (RuntimeError, AttributeError, TypeError):
-            combo.setStyleSheet("")
-            label.setStyleSheet("")
+        use_fusion_widget_style(combo)
 
     def _build_channel_combo(self) -> tuple[QWidget, QComboBox]:
         """Build the CH: label + dropdown container for a viewer row."""
@@ -71,7 +63,7 @@ class ViewerToolbar:
             ch_combo.addItem(channel[1:], channel[1:])
         ch_box.addWidget(ch_combo)
 
-        self._style_combo_and_label(ch_combo, ch_label)
+        self._style_combo(ch_combo)
         return ch_container, ch_combo
 
     def _build_mask_combo(self, m_n: int) -> tuple[QWidget, QComboBox]:
@@ -94,7 +86,7 @@ class ViewerToolbar:
             m_combo.addItem(str(i), i)
         m_box.addWidget(m_combo)
 
-        self._style_combo_and_label(m_combo, m_label)
+        self._style_combo(m_combo)
         return m_container, m_combo
 
     @staticmethod
