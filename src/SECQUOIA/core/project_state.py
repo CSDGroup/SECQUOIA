@@ -310,6 +310,7 @@ def _rehydrate_after_project_load(main_window, s: dict) -> None:
     # Set current_position_index from saved selection
     sel = int(s.get("position_selection") or 1)
     main_window.current_position_number = sel
+    main_window.position_start_selected = sel
     try:
         main_window.current_position_index = max(
             0, min(int(sel) - 1, len(position_folders) - 1)

@@ -47,7 +47,7 @@ from SECQUOIA.gui.outlier.outlier_list import (
     auto_select_first_item,
 )
 from SECQUOIA.utils.plotting import update_plot
-from SECQUOIA.utils.positions import position_number_from_folder
+from SECQUOIA.utils.positions import coerce_int, position_number_from_folder
 
 LOG = logging.getLogger(__name__)
 
@@ -501,7 +501,11 @@ def _switch_to_start_position(
 ) -> None:
     """After a run-all pass, switch the viewer to (or nearest to) the originally requested position."""
     try:
-        pstart = getattr(main_window, "position_start_selected", None)
+        pstart = coerce_int(
+            getattr(main_window, "position_start_selected", None),
+            getattr(main_window, "current_position_number", None),
+            pmin,
+        )
         pstart = int(max(pmin, min(pstart, pmax)))
         processed = {n for (n, _p) in items}
         if pstart in processed:
