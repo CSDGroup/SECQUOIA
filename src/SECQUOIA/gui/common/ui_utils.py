@@ -31,6 +31,7 @@ __all__ = [
     "ContentWidthScrollArea",
     "TOOLBAR_ICON_PX",
     "add_progress_bar",
+    "checkbox_stylesheet",
     "clear_layout",
     "compact_combo",
     "compact_spin",
@@ -40,6 +41,7 @@ __all__ = [
     "fit_to_screen",
     "fixed_label",
     "form_row",
+    "glyph_png",
     "harmonize_form_labels",
     "is_widget_alive",
     "make_help_button",
@@ -522,3 +524,54 @@ def add_progress_bar(
         "step": step_progress,
     }
     return bar, helpers
+
+
+def glyph_png(name: str, color: str = "#ffffff", size: int = 24) -> str:
+    """Render a qtawesome glyph to a PNG and return its path for QSS url()."""
+    icon_dir = Path.home() / ".SECQUOIA" / "icons"
+    icon_dir.mkdir(parents=True, exist_ok=True)
+    path = icon_dir / f"{name.replace('.', '_')}_{color.lstrip('#')}.png"
+    qta.icon(name, color=color).pixmap(QSize(size, size)).save(
+        str(path), "PNG"
+    )
+    return path.as_posix()
+
+
+def checkbox_stylesheet(accent: str = "#0a84ff") -> str:
+    """QSS drawing every checkbox identically on macOS and Windows."""
+    check = glyph_png("mdi.check-bold")
+    dash = glyph_png("mdi.minus-thick")
+    return f"""
+    QCheckBox::indicator,
+    QTreeView::indicator,
+    QListView::indicator {{
+        width: 14px;
+        height: 14px;
+        border: 1px solid #6f6f6f;
+        border-radius: 3px;
+        background: #3a3a3a;
+    }}
+    QCheckBox::indicator:checked,
+    QTreeView::indicator:checked,
+    QListView::indicator:checked {{
+        background: {accent};
+        border: 1px solid {accent};
+        padding: 2px;
+        image: url("{check}");
+    }}
+    QCheckBox::indicator:indeterminate,
+    QTreeView::indicator:indeterminate,
+    QListView::indicator:indeterminate {{
+        background: {accent};
+        border: 1px solid {accent};
+        padding: 2px;
+        image: url("{dash}");
+    }}
+    QCheckBox::indicator:disabled,
+    QTreeView::indicator:disabled,
+    QListView::indicator:disabled {{
+        background: #333333;
+        border: 1px solid #444444;
+        image: none;
+    }}
+    """

@@ -75,6 +75,23 @@ def main():
         QPushButton:hover {
             background-color: #444444;
         }
+        QComboBox {
+            background: #3a3a3a;
+            border: 1px solid #555;
+            selection-background-color: #555;
+            selection-color: #ffffff;
+        }
+        QComboBox:disabled {
+            background: #333333;
+            color: #808080;
+            border: 1px solid #444;
+        }
+        QComboBox QAbstractItemView {
+            background: #3a3a3a;
+            color: #e6e6e6;
+            selection-background-color: #555;
+            selection-color: #ffffff;
+        }
         QHeaderView::section {
             background-color: #444444;
             color: #f0f0f0;
@@ -123,6 +140,11 @@ def main():
             color: #8a8a8a;
         }
         """)
+
+    with contextlib.suppress(Exception):
+        from SECQUOIA.gui.common.ui_utils import checkbox_stylesheet
+
+        app.setStyleSheet(app.styleSheet() + checkbox_stylesheet())
 
     splash, progress, finish = show_splash_with_bar(app)
     progress(10, "Initializing…")
