@@ -33,7 +33,7 @@
 
 ## Installation
 
-1. Open [Anaconda PowerShell Prompt](https://www.anaconda.com/docs/getting-started/miniconda/install), create a new conda environment, and activate it:
+1. Open a terminal with conda available, e.g., the [Anaconda PowerShell Prompt](https://www.anaconda.com/docs/getting-started/miniconda/install) on Windows. Create a new conda environment and activate it:
 
 ```bash
 conda create -n SECQUOIA python=3.12
@@ -46,10 +46,15 @@ conda activate SECQUOIA
 conda install -c anaconda git
 ```
 
-3. Clone the repository.
+3. Move to the destination folder.
 
 ```bash
 cd /path/to/destination/folder
+```
+
+4. Clone the repository.
+
+```bash
 git clone https://github.com/CSDGroup/SECQUOIA.git
 ```
 
@@ -90,7 +95,7 @@ pip install "btrack>=0.7,<0.8"
 conda activate SECQUOIA
 ```
 
-2. Launch SECQUOIA from Anaconda PowerShell:
+2. Launch SECQUOIA:
 
 ```bash
 SECQUOIA
