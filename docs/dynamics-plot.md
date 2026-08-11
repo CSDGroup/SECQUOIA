@@ -1,6 +1,6 @@
 # Dynamics plots
 
-The Dynamics plots display the quantification for the currently selected Tree-ID. Different track numbers and generations are shown in different colors, matching the colors in the [Lineage Tree](/docs/lineage-tree.md) below. The plotted feature can be changed using the `Feature` dropdown. The `Mask (M:)` and `Channel (CH:)` can also be selected through their respective dropdowns. All dropdowns are located above the Dynamics plots.
+The Dynamics plots display the quantification for the currently selected Tree-ID. Different track numbers and generations are shown in different colors, matching the colors in the [lineage tree](/docs/lineage-tree.md) below. The plotted feature can be changed using the `Feature` dropdown. The `Mask (M:)` and `Channel (CH:)` can also be selected through their respective dropdowns. All dropdowns are located above the Dynamics plots.
 
 Next to the Channel dropdown, there are two buttons:
 
@@ -11,7 +11,7 @@ Next to these buttons, colored labels indicate the currently plotted Feature (ye
 
 The eye icon collapses or expands the Dynamics plot. Additional Dynamics plots can be added through `View -> Dynamics Plots -> Add Dynamics plot` or `Ctrl+Shift+=`, and existing plots can be removed through `View -> Dynamics Plots -> Remove Dynamics plot` or `Ctrl+Shift+-`.
 
-Using the splitter above the [Lineage Tree](/docs/lineage-tree.md), or the splitter next to the [Viewers](/docs/viewer.md), the size of the Dynamics plots can be adjusted.
+Using the splitter above the [lineage tree](/docs/lineage-tree.md), or the splitter next to the [Viewers](/docs/viewer.md), the size of the Dynamics plots can be adjusted.
 
 ![Dynamics plots](images/feature-plots.png)
 
@@ -19,7 +19,7 @@ Using the splitter above the [Lineage Tree](/docs/lineage-tree.md), or the split
 
 ### Left-click
 
-Left-clicking on a Dynamics plot changes the current time point. The green time-marker line moves to the clicked time point in all Dynamics plots and in the Lineage Tree. The [viewers](/docs/viewer.md) are updated accordingly.
+Left-clicking on a Dynamics plot changes the current time point. The green time-marker line moves to the clicked time point in all Dynamics plots and in the lineage tree. The [viewers](/docs/viewer.md) are updated accordingly.
 
 ### Right-click and context menu
 
@@ -88,7 +88,7 @@ The following parameters can be updated through the Plot parameters GUI:
 * Change the `symbol` used for the data points.
 * Adjust the `symbol size`.
 * Modify the `line thickness`.
-* Control whether the `highlight colors` from the [Lineage Tree](/docs/lineage-tree.md) painting function are applied.
+* Control whether the `highlight colors` from the [lineage tree](/docs/lineage-tree.md) painting function are applied.
 * Increase or decrease the `font size` of the axis labels.
 
 Click `Apply` to apply the new settings to all Dynamics plots.

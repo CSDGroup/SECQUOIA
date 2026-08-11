@@ -49,9 +49,9 @@ The size of the eraser and paint brush can be changed using:
 A row of `cell fate and observation buttons` appears below the second viewer. These buttons allow to annotate cell fates/ cell observation for specific cells.
 
 - By default, `Healthy or H` is assigned as the cell fate for all cells.
-- If a cell dies, you can click `Dead or D` to plot an orange `X` in the [Lineage Tree](/docs/lineage-tree.md) at that time point.
-- If a cell is `lost during tracking or L`, you can mark it with `Lost` to plot a `triangle` in the [Lineage Tree](/docs/lineage-tree.md) at that time point.
-- For cells moving `out of focus or F`, an orange `circle` is plotted in the [Lineage Tree](/docs/lineage-tree.md).
+- If a cell dies, you can click `Dead or D` to plot an orange `X` in the [lineage tree](/docs/lineage-tree.md) at that time point.
+- If a cell is `lost during tracking or L`, you can mark it with `Lost` to plot a `triangle` in the [lineage tree](/docs/lineage-tree.md) at that time point.
+- For cells moving `out of focus or F`, an orange `circle` is plotted in the [lineage tree](/docs/lineage-tree.md).
 - For `outliers or O`, an orange outlier `star` is added at the corresponding time point.
 - For `Signal or K`, LowSignal is added to the [exported .csv files](/docs/data-formats.md) at the corresponding time point.
 ![Viewers](images/napari-viewers.png)

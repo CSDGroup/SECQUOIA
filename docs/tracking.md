@@ -6,11 +6,11 @@ When you right-click on a mask or redraw a mask at a different position, the cur
 
 ## New ID
 
-Click the `New ID` button in the tracking bar to generate a new, empty Tree-ID. A new entry is added at the end of the Tree-ID list, and the [dynamics plots](/docs/dynamics-plot.md) automatically switch to this newly created Tree-ID. If no mask is assigned yet, the [viewer](/docs/viewer.md) displays all masks. Right-click a mask to assign it to the new Tree-ID. The assignment is immediately visible in the [Lineage Tree](/docs/lineage-tree.md) window and in the [dynamics plots](/docs/dynamics-plot.md). If a mask is missing, draw a new mask and then add it to the current Tree-ID via right-click.
+Click the `New ID` button in the tracking bar to generate a new, empty Tree-ID. A new entry is added at the end of the Tree-ID list, and the [dynamics plots](/docs/dynamics-plot.md) automatically switch to this newly created Tree-ID. If no mask is assigned yet, the [viewer](/docs/viewer.md) displays all masks. Right-click a mask to assign it to the new Tree-ID. The assignment is immediately visible in the [lineage tree](/docs/lineage-tree.md) window and in the [dynamics plots](/docs/dynamics-plot.md). If a mask is missing, draw a new mask and then add it to the current Tree-ID via right-click.
 
 ## Division
 
-When a cell division occurs, click the `Division` or `Ctrl+D` button at the current time point to record it. A division event is added and shown in the [lineage tree](/docs/lineage-tree.md). Next, click on one of the daughter cell nodes in the [Lineage Tree](/docs/lineage-tree.md). Now assign a new mask to that daughter cell by right-clicking an existing mask in the [viewer](/docs/viewer.md) or by drawing a new mask.
+When a cell division occurs, click the `Division` or `Ctrl+D` button at the current time point to record it. A division event is added and shown in the [lineage tree](/docs/lineage-tree.md). Next, click on one of the daughter cell nodes in the [lineage tree](/docs/lineage-tree.md). Now assign a new mask to that daughter cell by right-clicking an existing mask in the [viewer](/docs/viewer.md) or by drawing a new mask.
 
 ## Remove division
 

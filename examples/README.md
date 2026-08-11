@@ -62,7 +62,7 @@ using the values below for the demo dataset.
 4. Select `.png` as the image format.
 5. Select the tracking input format: [tTt](https://bsse.ethz.ch/csd/software/ttt-and-qtfy.html).
 6. Select the tracking folder: `250615MA40/Analysis/Tracking_tTt/250615MA40`.
-7. Click `Load experiment`.
+7. Click `Load Experiment`.
 
 ### 2. Segmentation tab
 

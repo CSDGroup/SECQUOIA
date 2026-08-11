@@ -85,7 +85,7 @@ The project folder can contain different data created while working with SECQUOI
 - Exported images or movies
 - Exported settings
 
-### Per-position `.csv` files
+### Per position `.csv` files
 
 For each position, a new CSV file is created. These files can be reloaded later to avoid repeating time-consuming quantifications. Files are named like `SECQUOIA_p0001_t00001-00026_m2_ch5.csv.
 
@@ -198,7 +198,7 @@ Below is an example scheme of the tTt folder structure using a hypothetical expe
 This tool renames and restructures exported images into the tTt folder format.
 
 1. Select an experiment folder.
-2. Click `Read File Naming` to auto-fill the fields based on the first image filename. Common naming patterns, such as `xy` for position, `t` for time point, `z` for z position, and `c` for channel, are detected automatically. More patterns can be added [here](src/SECQUOIA/gui/ttt_data_format_transformer.py ).
+2. Click `Read File Naming` to auto-fill the fields based on the first image filename. Common naming patterns, such as `xy` for position, `t` for time point, `z` for z position, and `c` for channel, are detected automatically. More patterns can be added [here](../src/SECQUOIA/gui/ttt_data_format_transformer.py).
 3. Edit the fields if needed.
 4. Select an output folder.
 5. Click `Run`. Progress is shown in the progress bar.
@@ -236,7 +236,7 @@ This tool renames and restructures exported images into the tTt folder format.
 | `OrientationM#`                         | Mask orientation angle.                                                                                                                            |
 | `PerimeterMorphologyM#`                 | Perimeter of the mask boundary in pixels.                                                                                                          |
 | `Position`                              | Position folder or field of view.                                                                                                                  |
-| `step_disp_px_m#`                       | Per-frame step displacement in pixels, computed as distance between consecutive time points.                                                       |
+| `step_disp_px_m#`                       | Per frame step displacement in pixels, computed as distance between consecutive time points.                                                       |
 | `StdBaSiCBgCorrectedNoRatioFlatChXXM#`  | Standard deviation of BaSiC no-ratio-flat corrected fluorescence intensity.                                                                        |
 | `StdBaSiCBgCorrectedRatioFlatChXXM#`    | Standard deviation of BaSiC ratio-flat corrected fluorescence intensity.                                                                           |
 | `StdNoBgCorrectedChXXM#`                | Standard deviation of raw mask intensity for channel `ChXX`.                                                                                       |
