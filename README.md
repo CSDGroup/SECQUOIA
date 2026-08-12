@@ -5,7 +5,7 @@
 [![License BSD-3](https://img.shields.io/badge/license-BSD--3-green)](https://github.com/CSDGroup/SECQUOIA/raw/main/LICENSE)
 [![Python Version](https://img.shields.io/badge/python-3.10%20%7C%203.11%20%7C%203.12%20%7C%203.13-green)](https://python.org)
 [![tests](https://github.com/CSDGroup/SECQUOIA/actions/workflows/test_and_deploy.yml/badge.svg)](https://github.com/CSDGroup/SECQUOIA/actions/workflows/test_and_deploy.yml)
-[![codecov](https://codecov.io/gh/CSDGroup/SECQUOIA/branch/main/graph/badge.svg)](https://codecov.io/gh/CSDGroup/SECQUOIA)
+[![codecov](https://codecov.io/gh/CSDGroup/SECQUOIA/graph/badge.svg?token=31LKUWNL1A)](https://codecov.io/gh/CSDGroup/SECQUOIA)
 [![Copier](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/copier-org/copier/master/img/badge/badge-grayscale-inverted-border-purple.json)](https://github.com/copier-org/copier)
 
 **SECQUOIA** (**SE**gmentation, **C**uration, **QU**antification, and **O**utlier detection for **I**maging **A**nalysis) is a graphical user interface (GUI) for quantifying time lapse imaging datasets. It combines the following steps in one tool:
