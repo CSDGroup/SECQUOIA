@@ -409,6 +409,8 @@ EXCLUDED_TREE_FEATURES = frozenset(
         "label_id_",
         "nn_dist_px",
         "nn_dist_px_",
+        "alt_dist_px_",
+        "alt_label_id_",
     }
 )
 
