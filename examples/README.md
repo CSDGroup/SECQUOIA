@@ -89,13 +89,27 @@ using the values below for the demo dataset.
 
 1. Select `Position` as the loading format.
 2. Click `Run` to load the data.
-3. Proceed with quantification, see the [main README](../README.md) and the [`docs/`](../docs) folder for detailed information.
+
+
+## Explore the workflow
+
+With the demo data loaded, try the core workflow:
+
+1. `Browse Tree-IDs:` Select a Tree-ID on the left (within the Tree-ID selector) to load its [lineage tree](../docs/lineage-tree.md), display the quantification in the [dynamics plots](../docs/dynamics-plot.md), and show the raw imaging data and segmentation masks in the [viewers](../docs/viewer.md).
+2. `Change the displayed quantification:` Selecting a different feature, mask, or channel changes what is plotted over time. Clicking a specific time point updates the viewers to show the raw data and segmentation mask at that time point.
+3. `Adapt viewer:` Using the dropdowns above each [viewer](../docs/viewer.md), the displayed raw data and segmentation mask can be changed, including the raw image's black and white point and the mask's opacity.
+4. `Curate a mask:` Click a time point within the dynamics plot to view it, then use the eraser/paint tools above the [viewers](../docs/viewer.md) to edit a mask.
+5. `Run outlier detection:` Run [`Outlier Detection → Outlier Detection`](../docs/outlier-detection.md) (`Ctrl+H`) to flag likely errors with a yellow or purple (close-mask detection) star.
+6. `Save your changes:` Press `Ctrl+S`, or click the `Save` button under the Tree-ID selector.
+7. `Switch to the next position:` To switch to the next position in an experiment, use `Switch Position → Next Position` (`Ctrl+Shift+Right`) or `Switch Position → Select Position` (`Ctrl+Shift+O`).
+8. `Export an example image/movie:` Run [`Export Data → Export Single Images or Movies`](../docs/image-and-movie-export.md) (`Ctrl+E`).
+
+See the [main README](../README.md) and [docs](../docs) for full details on each step.
+
 
 ## Resetting the demo data
 
-Curation writes back to the tracking files, so the demo data changes as you work
-with it. To restore the original state, delete the unpacked folder and unzip the
-archive again, from the repository root:
+Curation writes back to the tracking files, so the demo data changes as you work with it. To restore the original state, delete the unpacked folder and unzip the archive again, from the repository root:
 
 **Windows (PowerShell):**
 
