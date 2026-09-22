@@ -29,6 +29,7 @@ from SECQUOIA.core.quantification.lineage import (
 from SECQUOIA.core.quantification.matching import (
     _prepare_track_columns,
     assign_objects_to_tracks,
+    resolve_match_strategy,
     zero_fill_present_frames,
 )
 from SECQUOIA.core.quantification.measure import (
@@ -37,6 +38,7 @@ from SECQUOIA.core.quantification.measure import (
     sum_intensity,
 )
 from SECQUOIA.core.quantification.naming import (
+    CLOSE_MASK_FLAG,
     FeatureNaming,
     intensity_column,
     label_column,
@@ -154,6 +156,7 @@ def _merge_objects_into_tracks(
     position,
     max_pixel_distance: float,
     one_to_one: bool,
+    match_strategy: str,
     progress: ProgressReporter,
 ) -> pd.DataFrame:
     """Return the rows of `position` with the object measurements attached."""
@@ -182,8 +185,10 @@ def _merge_objects_into_tracks(
         naming,
         max_pixel_distance=max_pixel_distance,
         one_to_one=one_to_one,
+        strategy=match_strategy,
     )
     merged_df = _resolve_column_conflicts(merged_df)
+    merged_df = merged_df.drop(columns=[CLOSE_MASK_FLAG], errors="ignore")
 
     progress.stage("Post-pass fill…")
     return zero_fill_present_frames(
@@ -210,6 +215,7 @@ def quantify(
     label_src_attr: str = "labels",
     max_pixel_distance: float | None = None,
     one_to_one: bool = True,
+    match_strategy: str | None = None,
     id_col: str = "ID",
     progress_cb=None,
 ) -> None:
@@ -221,10 +227,15 @@ def quantify(
        aggregated by label into one row per segmented object.
     2. `_merge_objects_into_tracks` - nearest-neighbour matching of the
        objects onto the existing tracks at the same time point `t`.
+       `match_strategy` (``"sorted_pairs"``, ``"legacy"`` or ``"optimal"``)
+       decides how tracks competing for one object are resolved; without
+       one, the ``SECQUOIA_MATCH_STRATEGY`` environment variable is used,
+       else ``"sorted_pairs"``.
     3. Derived metrics, stale-column pruning, column ordering, lineage
        displacement and the per position CSV export.
     """
     naming = FeatureNaming.from_main_window(main_window)
+    match_strategy = resolve_match_strategy(match_strategy)
 
     label_entries = _collect_label_stacks(
         getattr(main_window, label_src_attr, None)
@@ -281,6 +292,7 @@ def quantify(
         position=position,
         max_pixel_distance=max_pixel_distance,
         one_to_one=one_to_one,
+        match_strategy=match_strategy,
         progress=progress,
     )
 
@@ -314,13 +326,14 @@ def quantify(
 
     LOG.info(
         "Fluorescence measurement done for Position %s | labels=%d | channels=%s | "
-        "min_area=%spx | tolerance=%spx | one_to_one=%s",
+        "min_area=%spx | tolerance=%spx | one_to_one=%s | match_strategy=%s",
         position,
         len(label_entries),
         main_window.n_channels,
         min_area_pixels,
         max_pixel_distance,
         one_to_one,
+        match_strategy,
     )
     progress.finish()
 
