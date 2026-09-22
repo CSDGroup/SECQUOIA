@@ -17,7 +17,11 @@ from SECQUOIA.core.outlier_detection import (
     apply_outlier_selection_for_current_point,
     resolve_current_ident,
 )
+from SECQUOIA.core.outlier_detection.close_masks import update_flags_after_edit
 from SECQUOIA.core.quantification import compute_step_distance_for_row
+from SECQUOIA.core.quantification.candidates import (
+    refresh_distances_and_candidates,
+)
 from SECQUOIA.core.quantification.remeasure_object import (
     changed_columns,
     current_position,
@@ -27,6 +31,9 @@ from SECQUOIA.core.quantification.remeasure_object import (
     resolve_edit_target,
     snapshot_columns,
     write_measurements,
+)
+from SECQUOIA.core.segmentation.close_mask_view import (
+    refresh_close_mask_view_at_current,
 )
 from SECQUOIA.core.segmentation.mask_selection import ensure_current_df_subset
 from SECQUOIA.gui.curation_tree import apply_curation_status
@@ -469,6 +476,18 @@ class MeasurementPicking:
         measured = measure_edit(self, target)
         write_measurements(self, target, measured)
 
+        try:
+            rows = refresh_distances_and_candidates(self, target)
+            update_flags_after_edit(self, rows, target.row_idx)
+        except (
+            KeyError,
+            TypeError,
+            ValueError,
+            RuntimeError,
+            AttributeError,
+        ) as err:
+            LOG.warning("[update][candidates] refresh failed: %s", err)
+
         compute_step_distance_for_row(
             self.track_df,
             ident=target.ident,
@@ -534,6 +553,11 @@ class MeasurementPicking:
             LOG.warning("[update] ensure_current_df_subset failed: %s", e)
 
         apply_outlier_selection_for_current_point(self)
+
+        try:
+            refresh_close_mask_view_at_current(self)
+        except (RuntimeError, AttributeError, TypeError, ValueError) as e:
+            LOG.warning("[update] close-mask view refresh skipped: %s", e)
 
         try:
             changed_track_id = int(
