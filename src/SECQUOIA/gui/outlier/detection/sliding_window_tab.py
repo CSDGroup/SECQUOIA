@@ -81,7 +81,7 @@ class SlidingWindowTab:
         self.add_row()
 
         self.next_btn = QPushButton("Next →")
-        self.next_btn.setToolTip(TOOLTIPSTEXT.NEXT_OUT)
+        self.next_btn.setToolTip(TOOLTIPSTEXT.NEXT_CLOSE)
         self.next_btn.setMinimumHeight(28)
         self.next_btn.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
         side_v.addWidget(self.next_btn)

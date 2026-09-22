@@ -91,6 +91,8 @@ _SLIDING_WINDOW_COLUMNS = [
     "± SD factor",
 ]
 
+_CLOSE_MASK_COLUMNS = ["#", "Distance ≤ (px)", "Masks"]
+
 _FONT_STYLESHEET = f"""
 QWidget {{
     font-size: {STYLE.FONT_SIZE_outlier}pt;
@@ -421,7 +423,7 @@ class OutlierPlotsDialog(QDialog):
 
 
 class OutlierParametersDialog(QDialog):
-    """Tables listing the saved outlier rules and sliding-window configs."""
+    """Tables listing the saved outlier rules, sliding-window and close-mask settings."""
 
     def __init__(self, main_window, parent: QWidget | None = None):
         """Read the saved rules pack and build the parameter tables."""
@@ -433,6 +435,10 @@ class OutlierParametersDialog(QDialog):
         self.m_n = int(pack.get("m_n", 0) or 0)
         self.ch_n = int(pack.get("ch_n", 0) or 0)
         self.sliding_windows = self._read_sliding_windows(pack)
+        close_masks = pack.get("close_masks")
+        self.close_masks = (
+            close_masks if isinstance(close_masks, dict) else None
+        )
 
         self.setModal(True)
         self.setWindowTitle("Outlier Detection – Current Parameters")
@@ -458,15 +464,15 @@ class OutlierParametersDialog(QDialog):
         layout.setContentsMargins(12, 10, 12, 10)
         layout.setSpacing(8)
 
-        layout.addWidget(
-            self._header(
-                "No parameters have been selected."
-                if not self.rules
-                else f"{len(self.rules)} rule(s) currently configured:"
-            )
-        )
+        if not (self.rules or self.sliding_windows or self.close_masks):
+            layout.addWidget(self._header("No parameters have been selected."))
 
         if self.rules:
+            layout.addWidget(
+                self._header(
+                    f"{len(self.rules)} rule(s) currently configured:"
+                )
+            )
             layout.addWidget(self._build_rules_table())
 
         if self.sliding_windows:
@@ -476,6 +482,10 @@ class OutlierParametersDialog(QDialog):
                 )
             )
             layout.addWidget(self._build_sliding_window_table())
+
+        if self.close_masks:
+            layout.addWidget(self._header("Close-mask detection:"))
+            layout.addWidget(self._build_close_masks_table())
 
         layout.addLayout(self._build_button_row())
 
@@ -542,6 +552,28 @@ class OutlierParametersDialog(QDialog):
                     str(cfg.get("sd_factor", "")),
                 ],
             )
+        return table
+
+    def _build_close_masks_table(self) -> QTableWidget:
+        """Build the one-row close-mask detection table."""
+        table = _read_only_table(_CLOSE_MASK_COLUMNS, 1, self)
+        masks = [int(m) for m in self.close_masks.get("masks") or []]
+
+        _fill_row(
+            table,
+            0,
+            [
+                "1",
+                f"{float(self.close_masks.get('distance', 0)):g}",
+                format_selection(masks, masks, self.m_n),
+            ],
+        )
+        table.setMaximumHeight(
+            table.horizontalHeader().sizeHint().height()
+            + table.verticalHeader().length()
+            + 2 * table.frameWidth()
+            + 2
+        )
         return table
 
     def _build_button_row(self) -> QHBoxLayout:

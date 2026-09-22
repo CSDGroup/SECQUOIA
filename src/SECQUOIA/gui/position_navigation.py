@@ -32,6 +32,10 @@ from SECQUOIA.core.outlier_detection import (
     update_outlier_detection_in_track_df,
     update_unique_outliers_ids,
 )
+from SECQUOIA.core.outlier_detection.close_masks import (
+    replay_close_mask_detection,
+    unique_review_ids,
+)
 from SECQUOIA.core.project_state import save_track_df
 from SECQUOIA.core.segmentation.mask_io import save_masks_incremental
 from SECQUOIA.core.segmentation.mask_selection import ensure_current_df_subset
@@ -249,11 +253,12 @@ def load_position(main_window: QWidget, direction: str) -> None:
             update_outlier_detection_in_track_df(
                 main_window, outcol="Outlier_detection"
             )
+            replay_close_mask_detection(main_window, pack)
             ensure_current_df_subset(main_window)
             update_unique_outliers_ids(main_window, outcol="Outlier_detection")
             _update_outlier_list(main_window, interactive=False)
             if hasattr(main_window, "Outliers") and not _outliers_is_empty(
-                getattr(main_window, "unique_outliers_ids", None)
+                unique_review_ids(main_window)
             ):
                 main_window.Outliers.setChecked(True)
             update_outlier_marker(main_window)
@@ -439,13 +444,14 @@ def switch_to_position_with_progress(
                 update_outlier_detection_in_track_df(
                     main_window, outcol="Outlier_detection"
                 )
+                replay_close_mask_detection(main_window, pack)
                 ensure_current_df_subset(main_window)
                 update_unique_outliers_ids(
                     main_window, outcol="Outlier_detection"
                 )
                 _update_outlier_list(main_window, interactive=False)
                 if hasattr(main_window, "Outliers") and not _outliers_is_empty(
-                    getattr(main_window, "unique_outliers_ids", None)
+                    unique_review_ids(main_window)
                 ):
                     with contextlib.suppress(
                         RuntimeError,

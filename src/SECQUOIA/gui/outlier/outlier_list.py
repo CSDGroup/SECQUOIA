@@ -1,4 +1,4 @@
-"""Building and rebuilding the OUT tree (the outliers-only view of the track list)."""
+"""Building and rebuilding the Out tree (outliers and close-mask cases of the track list)."""
 
 from __future__ import annotations
 
@@ -9,6 +9,10 @@ from qtpy.QtCore import QTimer
 from qtpy.QtWidgets import QMessageBox
 
 from SECQUOIA.config import STYLE
+from SECQUOIA.core.outlier_detection.close_masks import (
+    unique_review_ids,
+    update_unique_close_mask_ids,
+)
 from SECQUOIA.gui.curation_tree import (
     _build_curation_maps,
     _populate_curation_tree,
@@ -17,7 +21,11 @@ from SECQUOIA.gui.curation_tree import (
 from SECQUOIA.gui.track_selection import handle_item_click
 from SECQUOIA.utils.helpers import extract_unique_tracknumbers
 
-__all__ = ["_update_outlier_list", "auto_select_first_item"]
+__all__ = [
+    "_show_info_dialog",
+    "_update_outlier_list",
+    "auto_select_first_item",
+]
 
 
 def _outliers_is_empty(outliers) -> bool:
@@ -29,17 +37,26 @@ def _outliers_is_empty(outliers) -> bool:
     return len(outliers) == 0
 
 
-def _show_no_outliers_dialog(main_window) -> None:
-    """Pop up an information dialog telling the user no outliers were found."""
+def _show_info_dialog(main_window, title: str, text: str) -> None:
+    """Pop up an information dialog in the outlier-dialog style."""
     msg = QMessageBox(main_window)
     msg.setIcon(QMessageBox.Information)
-    msg.setWindowTitle("Outliers")
-    msg.setText("No outliers have been found!")
+    msg.setWindowTitle(title)
+    msg.setText(text)
     msg.setStyleSheet(
         f"QLabel {{ font-size: {STYLE.FONT_SIZE_outlier}px; "
         f'font-family: "{STYLE.FONT_outlier}"; }}'
     )
     msg.exec_()
+
+
+def _show_no_outliers_dialog(main_window) -> None:
+    """Pop up an information dialog telling the user nothing was found."""
+    _show_info_dialog(
+        main_window,
+        "Outliers",
+        "No outliers or close masks have been found!",
+    )
 
 
 def _recheck_all_outliers_toggle(main_window) -> None:
@@ -84,22 +101,15 @@ def _outlier_sort_key(ident):
     return (1, suffix.lower(), s.lower())
 
 
-def _update_outlier_list(main_window, *, interactive: bool = True) -> None:
-    """Rebuild the OUT tree so it lists only the outlier idents.
+def _fill_tree_with_idents(main_window, idents) -> None:
+    """Rebuild the tree so it lists only `idents`.
 
     Keeps the same parent/child structure and the same curation status and
     active symbols as the full tree.
     """
-    outliers = getattr(main_window, "unique_outliers_ids", None)
-    if _outliers_is_empty(outliers):
-        if interactive:
-            _show_no_outliers_dialog(main_window)
-        _recheck_all_outliers_toggle(main_window)
-        return
-
     main_window.tree_widget.clear()
 
-    sorted_outliers = sorted(_coerce_to_list(outliers), key=_outlier_sort_key)
+    sorted_idents = sorted(_coerce_to_list(idents), key=_outlier_sort_key)
 
     try:
         data = extract_unique_tracknumbers(main_window)
@@ -108,7 +118,7 @@ def _update_outlier_list(main_window, *, interactive: bool = True) -> None:
 
     ident_track_pairs = [
         (ident_full, data.get(str(ident_full), []))
-        for ident_full in sorted_outliers
+        for ident_full in sorted_idents
     ]
 
     df = getattr(main_window, "filtered_df", None)
@@ -116,6 +126,28 @@ def _update_outlier_list(main_window, *, interactive: bool = True) -> None:
 
     _populate_curation_tree(main_window, ident_track_pairs, curation_maps)
     main_window.tree_widget.collapseAll()
+
+
+def _review_idents(main_window) -> list:
+    """The identifications for the Out list, read fresh from ``filtered_df``.
+
+    Outliers come from ``unique_outliers_ids``; the close-mask cases are
+    re-read here so the list is right after a change of position.
+    """
+    update_unique_close_mask_ids(main_window)
+    return unique_review_ids(main_window)
+
+
+def _update_outlier_list(main_window, *, interactive: bool = True) -> None:
+    """Rebuild the OUT tree so it lists the outlier and close-mask idents."""
+    idents = _review_idents(main_window)
+    if _outliers_is_empty(idents):
+        if interactive:
+            _show_no_outliers_dialog(main_window)
+        _recheck_all_outliers_toggle(main_window)
+        return
+
+    _fill_tree_with_idents(main_window, idents)
 
 
 def _in_outlier_view(main_window) -> bool:
@@ -133,8 +165,7 @@ def _rebuild_active_list(main_window) -> None:
         update_list(main_window)
         return
 
-    outs = getattr(main_window, "unique_outliers_ids", None) or []
-    if len(outs) == 0:
+    if not _review_idents(main_window):
         _recheck_all_outliers_toggle(main_window)
         return
 

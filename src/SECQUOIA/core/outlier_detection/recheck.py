@@ -8,6 +8,10 @@ import logging
 import pandas as pd
 
 from SECQUOIA.config import Rule
+from SECQUOIA.core.outlier_detection.close_masks import (
+    unique_review_ids,
+    update_unique_close_mask_ids,
+)
 from SECQUOIA.core.outlier_detection.detection import (
     RulesPack,
     compare_series_op,
@@ -32,7 +36,11 @@ __all__ = [
 def _refresh_outlier_views(
     main_window, *, outcol: str = "Outlier_detection"
 ) -> None:
-    """Rebuild the outlier subset, list and star markers from the current data."""
+    """Rebuild the outlier subset, list and star markers from the current data.
+
+    The close-mask id list is refreshed too, so the active list and both star
+    colours are drawn from one consistent state.
+    """
     # circular-import: gui.outlier imports core.outlier_detection at module load time.
     from SECQUOIA.gui.outlier.markers import update_outlier_marker
     from SECQUOIA.gui.outlier.outlier_list import _rebuild_active_list
@@ -40,6 +48,7 @@ def _refresh_outlier_views(
     for step in (
         lambda: ensure_current_df_subset(main_window),
         lambda: update_unique_outliers_ids(main_window, outcol=outcol),
+        lambda: update_unique_close_mask_ids(main_window),
         lambda: _clamp_outlier_index(main_window),
         lambda: _rebuild_active_list(main_window),
         lambda: update_outlier_marker(main_window),
@@ -56,9 +65,33 @@ def _refresh_outlier_views(
             LOG.warning("[Recheck] View refresh step failed: %s", e)
 
 
+def _refresh_close_mask_views(main_window) -> None:
+    """Rebuild the close-mask id list, the active tree list and both star colours."""
+    # circular-import: gui.outlier imports core.outlier_detection at module load time.
+    from SECQUOIA.gui.outlier.markers import update_outlier_marker
+    from SECQUOIA.gui.outlier.outlier_list import _rebuild_active_list
+
+    for step in (
+        lambda: ensure_current_df_subset(main_window),
+        lambda: update_unique_close_mask_ids(main_window),
+        lambda: _rebuild_active_list(main_window),
+        lambda: update_outlier_marker(main_window),
+    ):
+        try:
+            step()
+        except (
+            RuntimeError,
+            AttributeError,
+            TypeError,
+            ValueError,
+            KeyError,
+        ) as e:
+            LOG.warning("[CloseMasks] View refresh step failed: %s", e)
+
+
 def _clamp_outlier_index(main_window) -> None:
-    """Keep `current_outlier_index` inside `unique_outliers_ids`."""
-    outs = getattr(main_window, "unique_outliers_ids", None) or []
+    """Keep `current_outlier_index` inside the Out list (outliers and close masks)."""
+    outs = unique_review_ids(main_window)
     try:
         idx = int(getattr(main_window, "current_outlier_index", 0) or 0)
     except (TypeError, ValueError):

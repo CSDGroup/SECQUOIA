@@ -12,7 +12,7 @@ from datetime import datetime
 import numpy as np
 import pandas as pd
 
-from SECQUOIA.config import Rule, SlidingWindow
+from SECQUOIA.config import CloseMaskSettings, Rule, SlidingWindow
 from SECQUOIA.utils.paths import project_analysis_dir
 
 LOG = logging.getLogger(__name__)
@@ -33,13 +33,14 @@ __all__ = [
 
 @dataclass
 class RulesPack:
-    """Container for threshold and sliding-window outlier detection settings."""
+    """Container for threshold, sliding-window and close-mask detection settings."""
 
     version: int
     m_n: int
     ch_n: int
     rules: list[Rule]
     sliding_windows: list[SlidingWindow]
+    close_masks: CloseMaskSettings | None = None
 
     def to_dict(self) -> dict:
         """Return the rules pack as a JSON-serializable dictionary."""
@@ -53,6 +54,9 @@ class RulesPack:
                 asdict(self.sliding_windows[0])
                 if self.sliding_windows
                 else None
+            ),
+            "close_masks": (
+                asdict(self.close_masks) if self.close_masks else None
             ),
         }
 
@@ -79,7 +83,27 @@ class RulesPack:
                     else [d["sliding_window"]]
                 )
             ],
+            close_masks=_close_mask_settings_from_dict(d.get("close_masks")),
         )
+
+
+def _close_mask_settings_from_dict(raw) -> CloseMaskSettings | None:
+    """Read the saved close-mask settings; None if absent or unusable.
+
+    Rules files written before close-mask detection existed have no such
+    entry, and a damaged one must not stop the rest of the rules loading.
+    """
+    if not isinstance(raw, dict):
+        return None
+    try:
+        distance = float(raw["distance"])
+        masks = raw.get("masks")
+        masks = [int(m) for m in masks] if masks else None
+    except (KeyError, TypeError, ValueError):
+        return None
+    if not np.isfinite(distance) or distance < 0:
+        return None
+    return CloseMaskSettings(distance=distance, masks=masks)
 
 
 def save_outlier_rules_to_disk(main_window, rules_payload: dict) -> str | None:

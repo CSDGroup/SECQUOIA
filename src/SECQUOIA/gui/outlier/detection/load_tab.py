@@ -33,7 +33,14 @@ class LoadTab:
     """File picker for loading a previously saved rules file into the UI."""
 
     def __init__(
-        self, main_window, win, tabs, threshold_tab, sliding_tab, run_tab
+        self,
+        main_window,
+        win,
+        tabs,
+        threshold_tab,
+        sliding_tab,
+        run_tab,
+        close_mask_tab,
     ):
         self.main_window = main_window
         self.win = win
@@ -41,6 +48,7 @@ class LoadTab:
         self.threshold_tab = threshold_tab
         self.sliding_tab = sliding_tab
         self.run_tab = run_tab
+        self.close_mask_tab = close_mask_tab
 
         self.page = QWidget()
         content_v, side_v = make_tab_scaffold(self.page)
@@ -66,7 +74,7 @@ class LoadTab:
         choose_btn.clicked.connect(self._on_choose_clicked)
 
     def _apply_loaded_rules(self, payload: dict):
-        """Load saved threshold and sliding-window rules into the UI."""
+        """Load saved threshold, sliding-window and close-mask settings into the UI."""
         try:
             pack = RulesPack.from_dict(payload)
         except (TypeError, ValueError, AttributeError) as e:
@@ -156,6 +164,15 @@ class LoadTab:
                 self.sliding_tab.add_row()
         except (TypeError, ValueError, RuntimeError, AttributeError) as e:
             LOG.warning("[Rules] Could not rebuild sliding windows: %s", e)
+
+        # A file without close-mask settings leaves that tab as it is.
+        if pack.close_masks is not None:
+            try:
+                self.close_mask_tab.apply_settings(pack.close_masks)
+            except (TypeError, ValueError, RuntimeError, AttributeError) as e:
+                LOG.warning(
+                    "[Rules] Could not load close-mask settings: %s", e
+                )
 
     def _on_load_rules_returning_success(self) -> bool:
         """Load saved outlier rules and return whether loading succeeded."""
