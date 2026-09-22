@@ -22,11 +22,23 @@ from SECQUOIA.core.quantification import (
     expected_measurement_columns,
     stale_measurement_columns,
 )
+from SECQUOIA.core.quantification.columns import (
+    init_mask_channel_columns,
+    sort_measurement_columns,
+)
+from SECQUOIA.core.quantification.naming import (
+    alt_distance_column,
+    alt_label_column,
+    distance_column,
+    label_column,
+)
 from SECQUOIA.core.tracking import track_data
 from SECQUOIA.core.tracking.track_data import (
     _load_cached_position_measurements,
     apply_derived_features,
 )
+from SECQUOIA.gui.lineage_tree.lineage_geometry import FeatureCatalog
+from SECQUOIA.utils.plotting.feature_discovery import _discover_features
 
 CHANNELS = ["C00", "C01"]
 POSITION = 1
@@ -357,3 +369,127 @@ def test_a_derived_metric_is_recomputed_while_its_sources_exist():
     out = apply_derived_features(main_window)
 
     assert out[target].tolist() == [2.0, 3.0]
+
+
+# Second-candidate columns (alt_label_id_m*, alt_dist_px_m*)
+ALT_COLUMNS = ("alt_label_id_m1", "alt_dist_px_m1")
+
+
+def with_alt_columns(frame: pd.DataFrame, mask: int = 1) -> pd.DataFrame:
+    frame = frame.copy()
+    frame[f"alt_label_id_m{mask}"] = pd.array([2, 0], dtype="Int64")
+    frame[f"alt_dist_px_m{mask}"] = [4.0, np.nan]
+    return frame
+
+
+def test_alt_column_names_do_not_collide_with_the_matched_columns():
+    """Code selecting by ``label_id_m`` / ``nn_dist_px_`` must not see them."""
+    assert alt_label_column(3) == "alt_label_id_m3"
+    assert alt_distance_column(3) == "alt_dist_px_m3"
+    assert not alt_label_column(3).startswith("label_id_m")
+    assert not alt_distance_column(3).startswith("nn_dist_px_")
+
+
+def test_expected_columns_include_the_alt_columns_of_every_mask():
+    expected = expected_measurement_columns(
+        naming_for(basic=False), range(1, 3)
+    )
+
+    for mask in (1, 2):
+        assert alt_label_column(mask) in expected
+        assert alt_distance_column(mask) in expected
+
+
+def test_alt_columns_survive_pruning_while_their_mask_is_measured():
+    frame = with_alt_columns(measured_frame())
+
+    pruned = drop_stale_measurement_columns(frame, naming_for(basic=True), [1])
+
+    assert set(ALT_COLUMNS) <= set(pruned.columns)
+
+
+def test_removing_a_mask_drops_its_alt_columns():
+    frame = with_alt_columns(
+        with_alt_columns(measured_frame(masks=(1, 2)), 1), 2
+    )
+
+    stale = stale_measurement_columns(
+        frame.columns, naming_for(basic=True), [1]
+    )
+
+    assert {"alt_label_id_m2", "alt_dist_px_m2"} <= set(stale)
+    assert not set(ALT_COLUMNS) & set(stale)
+
+
+def test_init_creates_the_alt_columns_with_none_encoded_as_zero():
+    df = pd.DataFrame({"Position": [1, 1], "t": [0, 1]})
+
+    df = init_mask_channel_columns(df, [1], naming_for(basic=False))
+
+    assert df[alt_label_column(1)].dtype == "Int64"
+    assert df[alt_label_column(1)].tolist() == [0, 0]
+    assert df[alt_distance_column(1)].isna().all()
+
+
+def test_init_keeps_existing_alt_values():
+    df = with_alt_columns(pd.DataFrame({"Position": [1, 1], "t": [0, 1]}))
+
+    df = init_mask_channel_columns(df, [1], naming_for(basic=False))
+
+    assert df[alt_label_column(1)].tolist() == [2, 0]
+    assert df[alt_distance_column(1)].tolist()[0] == 4.0
+
+
+def test_alt_columns_are_sorted_after_the_matched_label_and_distance():
+    frame = with_alt_columns(measured_frame())
+    frame = frame[list(reversed(frame.columns))]
+
+    ordered = sort_measurement_columns(
+        frame, [1], naming_for(basic=True), "Identification"
+    )
+
+    columns = list(ordered.columns)
+    assert columns.index(distance_column(1)) == (
+        columns.index(label_column(1)) + 1
+    )
+    assert columns.index(alt_label_column(1)) == (
+        columns.index(distance_column(1)) + 1
+    )
+    assert columns.index(alt_distance_column(1)) == (
+        columns.index(alt_label_column(1)) + 1
+    )
+
+
+def test_alt_columns_stay_out_of_the_plot_feature_lists():
+    columns = list(with_alt_columns(measured_frame()).columns)
+
+    discovered = _discover_features(columns)
+    selectable = FeatureCatalog.from_columns(columns).selectable_features()
+
+    assert not [name for name in discovered if name.startswith("alt_")]
+    assert not [name for name in selectable if name.startswith("alt_")]
+
+
+def test_an_old_cache_gets_alt_columns_that_mean_no_candidate(cached_csv):
+    measured_frame().to_csv(cached_csv, index=False)
+    main_window = main_window_for(basic=True)
+
+    loaded = _load_cached_position_measurements(
+        main_window, POSITION, 0, 1, ensure_columns=True
+    )
+
+    assert loaded["alt_label_id_m1"].tolist() == [0, 0]
+    assert loaded["alt_dist_px_m1"].isna().all()
+
+
+def test_a_cache_with_alt_columns_keeps_their_values(cached_csv):
+    with_alt_columns(measured_frame()).to_csv(cached_csv, index=False)
+    main_window = main_window_for(basic=True)
+
+    loaded = _load_cached_position_measurements(
+        main_window, POSITION, 0, 1, ensure_columns=True
+    )
+
+    assert loaded["alt_label_id_m1"].tolist() == [2, 0]
+    assert loaded["alt_dist_px_m1"].tolist()[0] == 4.0
+    assert "alt_label_id_m1" in main_window.track_df.columns

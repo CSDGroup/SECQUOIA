@@ -9,6 +9,8 @@ import pandas as pd
 from SECQUOIA.config import FEATURES
 from SECQUOIA.core.quantification.naming import (
     FeatureNaming,
+    alt_distance_column,
+    alt_label_column,
     centroid_columns,
     distance_column,
     label_column,
@@ -32,7 +34,8 @@ _INTENSITY_COL_RE = re.compile(r"^(?P<feat>[A-Za-z0-9_]+)Ch(\d+)M(?P<m>\d+)$")
 _SHAPE_COL_RE = re.compile(r"^(?P<feat>[A-Za-z0-9_]+)M(?P<m>\d+)$")
 # Per mask bookkeeping columns written by matching/lineage.
 _MASK_INDEXED_COL_RE = re.compile(
-    r"^(?P<feat>label_id_m|nn_dist_px_m|step_disp_px_m)(?P<m>\d+)$"
+    r"^(?P<feat>label_id_m|nn_dist_px_m|step_disp_px_m"
+    r"|alt_label_id_m|alt_dist_px_m)(?P<m>\d+)$"
 )
 
 
@@ -41,7 +44,9 @@ def init_mask_channel_columns(
 ) -> pd.DataFrame:
     """Create the per mask intensity, shape, label and distance columns.
 
-    Existing columns are kept and only cast to their expected dtype.
+    That includes the second-candidate columns (``alt_label_id_m*`` and
+    ``alt_dist_px_m*``). Existing columns are kept and only cast to their
+    expected dtype.
     Lineage displacement (``step_disp_px_m*``) is not created here -
     `add_lineage_step_distance` writes it after matching.
     """
@@ -65,17 +70,20 @@ def init_mask_channel_columns(
             else:
                 to_add[column] = 0.0
 
-        lab_col = label_column(mask_idx)
-        if lab_col in df.columns:
-            label_cols.append(lab_col)
-        else:
-            to_add[lab_col] = pd.Series(0, index=df.index, dtype="Int64")
+        for lab_col in (label_column(mask_idx), alt_label_column(mask_idx)):
+            if lab_col in df.columns:
+                label_cols.append(lab_col)
+            else:
+                to_add[lab_col] = pd.Series(0, index=df.index, dtype="Int64")
 
-        dist_col = distance_column(mask_idx)
-        if dist_col in df.columns:
-            float_cols.append(dist_col)
-        else:
-            to_add[dist_col] = np.nan
+        for dist_col in (
+            distance_column(mask_idx),
+            alt_distance_column(mask_idx),
+        ):
+            if dist_col in df.columns:
+                float_cols.append(dist_col)
+            else:
+                to_add[dist_col] = np.nan
 
     if to_add:
         df = pd.concat([df, pd.DataFrame(to_add, index=df.index)], axis=1)
@@ -107,6 +115,8 @@ def expected_measurement_columns(
         columns.update(centroid_columns(mask_idx))
         columns.add(label_column(mask_idx))
         columns.add(distance_column(mask_idx))
+        columns.add(alt_label_column(mask_idx))
+        columns.add(alt_distance_column(mask_idx))
         columns.add(step_distance_column(mask_idx))
     return columns
 
@@ -205,6 +215,11 @@ def sort_measurement_columns(
     ]
     label_cols = [label_column(m) for m in mask_indices]
     dist_cols = [distance_column(m) for m in mask_indices]
+    alt_cols = [
+        column
+        for m in mask_indices
+        for column in (alt_label_column(m), alt_distance_column(m))
+    ]
 
     if df.columns.has_duplicates:
         dupes = df.columns[df.columns.duplicated()].unique().tolist()
@@ -213,7 +228,9 @@ def sort_measurement_columns(
 
     seen: set = set()
     preferred = []
-    for c in base + intensity_cols + shape_cols + label_cols + dist_cols:
+    for c in (
+        base + intensity_cols + shape_cols + label_cols + dist_cols + alt_cols
+    ):
         if c in df.columns and c not in seen:
             seen.add(c)
             preferred.append(c)

@@ -18,6 +18,10 @@ from SECQUOIA.core.outlier_detection import (
     update_outlier_detection_in_track_df,
     update_unique_outliers_ids,
 )
+from SECQUOIA.core.outlier_detection.close_masks import (
+    apply_close_mask_detection,
+    close_mask_summary,
+)
 from SECQUOIA.core.segmentation.mask_selection import ensure_current_df_subset
 from SECQUOIA.gui.common.ui_utils import make_tab_scaffold, make_tab_title
 from SECQUOIA.gui.outlier.markers import update_outlier_marker
@@ -85,7 +89,37 @@ class RunTab:
         text_lines.append("")
         text_lines.append("SLIDING WINDOWS:")
         text_lines += self.sliding_tab.summary_lines()
+        text_lines.append("")
+        text_lines.append("CLOSE MASKS:")
+        text_lines += self._close_mask_lines()
         self.summary_box.setPlainText("\n".join(text_lines))
+
+    def _close_mask_lines(self):
+        """Summary lines for the close-mask settings and the flags set so far."""
+        close_tab = getattr(self.main_window, "_close_mask_tab", None)
+        settings = close_tab.settings_for_rules() if close_tab else None
+        if settings is None:
+            lines = ["  (not used - see the Close masks tab)"]
+        else:
+            masks = (
+                "all"
+                if settings.masks is None
+                else ", ".join(str(m) for m in settings.masks)
+            )
+            lines = [
+                f"  distance <= {settings.distance:g} px | masks: {masks}"
+            ]
+
+        summary = close_mask_summary(
+            getattr(self.main_window, "filtered_df", None)
+        )
+        if summary["flagged"] or summary["reviewed"]:
+            lines.append(
+                f"  {summary['flagged']} flagged time point(s) in "
+                f"{summary['identifications']} identification(s), "
+                f"{summary['reviewed']} reviewed"
+            )
+        return lines
 
     def _on_apply(self):
         """Apply the selected outlier rules and update downstream UI state."""
@@ -145,6 +179,12 @@ class RunTab:
                 ensure_current_df_subset(main_window)
                 advance()
                 update_unique_outliers_ids(main_window, outcol=outcol)
+                if pack.close_masks is not None:
+                    apply_close_mask_detection(
+                        main_window,
+                        pack.close_masks.distance,
+                        pack.close_masks.masks,
+                    )
                 advance()
                 _update_outlier_list(main_window)
                 advance()

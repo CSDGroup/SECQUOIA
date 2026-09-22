@@ -95,6 +95,14 @@ def snapshot_outlier_ui_to_pack(main_window) -> RulesPack:
             )
         )
 
+    close_tab = getattr(main_window, "_close_mask_tab", None)
+    close_masks = close_tab.settings_for_rules() if close_tab else None
+
     return RulesPack(
-        version=1, m_n=m_n, ch_n=ch_n, rules=rules, sliding_windows=sliding
+        version=1,
+        m_n=m_n,
+        ch_n=ch_n,
+        rules=rules,
+        sliding_windows=sliding,
+        close_masks=close_masks,
     )

@@ -4,7 +4,7 @@ import contextlib
 import logging
 import os
 
-from qtpy.QtCore import QEvent, QObject, Qt
+from qtpy.QtCore import QEvent, QObject, QPoint, QRect, QSize, Qt
 from qtpy.QtGui import QKeyEvent, QKeySequence, QMouseEvent, QWheelEvent
 from qtpy.QtWidgets import (
     QApplication,
@@ -15,8 +15,10 @@ from qtpy.QtWidgets import (
     QShortcut,
     QSpinBox,
     QTextEdit,
+    QToolTip,
 )
 
+from SECQUOIA.core.segmentation.close_mask_view import assigned_mask_tooltip
 from SECQUOIA.core.segmentation.mask_selection import (
     ensure_current_df_subset,
     show_all_masks,
@@ -48,6 +50,7 @@ from SECQUOIA.gui.outlier import (
     open_outlier_detection_window,
     show_current_outlier_parameters,
 )
+from SECQUOIA.gui.outlier.close_mask_review import mark_close_mask_checked
 from SECQUOIA.gui.outlier.navigation import (
     change_outlier,
     change_to_next_outlier,
@@ -68,6 +71,7 @@ from SECQUOIA.utils.helpers import (
 )
 
 LOG = logging.getLogger(__name__)
+_TOOLTIP_AREA_PX = 12
 
 
 class KeyBindings:
@@ -143,6 +147,9 @@ class KeyBindings:
 
         add_hotkey_both(
             "Q", _guard_if_typing(lambda: reset_lineage_zoom(self))
+        )
+        add_hotkey(
+            "C", _guard_if_typing(lambda: mark_close_mask_checked(self))
         )
         add_hotkey("D", lambda: cell_fate(self, "Dead"))
         add_hotkey("H", lambda: cell_fate(self, "Healthy"))
@@ -374,12 +381,31 @@ class KeyBindings:
         app.installEventFilter(self)
         self._arrow_filter_installed = True
 
+    def _show_canvas_tooltip(self, obj: QObject, event: QEvent) -> bool:
+        """Show the tooltip for the mask under the cursor of a napari canvas."""
+        viewer = getattr(self, "_canvas_native_to_viewer", {}).get(obj)
+        if viewer is None:
+            return False
+        text = assigned_mask_tooltip(self, viewer)
+        if not text:
+            return False
+        # The tooltip goes away once the cursor leaves the area around it.
+        area = QRect(
+            event.pos() - QPoint(_TOOLTIP_AREA_PX, _TOOLTIP_AREA_PX),
+            QSize(2 * _TOOLTIP_AREA_PX, 2 * _TOOLTIP_AREA_PX),
+        )
+        QToolTip.showText(event.globalPos(), text, obj, area)
+        return True
+
     def eventFilter(self, obj: QObject, event: QEvent) -> bool:
         """Application wide event filter installed on every canvas/tree widget."""
         if self._handle_tree_ctrl_click(obj, event):
             return True
 
         et = event.type()
+        if et == QEvent.ToolTip and self._show_canvas_tooltip(obj, event):
+            return True
+
         if et == QEvent.Enter:
             viewer = getattr(self, "_canvas_native_to_viewer", {}).get(obj)
             if viewer is not None:

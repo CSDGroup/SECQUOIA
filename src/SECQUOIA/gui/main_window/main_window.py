@@ -83,6 +83,7 @@ from SECQUOIA.gui.outlier import (
     open_outlier_detection_window,
     show_current_outlier_parameters,
 )
+from SECQUOIA.gui.outlier.close_mask_review import mark_close_mask_checked
 from SECQUOIA.gui.outlier.navigation import change_outlier
 from SECQUOIA.gui.outlier.reset import reset_outlier_state
 from SECQUOIA.gui.position_navigation import (
@@ -900,6 +901,7 @@ class MainWindow(
         Outlier_menu.addAction(Outlier_action)
 
         Next_Outlier_action = QAction("Jump to next Outlier (Ctrl+Down)", self)
+        Next_Outlier_action.setToolTip(TOOLTIPSTEXT.OUT_NEXT)
         Next_Outlier_action.triggered.connect(
             partial(change_outlier, self, "next")
         )
@@ -908,10 +910,20 @@ class MainWindow(
         Previous_Outlier_action = QAction(
             "Jump to previous Outlier (Ctrl+Up)", self
         )
+        Previous_Outlier_action.setToolTip(TOOLTIPSTEXT.OUT_PREVIOUS)
         Previous_Outlier_action.triggered.connect(
             partial(change_outlier, self, "previous")
         )
         Outlier_menu.addAction(Previous_Outlier_action)
+
+        Mark_Close_Mask_action = QAction(
+            "Mark close mask as checked, jump to next (C)", self
+        )
+        Mark_Close_Mask_action.setToolTip(TOOLTIPSTEXT.CLOSE_CHECK)
+        Mark_Close_Mask_action.triggered.connect(
+            partial(mark_close_mask_checked, self)
+        )
+        Outlier_menu.addAction(Mark_Close_Mask_action)
 
         Current_Params_action = QAction(
             "Current Parameters (Ctrl+Shift+H)", self
@@ -921,9 +933,11 @@ class MainWindow(
         )
         Outlier_menu.addAction(Current_Params_action)
 
-        Reset_Outlier = QAction("Reset Outliers (Ctrl+R)", self)
+        Reset_Outlier = QAction("Reset Outliers && Close Masks (Ctrl+R)", self)
+        Reset_Outlier.setToolTip(TOOLTIPSTEXT.OUT_RESET)
         Reset_Outlier.triggered.connect(partial(reset_outlier_state, self))
         Outlier_menu.addAction(Reset_Outlier)
+        Outlier_menu.setToolTipsVisible(True)
 
         Export_GIFs_Image_action = QAction(
             "Export Single Images or Movies (Ctrl+E)", self

@@ -25,6 +25,11 @@ from SECQUOIA.core.quantification import (
     intensity_column,
     safe_op_series,
 )
+from SECQUOIA.core.quantification.naming import (
+    ALT_LABEL_PREFIX,
+    alt_distance_column,
+    alt_label_column,
+)
 from SECQUOIA.core.segmentation.mask_selection import (
     rebuild_segmentation_layer_index,
     set_active_layers_from_header_buttons,
@@ -895,7 +900,15 @@ def _required_measurement_columns(main_window) -> list[str]:
     for mask in masks:
         required += [f"{prefix}M{mask}" for prefix in FEATURES.MORPH_PREFIXES]
         required += [f"label_id_m{mask}", f"nn_dist_px_m{mask}"]
+        required += [alt_label_column(mask), alt_distance_column(mask)]
     return required
+
+
+def _missing_column_default(column: str, index: pd.Index):
+    """Fill value for a required column absent from an older cached CSV."""
+    if column.startswith(ALT_LABEL_PREFIX):
+        return pd.Series(0, index=index, dtype="Int64")
+    return np.nan
 
 
 def _prune_stale_measurement_columns(
@@ -960,7 +973,7 @@ def _load_cached_position_measurements(
                     )
             for col in required_cols:
                 if col not in df_pos.columns:
-                    df_pos[col] = np.nan
+                    df_pos[col] = _missing_column_default(col, df_pos.index)
 
         base_df = getattr(main_window, "track_df", pd.DataFrame())
         base_df = base_df[base_df.get("Position", -1) != position]

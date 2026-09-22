@@ -99,6 +99,8 @@ EXCLUDED_FEATURES = frozenset(
         "YMorphology",
         "nn_dist_px_",
         "label_id_",
+        "alt_dist_px_",
+        "alt_label_id_",
     }
 )
 

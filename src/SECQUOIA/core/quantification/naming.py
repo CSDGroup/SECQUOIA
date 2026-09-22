@@ -39,6 +39,20 @@ def distance_column(mask_idx: int) -> str:
     return f"nn_dist_px_m{mask_idx}"
 
 
+CLOSE_MASK_FLAG = "Close_mask_flag"
+ALT_LABEL_PREFIX = "alt_label_id_m"
+
+
+def alt_label_column(mask_idx: int) -> str:
+    """Column holding the label id of the second potential mask (0 if none)."""
+    return f"{ALT_LABEL_PREFIX}{mask_idx}"
+
+
+def alt_distance_column(mask_idx: int) -> str:
+    """Column holding the distance (px) to the second potential mask (NaN if none)."""
+    return f"alt_dist_px_m{mask_idx}"
+
+
 def step_distance_column(mask_idx: int) -> str:
     """Column holding the per frame lineage displacement (px) for mask `mask_idx`."""
     return f"step_disp_px_m{mask_idx}"

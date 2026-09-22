@@ -305,13 +305,32 @@ def apply_all_mask_selections(
             _center_viewer_camera(viewer, cy, cx, zoom_level, is_new_ident)
 
     main_window._last_zoom_ident = current_ident
+    _refresh_close_mask_view(main_window, row)
 
 
-def refresh_all_mask_selections_at_current(main_window) -> None:
-    """Reapply the mask selections for the row the UI is currently showing."""
+def _refresh_close_mask_view(main_window, row: pd.Series) -> None:
+    """Show, or clear, the close-mask pair for `row`; never let it break navigation."""
+    from SECQUOIA.core.segmentation.close_mask_view import (
+        refresh_close_mask_view,
+    )
+
+    try:
+        refresh_close_mask_view(main_window, row)
+    except (
+        RuntimeError,
+        AttributeError,
+        TypeError,
+        ValueError,
+        KeyError,
+    ) as e:
+        LOG.warning("[close-mask view] refresh failed: %s", e)
+
+
+def current_selection_row(main_window) -> pd.Series | None:
+    """The dataframe row the UI is currently showing, or None."""
     df_all = getattr(main_window, "filtered_df", None)
     if df_all is None or df_all.empty:
-        return
+        return None
 
     try:
         if 0 <= main_window.current_ident_index < len(main_window.unique_ids):
@@ -323,7 +342,7 @@ def refresh_all_mask_selections_at_current(main_window) -> None:
 
     df_id = df_all[df_all["Identification"] == ident]
     if df_id.empty:
-        return
+        return None
 
     try:
         tr = main_window.current_TrackNumber_plot
@@ -334,20 +353,25 @@ def refresh_all_mask_selections_at_current(main_window) -> None:
     except (RuntimeError, AttributeError, TypeError):
         tt = None
 
-    row = None
     try:
         if tr is not None and tt is not None:
             sub = df_id[(df_id["TrackNumber"] == tr) & (df_id["t"] == tt)]
             if not sub.empty:
-                row = sub.iloc[0]
+                return sub.iloc[0]
     except (RuntimeError, AttributeError, TypeError):
-        row = None
+        pass
 
+    try:
+        return df_id.iloc[0]
+    except (RuntimeError, AttributeError, TypeError):
+        return None
+
+
+def refresh_all_mask_selections_at_current(main_window) -> None:
+    """Reapply the mask selections for the row the UI is currently showing."""
+    row = current_selection_row(main_window)
     if row is None:
-        try:
-            row = df_id.iloc[0]
-        except (RuntimeError, AttributeError, TypeError):
-            return
+        return
 
     apply_all_mask_selections(
         main_window,
@@ -493,6 +517,12 @@ def show_all_masks(main_window) -> None:
             with contextlib.suppress(RuntimeError, AttributeError, TypeError):
                 layer.show_selected_label = False
 
+    from SECQUOIA.core.segmentation.close_mask_view import (
+        clear_close_mask_view,
+    )
+
+    clear_close_mask_view(main_window)
+
 
 def show_current_mask(main_window) -> None:
     """Show only the currently selected track's label in each mask layer.
@@ -543,3 +573,5 @@ def show_current_mask(main_window) -> None:
                     layer.show_selected_label = True
                 else:
                     layer.show_selected_label = False
+
+    _refresh_close_mask_view(main_window, row)

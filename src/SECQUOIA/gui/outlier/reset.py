@@ -1,4 +1,4 @@
-"""Clearing outlier rules, sliding-window UI state, flags, and markers."""
+"""Clearing outlier rules, sliding-window UI state, flags (outliers and close masks), and markers."""
 
 from __future__ import annotations
 
@@ -8,13 +8,16 @@ import logging
 import pandas as pd
 
 from SECQUOIA.core.outlier_detection import _normalize_unique_ids
+from SECQUOIA.core.outlier_detection.close_masks import reset_close_mask_state
+from SECQUOIA.core.segmentation.close_mask_view import clear_close_mask_view
 from SECQUOIA.core.segmentation.mask_selection import ensure_current_df_subset
 from SECQUOIA.gui.curation_tree import update_list
+from SECQUOIA.gui.outlier.markers import _clear_close_mask_markers
 from SECQUOIA.utils.plotting import update_plot
 
 LOG = logging.getLogger(__name__)
 
-__all__ = ["reset_outlier_state"]
+__all__ = ["clear_close_mask_flags", "reset_outlier_state"]
 
 
 def _clear_saved_outlier_rules(main_window) -> None:
@@ -133,6 +136,22 @@ def _clear_outlier_markers(main_window) -> None:
     main_window._outlier_marker_items = {}
 
 
+def clear_close_mask_flags(main_window) -> None:
+    """Remove the close-mask flags, purple stars and napari highlight.
+
+    Also forgets the close-mask settings kept with the saved outlier rules, so
+    a later position switch does not detect them again.
+    """
+    reset_close_mask_state(main_window)
+    _clear_close_mask_markers(main_window)
+    with contextlib.suppress(RuntimeError, AttributeError, TypeError):
+        clear_close_mask_view(main_window)
+
+    rules = getattr(main_window, "_last_outlier_rules", None)
+    if isinstance(rules, dict):
+        rules.pop("close_masks", None)
+
+
 def _refresh_views_after_reset(main_window, refresh_plots: bool) -> None:
     """Refresh the derived subset, list, and plot after an outlier-state reset."""
     with contextlib.suppress(Exception):
@@ -156,7 +175,7 @@ def reset_outlier_state(
     refresh_plots: bool = True,
     show_message: bool = True,
 ) -> None:
-    """Clear every trace of a previous outlier run, in the UI and in the data."""
+    """Clear every trace of a previous outlier or close-mask run, in the UI and in the data."""
     _clear_saved_outlier_rules(main_window)
     _teardown_sliding_window_rows(main_window)
     _reset_sliding_window_form(main_window)
@@ -169,6 +188,7 @@ def reset_outlier_state(
             setattr(main_window, attr, _reset_outcol(df, outcol, drop_columns))
 
     _clear_outlier_markers(main_window)
+    clear_close_mask_flags(main_window)
     _refresh_views_after_reset(main_window, refresh_plots)
 
     if show_message:

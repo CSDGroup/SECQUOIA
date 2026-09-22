@@ -41,6 +41,19 @@ from conftest import (
 
 from SECQUOIA.core.normalization import apply_normalization
 from SECQUOIA.core.quantification import quantify, safe_op_series
+from SECQUOIA.core.quantification.columns import init_mask_channel_columns
+from SECQUOIA.core.quantification.matching import (
+    COMPARE_MATCHING_ENV,
+    DEFAULT_MATCH_STRATEGY,
+    MATCH_STRATEGIES,
+    MATCH_STRATEGY_ENV,
+    assign_objects_to_tracks,
+    compare_matching_enabled,
+    greedy_nearest_assign,
+    resolve_match_strategy,
+    second_nearest_within,
+)
+from SECQUOIA.core.quantification.naming import FeatureNaming
 
 
 def test_quantify_one_cell_two_timepoints_two_masks(tmp_path, no_progress):
@@ -531,3 +544,716 @@ def test_run_cytometric_analysis_imports():
     from SECQUOIA.core.cytometric_analysis import run_cytometric_analysis
 
     assert callable(run_cytometric_analysis)
+
+
+# Second potential mask (alt_label_id_m*, alt_dist_px_m*)
+def xy(*points) -> np.ndarray:
+    return np.array(points, dtype=float).reshape(-1, 2)
+
+
+def test_second_nearest_has_no_candidate_with_a_single_object():
+    idx, dist = second_nearest_within(
+        xy((0, 0)), xy((1, 0)), np.array([0]), max_dist=10
+    )
+
+    assert idx.tolist() == [-1]
+    assert np.isinf(dist).all()
+
+
+def test_second_nearest_finds_the_nearest_other_object():
+    objects = xy((1, 0), (4, 0), (2, 0))
+
+    idx, dist = second_nearest_within(
+        xy((0, 0)), objects, np.array([0]), max_dist=10
+    )
+
+    assert idx.tolist() == [2]
+    assert dist.tolist() == [2.0]
+
+
+def test_second_nearest_is_inclusive_at_the_threshold():
+    objects = xy((1, 0), (5, 0))
+    tracks, assigned = xy((0, 0)), np.array([0])
+
+    at_limit, _ = second_nearest_within(tracks, objects, assigned, 5.0)
+    below_limit, _ = second_nearest_within(tracks, objects, assigned, 4.99)
+
+    assert at_limit.tolist() == [1]
+    assert below_limit.tolist() == [-1]
+
+
+def test_second_nearest_counts_objects_claimed_by_another_track():
+    """A track that fell back to a farther object still sees the taken one."""
+    tracks = xy((0, 0), (2, 0))
+    objects = xy((1, 0), (9, 0))
+    # Track 0 owns object 0; track 1 was pushed to object 1.
+    assigned = np.array([0, 1])
+
+    idx, dist = second_nearest_within(tracks, objects, assigned, max_dist=10)
+
+    assert idx.tolist() == [1, 0]
+    assert dist.tolist() == [9.0, 1.0]
+
+
+def test_second_nearest_for_an_unmatched_track_excludes_nothing():
+    idx, dist = second_nearest_within(
+        xy((0, 0)), xy((3, 0)), np.array([-1]), max_dist=5
+    )
+
+    assert idx.tolist() == [0]
+    assert dist.tolist() == [3.0]
+
+
+def test_second_nearest_ties_go_to_the_lower_object_index():
+    objects = xy((0, 0), (2, 0), (0, 2))
+
+    idx, _ = second_nearest_within(
+        xy((1, 1)), objects, np.array([-1]), max_dist=5
+    )
+
+    assert idx.tolist() == [0]
+
+
+def test_second_nearest_handles_empty_inputs():
+    empty = np.empty((0, 2))
+
+    no_tracks = second_nearest_within(empty, xy((1, 1)), np.array([]), 5)
+    no_objects = second_nearest_within(xy((1, 1)), empty, np.array([-1]), 5)
+
+    assert no_tracks[0].tolist() == []
+    assert no_objects[0].tolist() == [-1]
+    assert np.isinf(no_objects[1]).all()
+
+
+def assert_column_with_nan(df: pd.DataFrame, column: str, expected) -> None:
+    """Like ``assert_column_values`` but a NaN matches a NaN."""
+    values = pd.to_numeric(df[column], errors="coerce").to_numpy(dtype=float)
+    np.testing.assert_allclose(values, np.asarray(expected, dtype=float))
+
+
+def two_object_labels() -> list[np.ndarray]:
+    """Mask 1 gets a second object 4 px from the tracking point at t=0 only."""
+    mask_1, mask_2 = make_fake_labels()
+    mask_1[0, 2:5, 6:9] = 2
+    return [mask_1, mask_2]
+
+
+def test_quantify_records_the_second_mask_within_the_threshold(
+    tmp_path, no_progress
+):
+    main_window = make_fake_main_window(tmp_path)
+    main_window.labels = two_object_labels()
+
+    quantify(main_window, progress_cb=no_progress, max_pixel_distance=5)
+
+    df = main_window.track_df.sort_values("t").reset_index(drop=True)
+    assert_column_values(df, "label_id_m1", [1, 1])
+    assert_column_values(df, "alt_label_id_m1", [2, 0])
+    assert_column_with_nan(df, "alt_dist_px_m1", [4.0, np.nan])
+    assert_column_values(df, "alt_label_id_m2", [0, 0])
+    assert_column_with_nan(df, "alt_dist_px_m2", [np.nan, np.nan])
+
+
+def test_quantify_ignores_a_second_mask_beyond_the_threshold(
+    tmp_path, no_progress
+):
+    main_window = make_fake_main_window(tmp_path)
+    main_window.labels = two_object_labels()
+
+    quantify(main_window, progress_cb=no_progress, max_pixel_distance=3)
+
+    df = main_window.track_df.sort_values("t").reset_index(drop=True)
+    assert_column_values(df, "alt_label_id_m1", [0, 0])
+    assert_column_with_nan(df, "alt_dist_px_m1", [np.nan, np.nan])
+
+
+def test_quantify_leaves_the_assignment_unchanged_by_the_candidate_search(
+    tmp_path, no_progress
+):
+    plain = make_fake_main_window(tmp_path / "plain")
+    crowded = make_fake_main_window(tmp_path / "crowded")
+    crowded.labels = two_object_labels()
+
+    quantify(plain, progress_cb=no_progress, max_pixel_distance=5)
+    quantify(crowded, progress_cb=no_progress, max_pixel_distance=5)
+
+    for column in ("label_id_m1", "nn_dist_px_m1", "AreaMorphologyM1"):
+        assert (
+            plain.track_df[column].tolist()
+            == crowded.track_df[column].tolist()
+        )
+
+
+def test_quantify_saves_the_candidate_columns_in_the_csv(
+    tmp_path, no_progress
+):
+    main_window = make_fake_main_window(tmp_path)
+    main_window.labels = two_object_labels()
+
+    quantify(main_window, progress_cb=no_progress, max_pixel_distance=5)
+
+    csvs = list(Path(main_window.folder).rglob("*.csv"))
+    saved = [pd.read_csv(path) for path in csvs]
+    with_alt = [df for df in saved if "alt_label_id_m1" in df.columns]
+    assert with_alt, "no saved CSV carries the candidate columns"
+    assert sorted(with_alt[0]["alt_label_id_m1"].tolist()) == [0, 2]
+
+
+# Assignment strategies: "legacy" and "sorted_pairs"
+#
+# The chain of conflicts, threshold 10:
+#   A is 3 px from X, B is 5 px from X and 9 px from Y, C is 7 px from Y.
+# Legacy: A->X, then B falls back to Y and C is left without a mask.
+# Sorted pairs: A->X, C->Y, and B (the longest pair) is left without a mask.
+CHAIN_OBJECTS = xy((0, 0), (-5, 9))  # X, Y
+CHAIN_TRACKS = xy((3, 0), (-5, 0), (-5, 16))  # A, B, C
+CHAIN_THRESHOLD = 10.0
+
+
+def test_the_default_strategy_is_sorted_pairs():
+    default = greedy_nearest_assign(CHAIN_TRACKS, CHAIN_OBJECTS, 10.0)
+    sorted_pairs = greedy_nearest_assign(
+        CHAIN_TRACKS, CHAIN_OBJECTS, 10.0, strategy="sorted_pairs"
+    )
+
+    assert default[0].tolist() == sorted_pairs[0].tolist()
+    assert DEFAULT_MATCH_STRATEGY == "sorted_pairs"
+
+
+def test_legacy_gives_the_contested_object_to_the_wrong_track():
+    assigned, dist = greedy_nearest_assign(
+        CHAIN_TRACKS, CHAIN_OBJECTS, CHAIN_THRESHOLD, strategy="legacy"
+    )
+
+    assert assigned.tolist() == [0, 1, -1]  # A->X, B->Y, C unmatched
+    assert dist[1] == 9.0
+
+
+def test_sorted_pairs_resolves_the_chain_of_conflicts():
+    assigned, dist = greedy_nearest_assign(
+        CHAIN_TRACKS, CHAIN_OBJECTS, CHAIN_THRESHOLD, strategy="sorted_pairs"
+    )
+
+    assert assigned.tolist() == [0, -1, 1]  # A->X, B unmatched, C->Y
+    assert dist[0] == 3.0
+    assert dist[2] == 7.0
+    assert np.isinf(dist[1])
+
+
+def test_every_strategy_agrees_when_nothing_competes():
+    tracks = xy((0, 0), (20, 0), (40, 0))
+    objects = xy((1, 0), (21, 0), (80, 0))
+
+    results = [
+        greedy_nearest_assign(tracks, objects, 5.0, strategy=name)[0].tolist()
+        for name in MATCH_STRATEGIES
+    ]
+
+    assert results == [[0, 1, -1]] * len(MATCH_STRATEGIES)
+
+
+def test_sorted_pairs_breaks_ties_by_track_then_object_index():
+    tracks = xy((0, 0), (2, 0))
+    objects = xy((1, 0))  # 1 px from both tracks
+
+    assigned, _ = greedy_nearest_assign(
+        tracks, objects, 5.0, strategy="sorted_pairs"
+    )
+
+    assert assigned.tolist() == [0, -1]
+
+    tracks = xy((1, 1))
+    objects = xy((0, 0), (2, 0), (0, 2))  # all equally far
+    assigned, _ = greedy_nearest_assign(
+        tracks, objects, 5.0, strategy="sorted_pairs"
+    )
+
+    assert assigned.tolist() == [0]
+
+
+def test_sorted_pairs_never_reuses_an_object_and_respects_the_threshold():
+    rng = np.random.default_rng(7)
+    for _ in range(50):
+        tracks = rng.uniform(0, 30, size=(rng.integers(1, 9), 2))
+        objects = rng.uniform(0, 30, size=(rng.integers(1, 9), 2))
+
+        assigned, dist = greedy_nearest_assign(
+            tracks, objects, 10.0, strategy="sorted_pairs"
+        )
+
+        used = assigned[assigned >= 0]
+        assert len(used) == len(set(used.tolist()))
+        assert (dist[assigned >= 0] <= 10.0).all()
+        assert np.isinf(dist[assigned < 0]).all()
+
+
+def test_sorted_pairs_is_no_worse_than_legacy_on_total_matches():
+    """Sorted pairs never matches fewer tracks than legacy on the chain."""
+    counts = {
+        name: int(
+            (
+                greedy_nearest_assign(
+                    CHAIN_TRACKS, CHAIN_OBJECTS, CHAIN_THRESHOLD, strategy=name
+                )[0]
+                >= 0
+            ).sum()
+        )
+        for name in MATCH_STRATEGIES
+    }
+
+    assert counts["sorted_pairs"] >= counts["legacy"]
+
+
+@pytest.mark.parametrize("strategy", MATCH_STRATEGIES)
+def test_strategy_has_no_effect_without_one_to_one(strategy):
+    assigned, _ = greedy_nearest_assign(
+        CHAIN_TRACKS,
+        CHAIN_OBJECTS,
+        CHAIN_THRESHOLD,
+        one_to_one=False,
+        strategy=strategy,
+    )
+
+    assert assigned.tolist() == [0, 0, 1]
+
+
+def test_an_unknown_strategy_is_rejected():
+    with pytest.raises(ValueError, match="Unknown match strategy"):
+        greedy_nearest_assign(
+            CHAIN_TRACKS, CHAIN_OBJECTS, 10.0, strategy="nearest"
+        )
+
+
+def chain_frames():
+    """The chain of conflicts as the dataframes `assign_objects_to_tracks` uses."""
+    naming = FeatureNaming.for_config(["C01"], basic=False)
+    tracks = pd.DataFrame(
+        {
+            "t": [0, 0, 0],
+            "XMorphology": CHAIN_TRACKS[:, 0],
+            "YMorphology": CHAIN_TRACKS[:, 1],
+        }
+    )
+    tracks = init_mask_channel_columns(tracks, [1], naming)
+    objects = pd.DataFrame(
+        {
+            "t": [0, 0],
+            "__mask_idx__": [1, 1],
+            "XMorphology": CHAIN_OBJECTS[:, 0],
+            "YMorphology": CHAIN_OBJECTS[:, 1],
+            "label_id_m1": [1, 2],
+        }
+    )
+    return tracks, objects, naming
+
+
+def run_chain(strategy: str) -> pd.DataFrame:
+    tracks, objects, naming = chain_frames()
+    return assign_objects_to_tracks(
+        tracks,
+        objects,
+        [1],
+        naming,
+        max_pixel_distance=CHAIN_THRESHOLD,
+        one_to_one=True,
+        strategy=strategy,
+    )
+
+
+def test_assign_objects_to_tracks_writes_the_labels_of_each_strategy():
+    legacy = run_chain("legacy")
+    sorted_pairs = run_chain("sorted_pairs")
+
+    assert legacy["label_id_m1"].tolist() == [1, 2, 0]
+    assert sorted_pairs["label_id_m1"].tolist() == [1, 0, 2]
+    assert sorted_pairs["nn_dist_px_m1"].tolist()[0] == 3.0
+    assert sorted_pairs["nn_dist_px_m1"].tolist()[2] == 7.0
+    assert np.isnan(sorted_pairs["nn_dist_px_m1"].tolist()[1])
+
+
+def test_the_candidate_search_follows_the_assignment_of_either_strategy():
+    """B is 5 px from X and 9 px from Y, so it always sees both objects.
+
+    Legacy assigns B to Y, so its candidate is X. Sorted pairs leaves B
+    unmatched; X is still its nearest object within the threshold, even
+    though A claimed it.
+    """
+    legacy = run_chain("legacy").iloc[1]
+    sorted_pairs = run_chain("sorted_pairs").iloc[1]
+
+    assert legacy["label_id_m1"] == 2
+    assert legacy["alt_label_id_m1"] == 1
+    assert legacy["alt_dist_px_m1"] == 5.0
+
+    assert sorted_pairs["label_id_m1"] == 0
+    assert sorted_pairs["alt_label_id_m1"] == 1
+    assert sorted_pairs["alt_dist_px_m1"] == 5.0
+
+
+@pytest.mark.parametrize(
+    ("strategy", "expected"),
+    [
+        ("legacy", "2 under sorted_pairs, 2 under optimal"),
+        ("sorted_pairs", "2 under legacy, 0 under optimal"),
+        ("optimal", "2 under legacy, 0 under sorted_pairs"),
+    ],
+)
+def test_assignment_logs_how_many_tracks_each_other_strategy_would_change(
+    strategy, expected, caplog, monkeypatch
+):
+    monkeypatch.setenv(COMPARE_MATCHING_ENV, "1")
+    with caplog.at_level("INFO", logger="SECQUOIA.core.quantification"):
+        run_chain(strategy)
+
+    messages = [r.getMessage() for r in caplog.records]
+    assert any(
+        f"[matching] strategy={strategy}: track assignments that would "
+        f"differ: {expected}" in message
+        for message in messages
+    ), messages
+
+
+def test_the_strategies_are_not_compared_unless_the_switch_is_on(
+    caplog, monkeypatch
+):
+    monkeypatch.delenv(COMPARE_MATCHING_ENV, raising=False)
+    with caplog.at_level("INFO", logger="SECQUOIA.core.quantification"):
+        run_chain("sorted_pairs")
+
+    assert "would differ" not in caplog.text
+
+
+@pytest.mark.parametrize("value", ["1", "true", " Yes ", "ON"])
+def test_the_compare_switch_accepts_common_spellings(value, monkeypatch):
+    monkeypatch.setenv(COMPARE_MATCHING_ENV, value)
+
+    assert compare_matching_enabled()
+
+
+@pytest.mark.parametrize("value", ["", "0", "false", "no", "off"])
+def test_the_compare_switch_is_off_for_anything_else(value, monkeypatch):
+    monkeypatch.setenv(COMPARE_MATCHING_ENV, value)
+
+    assert not compare_matching_enabled()
+
+
+def test_quantify_defaults_to_sorted_pairs_and_logs_the_strategy(
+    tmp_path, no_progress, caplog, monkeypatch
+):
+    monkeypatch.delenv(MATCH_STRATEGY_ENV, raising=False)
+    main_window = make_fake_main_window(tmp_path)
+
+    with caplog.at_level("INFO", logger="SECQUOIA.core.quantification"):
+        quantify(main_window, progress_cb=no_progress, max_pixel_distance=5)
+
+    assert "match_strategy=sorted_pairs" in caplog.text
+
+
+def test_quantify_accepts_sorted_pairs_and_matches_the_simple_dataset(
+    tmp_path, no_progress, caplog
+):
+    legacy = make_fake_main_window(tmp_path / "legacy")
+    sorted_pairs = make_fake_main_window(tmp_path / "sorted_pairs")
+
+    quantify(
+        legacy,
+        progress_cb=no_progress,
+        max_pixel_distance=5,
+        match_strategy="legacy",
+    )
+    with caplog.at_level("INFO", logger="SECQUOIA.core.quantification"):
+        quantify(
+            sorted_pairs,
+            progress_cb=no_progress,
+            max_pixel_distance=5,
+            match_strategy="sorted_pairs",
+        )
+
+    assert "match_strategy=sorted_pairs" in caplog.text
+    for column in ("label_id_m1", "nn_dist_px_m1", "AreaMorphologyM1"):
+        assert (
+            legacy.track_df[column].tolist()
+            == sorted_pairs.track_df[column].tolist()
+        )
+
+
+# Choosing the strategy for a run of the app
+def test_the_strategy_defaults_to_sorted_pairs(monkeypatch):
+    monkeypatch.delenv(MATCH_STRATEGY_ENV, raising=False)
+
+    assert resolve_match_strategy() == "sorted_pairs"
+
+
+def test_the_environment_variable_picks_the_strategy(monkeypatch):
+    monkeypatch.setenv(MATCH_STRATEGY_ENV, "legacy")
+
+    assert resolve_match_strategy() == "legacy"
+
+
+def test_the_environment_variable_is_forgiving_about_case_and_spaces(
+    monkeypatch,
+):
+    monkeypatch.setenv(MATCH_STRATEGY_ENV, "  Optimal ")
+
+    assert resolve_match_strategy() == "optimal"
+
+
+def test_an_empty_environment_variable_means_the_default(monkeypatch):
+    monkeypatch.setenv(MATCH_STRATEGY_ENV, "")
+
+    assert resolve_match_strategy() == "sorted_pairs"
+
+
+def test_an_explicit_strategy_beats_the_environment(monkeypatch):
+    monkeypatch.setenv(MATCH_STRATEGY_ENV, "optimal")
+
+    assert resolve_match_strategy("legacy") == "legacy"
+
+
+def test_a_mistyped_strategy_is_an_error_not_a_silent_default(monkeypatch):
+    monkeypatch.setenv(MATCH_STRATEGY_ENV, "sorted-pairs")
+
+    with pytest.raises(ValueError, match="Unknown match strategy"):
+        resolve_match_strategy()
+
+
+def test_quantify_follows_the_environment_variable(
+    tmp_path, no_progress, caplog, monkeypatch
+):
+    monkeypatch.setenv(MATCH_STRATEGY_ENV, "legacy")
+    main_window = make_fake_main_window(tmp_path)
+
+    with caplog.at_level("INFO", logger="SECQUOIA.core.quantification"):
+        quantify(main_window, progress_cb=no_progress, max_pixel_distance=5)
+
+    assert "match_strategy=legacy" in caplog.text
+
+
+def test_quantify_stops_early_on_a_mistyped_strategy(
+    tmp_path, no_progress, monkeypatch
+):
+    monkeypatch.setenv(MATCH_STRATEGY_ENV, "nearest")
+    main_window = make_fake_main_window(tmp_path)
+
+    with pytest.raises(ValueError, match="Unknown match strategy"):
+        quantify(main_window, progress_cb=no_progress, max_pixel_distance=5)
+
+    assert "label_id_m1" not in main_window.track_df.columns
+
+
+# The optimal strategy (Hungarian method)
+#
+# X=(0,0) and Y=(9,0), tolerance 6. A=(4,0) is 4 from X and 5 from Y; B=(-5,0)
+# is 5 from X and 14 from Y, so only X is within reach of B. Taking the shortest
+# pair first (A-X) leaves B with nothing; giving A the farther Y matches both.
+OPT_OBJECTS = xy((0, 0), (9, 0))
+OPT_TRACKS = xy((4, 0), (-5, 0))
+OPT_THRESHOLD = 6.0
+
+
+def test_optimal_matches_more_tracks_than_the_greedy_strategies():
+    results = {
+        name: greedy_nearest_assign(
+            OPT_TRACKS, OPT_OBJECTS, OPT_THRESHOLD, strategy=name
+        )[0].tolist()
+        for name in MATCH_STRATEGIES
+    }
+
+    assert results["legacy"] == [0, -1]
+    assert results["sorted_pairs"] == [0, -1]
+    assert results["optimal"] == [1, 0]
+
+
+def test_optimal_resolves_the_chain_of_conflicts_like_sorted_pairs():
+    assigned, dist = greedy_nearest_assign(
+        CHAIN_TRACKS, CHAIN_OBJECTS, CHAIN_THRESHOLD, strategy="optimal"
+    )
+
+    assert assigned.tolist() == [0, -1, 1]  # A->X, B unmatched, C->Y
+    assert dist[0] == 3.0
+    assert dist[2] == 7.0
+
+
+def test_optimal_never_matches_beyond_the_tolerance():
+    """The user's tolerance is a hard limit, not a preference."""
+    tracks = xy((0, 0), (0, 100))
+    objects = xy((0, 6), (0, 130))  # the second object is 30 px from track two
+
+    assigned, dist = greedy_nearest_assign(
+        tracks, objects, 8.0, strategy="optimal"
+    )
+
+    assert assigned.tolist() == [0, -1]
+    assert np.isinf(dist[1])
+
+
+def test_optimal_includes_a_pair_exactly_at_the_tolerance():
+    assigned, dist = greedy_nearest_assign(
+        xy((0, 0)), xy((5, 0)), 5.0, strategy="optimal"
+    )
+
+    assert assigned.tolist() == [0]
+    assert dist.tolist() == [5.0]
+
+
+def test_optimal_reports_the_distance_of_each_assigned_pair():
+    assigned, dist = greedy_nearest_assign(
+        OPT_TRACKS, OPT_OBJECTS, OPT_THRESHOLD, strategy="optimal"
+    )
+
+    assert dist.tolist() == [5.0, 5.0]
+    assert assigned.tolist() == [1, 0]
+
+
+def test_optimal_leaves_a_track_with_a_missing_position_unmatched():
+    tracks = np.array([[np.nan, np.nan], [0.0, 0.0]])
+
+    assigned, _ = greedy_nearest_assign(
+        tracks, xy((1, 0), (50, 50)), 5.0, strategy="optimal"
+    )
+
+    assert assigned.tolist() == [-1, 0]
+
+
+def test_optimal_handles_empty_inputs_and_unequal_counts():
+    empty = np.empty((0, 2))
+
+    assert (
+        greedy_nearest_assign(empty, xy((1, 1)), 5, strategy="optimal")[
+            0
+        ].tolist()
+        == []
+    )
+    assert greedy_nearest_assign(xy((1, 1)), empty, 5, strategy="optimal")[
+        0
+    ].tolist() == [-1]
+    more_tracks = greedy_nearest_assign(
+        xy((0, 0), (1, 0), (2, 0)), xy((0, 0)), 5, strategy="optimal"
+    )[0]
+    assert (more_tracks >= 0).sum() == 1
+    more_objects = greedy_nearest_assign(
+        xy((0, 0)), xy((0, 1), (0, 2), (0, 0.5)), 5, strategy="optimal"
+    )[0]
+    assert more_objects.tolist() == [2]  # the nearest of the three
+
+
+def brute_force_best(distances: np.ndarray, threshold: float):
+    """The most matches, then the smallest total distance, by trying everything."""
+    import itertools
+
+    n_tracks, n_objects = distances.shape
+    best = (0, 0.0)
+    options = [*range(n_objects), -1]
+
+    for choice in itertools.product(options, repeat=n_tracks):
+        used = [j for j in choice if j >= 0]
+        if len(used) != len(set(used)):
+            continue
+        pairs = [(i, j) for i, j in enumerate(choice) if j >= 0]
+        if any(distances[i, j] > threshold for i, j in pairs):
+            continue
+        candidate = (len(pairs), -sum(distances[i, j] for i, j in pairs))
+        if candidate > (best[0], -best[1]):
+            best = (candidate[0], -candidate[1])
+    return best
+
+
+@pytest.mark.parametrize("seed", range(25))
+def test_optimal_finds_the_best_assignment_on_small_random_cases(seed):
+    rng = np.random.default_rng(seed)
+    tracks = rng.uniform(0, 30, (rng.integers(1, 6), 2))
+    objects = rng.uniform(0, 30, (rng.integers(1, 6), 2))
+    threshold = 12.0
+
+    assigned, dist = greedy_nearest_assign(
+        tracks, objects, threshold, strategy="optimal"
+    )
+
+    matches = int((assigned >= 0).sum())
+    total = float(dist[assigned >= 0].sum())
+    distances = np.hypot(
+        tracks[:, [0]] - objects[:, 0][None, :],
+        tracks[:, [1]] - objects[:, 1][None, :],
+    )
+    best_matches, best_total = brute_force_best(distances, threshold)
+    assert matches == best_matches
+    assert total == pytest.approx(best_total)
+
+
+@pytest.mark.parametrize("seed", range(20))
+def test_optimal_is_never_worse_than_the_greedy_strategies(seed):
+    rng = np.random.default_rng(100 + seed)
+    tracks = rng.uniform(0, 60, (rng.integers(5, 40), 2))
+    objects = rng.uniform(0, 60, (rng.integers(5, 40), 2))
+    stats = {}
+
+    for name in MATCH_STRATEGIES:
+        assigned, dist = greedy_nearest_assign(
+            tracks, objects, 10.0, strategy=name
+        )
+        used = assigned[assigned >= 0]
+        assert len(used) == len(set(used.tolist()))
+        assert (dist[assigned >= 0] <= 10.0).all()
+        stats[name] = (
+            int((assigned >= 0).sum()),
+            float(dist[assigned >= 0].sum()),
+        )
+
+    assert stats["optimal"][0] >= stats["sorted_pairs"][0]
+    assert stats["optimal"][0] >= stats["legacy"][0]
+
+
+def test_optimal_gives_the_same_answer_every_time():
+    rng = np.random.default_rng(7)
+    tracks, objects = rng.uniform(0, 50, (30, 2)), rng.uniform(0, 50, (30, 2))
+
+    first = greedy_nearest_assign(tracks, objects, 10.0, strategy="optimal")
+    again = greedy_nearest_assign(tracks, objects, 10.0, strategy="optimal")
+
+    assert first[0].tolist() == again[0].tolist()
+
+
+def test_assign_objects_to_tracks_writes_the_optimal_labels():
+    optimal = run_chain("optimal")
+
+    assert optimal["label_id_m1"].tolist() == [1, 0, 2]
+    assert optimal["nn_dist_px_m1"].tolist()[0] == 3.0
+    assert optimal["nn_dist_px_m1"].tolist()[2] == 7.0
+
+
+def test_the_candidate_columns_follow_the_optimal_assignment_too():
+    """B is left without a mask, so its nearest mask (X) is its candidate."""
+    row = run_chain("optimal").iloc[1]
+
+    assert row["label_id_m1"] == 0
+    assert row["alt_label_id_m1"] == 1
+    assert row["alt_dist_px_m1"] == 5.0
+
+
+def test_optimal_can_be_chosen_for_a_run_of_the_app(monkeypatch):
+    monkeypatch.setenv(MATCH_STRATEGY_ENV, "optimal")
+
+    assert resolve_match_strategy() == "optimal"
+
+
+def test_quantify_runs_with_the_optimal_strategy(
+    tmp_path, no_progress, caplog
+):
+    legacy = make_fake_main_window(tmp_path / "legacy")
+    optimal = make_fake_main_window(tmp_path / "optimal")
+
+    quantify(legacy, progress_cb=no_progress, max_pixel_distance=5)
+    with caplog.at_level("INFO", logger="SECQUOIA.core.quantification"):
+        quantify(
+            optimal,
+            progress_cb=no_progress,
+            max_pixel_distance=5,
+            match_strategy="optimal",
+        )
+
+    assert "match_strategy=optimal" in caplog.text
+    for column in ("label_id_m1", "nn_dist_px_m1", "AreaMorphologyM1"):
+        assert (
+            legacy.track_df[column].tolist()
+            == optimal.track_df[column].tolist()
+        )

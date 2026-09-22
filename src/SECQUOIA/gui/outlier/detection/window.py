@@ -1,4 +1,4 @@
-"""The outlier detection window: composes the threshold, sliding-window, load, and run tabs."""
+"""The outlier detection window: composes the threshold, sliding-window, load, run, and close-mask tabs."""
 
 from __future__ import annotations
 
@@ -16,6 +16,7 @@ from SECQUOIA.gui.common.ui_utils import (
     make_help_button,
     spinbox_arrow_pngs,
 )
+from SECQUOIA.gui.outlier.detection.close_mask_tab import CloseMaskTab
 from SECQUOIA.gui.outlier.detection.load_tab import LoadTab
 from SECQUOIA.gui.outlier.detection.run_tab import RunTab
 from SECQUOIA.gui.outlier.detection.sliding_window_tab import SlidingWindowTab
@@ -54,7 +55,7 @@ def _resolve_feature_keys(main_window) -> list:
 
 
 class OutlierDetectionWindow(QWidget):
-    """Threshold-rule, sliding-window, load, and run tabs for outlier detection."""
+    """Threshold-rule, sliding-window, load, run, and close-mask tabs for outlier detection."""
 
     def __init__(self, main_window: QWidget):
         super().__init__()
@@ -94,6 +95,7 @@ class OutlierDetectionWindow(QWidget):
         self.run_tab = RunTab(
             main_window, self, self.threshold_tab, self.sliding_tab
         )
+        self.close_mask_tab = CloseMaskTab(main_window, self, m_n)
         self.load_tab = LoadTab(
             main_window,
             self,
@@ -101,10 +103,12 @@ class OutlierDetectionWindow(QWidget):
             self.threshold_tab,
             self.sliding_tab,
             self.run_tab,
+            self.close_mask_tab,
         )
 
         self.tabs.addTab(self.threshold_tab.page, "Threshold Rules")
         self.tabs.addTab(self.sliding_tab.page, "Sliding window")
+        self.tabs.addTab(self.close_mask_tab.page, "Close masks")
         self.tabs.addTab(self.load_tab.page, "Load Rules")
         self.tabs.addTab(self.run_tab.page, "Run")
 
@@ -117,6 +121,9 @@ class OutlierDetectionWindow(QWidget):
             lambda *_: self.tabs.setCurrentWidget(self.sliding_tab.page)
         )
         self.sliding_tab.next_btn.clicked.connect(
+            lambda *_: self.tabs.setCurrentWidget(self.close_mask_tab.page)
+        )
+        self.close_mask_tab.next_btn.clicked.connect(
             lambda *_: self.tabs.setCurrentWidget(self.run_tab.page)
         )
         self.tabs.currentChanged.connect(self._on_tab_changed)

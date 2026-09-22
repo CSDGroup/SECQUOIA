@@ -30,6 +30,13 @@ import pandas as pd
 import pytest
 from conftest import find_module_name, make_fake_labels, make_fake_main_window
 
+from SECQUOIA.core.outlier_detection import apply_close_mask_detection
+from SECQUOIA.core.outlier_detection.close_masks import (
+    CLOSE_MASK_FLAG,
+    FLAG_FLAGGED,
+    FLAG_OK,
+    FLAG_REVIEWED,
+)
 from SECQUOIA.core.quantification import quantify
 
 ANCHOR_X = 3
@@ -747,3 +754,370 @@ def test_mask_index_resolution_is_shared_between_call_sites(
     assert float(
         edit_main_window.track_df.at[row, "AreaMorphologyM1"]
     ) == pytest.approx(9.0)
+
+
+# Distances and second candidates after an edit
+#
+# Frame t=0 of mask 1 holds two neighbouring objects and two tracking points:
+#
+#   label 1: x 2..6, y 2..4  centroid (4, 3)   <- track fake-001 at (4, 3)
+#   label 2: x 7..9, y 2..4  centroid (8, 3)   <- track fake-002 at (8, 3)
+#
+# The matching threshold is 5 px, so each track sees the other object 4 px away.
+ROW_A = 0
+ROW_B = 2
+
+
+def crowded_labels() -> list[np.ndarray]:
+    mask_1, mask_2 = make_fake_labels()
+    mask_1[0] = 0
+    mask_1[0, 2:5, 2:7] = 1
+    mask_1[0, 2:5, 7:10] = 2
+    return [mask_1, mask_2]
+
+
+def make_crowded_main_window(tmp_path, no_progress) -> SimpleNamespace:
+    """Quantify two tracks over the crowded frame, ready for an edit."""
+    main_window = make_edit_main_window(tmp_path)
+    main_window.labels = crowded_labels()
+    tracks = main_window.track_df
+    tracks.loc[tracks["t"] == 0, ["XMorphology", "YMorphology"]] = [4.0, 3.0]
+    second = tracks[tracks["t"] == 0].assign(
+        Identification="fake-002", XMorphology=8.0, track_id=2
+    )
+    main_window.track_df = pd.concat([tracks, second], ignore_index=True)
+    main_window.filtered_df = main_window.track_df.copy()
+
+    quantify(main_window, progress_cb=no_progress, max_pixel_distance=5)
+    main_window.track_df = main_window.track_df.reset_index(drop=True)
+    return main_window
+
+
+def row_at(main_window, ident: str, t: int = 0):
+    df = main_window.track_df
+    return df[(df["Identification"] == ident) & (df["t"] == t)].iloc[0]
+
+
+def edit(main_window, module, labels_t0: np.ndarray) -> None:
+    """Run the update on mask 1, frame 0, as if `labels_t0` had just been drawn."""
+    data = crowded_labels()[0]
+    data[0] = labels_t0
+    main_window.current_time_index = 0
+    run_update(main_window, make_layer("Segmentation1", data), module)
+
+
+@pytest.mark.gui
+def test_quantify_and_edit_agree_on_the_crowded_frame(
+    tmp_path, no_progress, patch_collaborators
+):
+    main_window = make_crowded_main_window(tmp_path, no_progress)
+    before = row_at(main_window, "fake-001")
+    assert before["label_id_m1"] == 1
+    assert before["alt_label_id_m1"] == 2
+    assert before["alt_dist_px_m1"] == 4.0
+
+    edit(main_window, patch_collaborators, crowded_labels()[0][0])
+
+    after = row_at(main_window, "fake-001")
+    for column in ("nn_dist_px_m1", "alt_label_id_m1", "alt_dist_px_m1"):
+        assert values_equal(before[column], after[column]), column
+
+
+@pytest.mark.gui
+def test_painting_updates_the_distance_to_the_assigned_mask(
+    tmp_path, no_progress, patch_collaborators
+):
+    main_window = make_crowded_main_window(tmp_path, no_progress)
+    assert row_at(main_window, "fake-001")["nn_dist_px_m1"] == 0.0
+
+    # Grow label 1 by two columns: its centroid moves from x=4 to x=5.
+    painted = crowded_labels()[0][0].copy()
+    painted[2:5, 7:9] = 1
+    painted[2:5, 9] = 2
+    edit(main_window, patch_collaborators, painted)
+
+    row = row_at(main_window, "fake-001")
+    assert row["label_id_m1"] == 1
+    assert row["nn_dist_px_m1"] == 1.0
+
+
+@pytest.mark.gui
+def test_painting_moves_the_candidate_distance(
+    tmp_path, no_progress, patch_collaborators
+):
+    main_window = make_crowded_main_window(tmp_path, no_progress)
+
+    # Label 2 shrinks to x 9 only: its centroid moves from x=8 to x=9.
+    labels = crowded_labels()[0][0].copy()
+    labels[2:5, 7:9] = 0
+    edit(main_window, patch_collaborators, labels)
+
+    row = row_at(main_window, "fake-001")
+    assert row["alt_label_id_m1"] == 2
+    assert row["alt_dist_px_m1"] == 5.0
+
+
+@pytest.mark.gui
+def test_erasing_the_candidate_clears_the_alt_columns(
+    tmp_path, no_progress, patch_collaborators
+):
+    main_window = make_crowded_main_window(tmp_path, no_progress)
+
+    labels = crowded_labels()[0][0].copy()
+    labels[labels == 2] = 0
+    edit(main_window, patch_collaborators, labels)
+
+    row = row_at(main_window, "fake-001")
+    assert row["alt_label_id_m1"] == 0
+    assert pd.isna(row["alt_dist_px_m1"])
+
+
+@pytest.mark.gui
+def test_a_candidate_beyond_the_threshold_is_dropped(
+    tmp_path, no_progress, patch_collaborators
+):
+    main_window = make_crowded_main_window(tmp_path, no_progress)
+
+    labels = crowded_labels()[0][0].copy()
+    labels[2:5, 7:9] = 0
+    labels[2:5, 9] = 0
+    labels[8:10, 9] = 2  # centroid (9, 8.5 -> 8): far from (4, 3)
+    edit(main_window, patch_collaborators, labels)
+
+    row = row_at(main_window, "fake-001")
+    assert row["alt_label_id_m1"] == 0
+    assert pd.isna(row["alt_dist_px_m1"])
+
+
+@pytest.mark.gui
+def test_a_candidate_below_the_minimum_mask_size_is_ignored(
+    tmp_path, no_progress, patch_collaborators
+):
+    main_window = make_crowded_main_window(tmp_path, no_progress)
+    main_window.min_mask_size = 10  # label 2 has 9 px
+
+    edit(main_window, patch_collaborators, crowded_labels()[0][0])
+
+    row = row_at(main_window, "fake-001")
+    assert row["alt_label_id_m1"] == 0
+    assert pd.isna(row["alt_dist_px_m1"])
+
+
+@pytest.mark.gui
+def test_right_click_swaps_assigned_and_candidate(
+    tmp_path, no_progress, patch_collaborators
+):
+    """Moving the tracking point onto label 2 makes label 1 the candidate."""
+    main_window = make_crowded_main_window(tmp_path, no_progress)
+    df = main_window.track_df
+    idx = df.index[(df["Identification"] == "fake-001") & (df["t"] == 0)][0]
+    df.loc[idx, ["XMorphology", "YMorphology"]] = [8.0, 3.0]
+
+    edit(main_window, patch_collaborators, crowded_labels()[0][0])
+
+    row = row_at(main_window, "fake-001")
+    assert row["label_id_m1"] == 2
+    assert row["nn_dist_px_m1"] == 0.0
+    assert row["alt_label_id_m1"] == 1
+    assert row["alt_dist_px_m1"] == 4.0
+
+
+@pytest.mark.gui
+def test_edit_updates_the_candidates_of_other_tracks_at_the_same_time(
+    tmp_path, no_progress, patch_collaborators
+):
+    main_window = make_crowded_main_window(tmp_path, no_progress)
+    other_before = row_at(main_window, "fake-002")
+    assert other_before["label_id_m1"] == 2
+    assert other_before["alt_label_id_m1"] == 1
+    assert other_before["alt_dist_px_m1"] == 4.0
+
+    # Erase x 5..6 of label 1: its centroid moves from x=4 to x=3.
+    labels = crowded_labels()[0][0].copy()
+    labels[2:5, 5:7] = 0
+    edit(main_window, patch_collaborators, labels)
+
+    other = row_at(main_window, "fake-002")
+    assert other["label_id_m1"] == 2, "other rows keep their assigned label"
+    assert other["alt_label_id_m1"] == 1
+    assert other["alt_dist_px_m1"] == 5.0
+
+
+@pytest.mark.gui
+def test_edit_leaves_other_frames_and_masks_untouched(
+    tmp_path, no_progress, patch_collaborators
+):
+    main_window = make_crowded_main_window(tmp_path, no_progress)
+    columns = [
+        c
+        for c in main_window.track_df.columns
+        if "m2" in c or c.endswith("M2")
+    ]
+    before = main_window.track_df[columns].copy()
+    later_before = row_at(main_window, "fake-001", t=1).copy()
+
+    labels = crowded_labels()[0][0].copy()
+    labels[labels == 2] = 0
+    edit(main_window, patch_collaborators, labels)
+
+    pd.testing.assert_frame_equal(main_window.track_df[columns], before)
+    later_after = row_at(main_window, "fake-001", t=1)
+    for column in ("nn_dist_px_m1", "alt_label_id_m1", "alt_dist_px_m1"):
+        assert values_equal(later_before[column], later_after[column])
+
+
+@pytest.mark.gui
+def test_edit_creates_missing_alt_columns_in_an_old_table(
+    edit_main_window, patch_collaborators
+):
+    """A CSV written before the candidate columns existed still updates."""
+    mask_1, _ = make_fake_labels()
+    edit_main_window.track_df = edit_main_window.track_df.drop(
+        columns=[
+            c
+            for c in edit_main_window.track_df.columns
+            if c.startswith("alt_")
+        ],
+        errors="ignore",
+    )
+
+    run_update(
+        edit_main_window,
+        make_layer("Segmentation1", mask_1),
+        patch_collaborators,
+    )
+
+    row = edit_main_window.track_df.iloc[0]
+    assert row["alt_label_id_m1"] == 0
+    assert pd.isna(row["alt_dist_px_m1"])
+    assert row["nn_dist_px_m1"] == 0.0
+
+
+# Close-mask flags after an edit
+def flag_crowded(main_window, threshold: float) -> None:
+    """Run the close-mask detection over the quantified crowded frame."""
+    main_window.filtered_df = main_window.track_df.copy()
+    apply_close_mask_detection(main_window, threshold)
+
+
+def flag_of(main_window, ident: str, t: int = 0, table: str = "track_df"):
+    df = getattr(main_window, table)
+    return df[(df["Identification"] == ident) & (df["t"] == t)][
+        CLOSE_MASK_FLAG
+    ].iloc[0]
+
+
+@pytest.mark.gui
+def test_editing_a_flagged_row_marks_it_reviewed(
+    tmp_path, no_progress, patch_collaborators
+):
+    main_window = make_crowded_main_window(tmp_path, no_progress)
+    flag_crowded(main_window, 5.0)
+    assert flag_of(main_window, "fake-001") == FLAG_FLAGGED
+    assert flag_of(main_window, "fake-002") == FLAG_FLAGGED
+
+    edit(main_window, patch_collaborators, crowded_labels()[0][0])
+
+    assert flag_of(main_window, "fake-001") == FLAG_REVIEWED
+    assert flag_of(main_window, "fake-002") == FLAG_FLAGGED
+    assert (
+        flag_of(main_window, "fake-001", table="filtered_df") == FLAG_REVIEWED
+    )
+
+
+@pytest.mark.gui
+def test_a_right_click_correction_swaps_the_roles_and_reviews_the_row(
+    tmp_path, no_progress, patch_collaborators
+):
+    main_window = make_crowded_main_window(tmp_path, no_progress)
+    flag_crowded(main_window, 5.0)
+    df = main_window.track_df
+    idx = df.index[(df["Identification"] == "fake-001") & (df["t"] == 0)][0]
+    df.loc[idx, ["XMorphology", "YMorphology"]] = [8.0, 3.0]
+
+    edit(main_window, patch_collaborators, crowded_labels()[0][0])
+
+    row = row_at(main_window, "fake-001")
+    assert (row["label_id_m1"], row["alt_label_id_m1"]) == (2, 1)
+    assert row[CLOSE_MASK_FLAG] == FLAG_REVIEWED
+    assert main_window.close_mask_pinned_row == ("fake-001", 1, 0)
+
+
+@pytest.mark.gui
+def test_a_row_that_comes_within_the_distance_after_an_edit_is_flagged(
+    tmp_path, no_progress, patch_collaborators
+):
+    main_window = make_crowded_main_window(tmp_path, no_progress)
+    flag_crowded(main_window, 3.0)
+    assert flag_of(main_window, "fake-001") == FLAG_OK
+
+    # Label 2 grows two columns to the left: its centroid moves from x=8 to x=7.
+    labels = crowded_labels()[0][0].copy()
+    labels[2:5, 5:7] = 2
+    edit(main_window, patch_collaborators, labels)
+
+    row = row_at(main_window, "fake-001")
+    assert row["alt_dist_px_m1"] == 3.0
+    assert row[CLOSE_MASK_FLAG] == FLAG_FLAGGED
+
+
+@pytest.mark.gui
+def test_another_row_is_unflagged_when_an_edit_moves_its_candidate_away(
+    tmp_path, no_progress, patch_collaborators
+):
+    main_window = make_crowded_main_window(tmp_path, no_progress)
+    flag_crowded(main_window, 4.0)
+    assert flag_of(main_window, "fake-002") == FLAG_FLAGGED
+
+    # Label 1 loses x 5..6: its centroid moves from x=4 to x=3, 5 px from fake-002.
+    labels = crowded_labels()[0][0].copy()
+    labels[2:5, 5:7] = 0
+    edit(main_window, patch_collaborators, labels)
+
+    assert row_at(main_window, "fake-002")["alt_dist_px_m1"] == 5.0
+    assert flag_of(main_window, "fake-002") == FLAG_OK
+    assert flag_of(main_window, "fake-001") == FLAG_REVIEWED
+
+
+@pytest.mark.gui
+def test_reviewed_rows_stay_reviewed_through_an_edit_at_their_frame(
+    tmp_path, no_progress, patch_collaborators
+):
+    main_window = make_crowded_main_window(tmp_path, no_progress)
+    flag_crowded(main_window, 5.0)
+    df = main_window.track_df
+    other = df.index[(df["Identification"] == "fake-002") & (df["t"] == 0)][0]
+    df.loc[other, CLOSE_MASK_FLAG] = FLAG_REVIEWED
+
+    edit(main_window, patch_collaborators, crowded_labels()[0][0])
+
+    assert flag_of(main_window, "fake-002") == FLAG_REVIEWED
+
+
+@pytest.mark.gui
+def test_an_edit_before_any_detection_creates_no_flags(
+    tmp_path, no_progress, patch_collaborators
+):
+    main_window = make_crowded_main_window(tmp_path, no_progress)
+
+    edit(main_window, patch_collaborators, crowded_labels()[0][0])
+
+    assert CLOSE_MASK_FLAG not in main_window.track_df.columns
+
+
+@pytest.mark.gui
+def test_an_edit_refreshes_the_napari_view(
+    tmp_path, no_progress, patch_collaborators, monkeypatch
+):
+    main_window = make_crowded_main_window(tmp_path, no_progress)
+    flag_crowded(main_window, 5.0)
+    refreshed = []
+    monkeypatch.setattr(
+        measurement_picking_module(),
+        "refresh_close_mask_view_at_current",
+        lambda window: refreshed.append(window),
+    )
+
+    edit(main_window, patch_collaborators, crowded_labels()[0][0])
+
+    assert refreshed == [main_window]

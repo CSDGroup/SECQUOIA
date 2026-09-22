@@ -160,6 +160,10 @@ class PLOTPARAMETERS:
     """Default colors, marker symbols and font sizes for plots."""
 
     ORANGE: ClassVar[tuple[int, int, int, int]] = (255, 165, 0, 255)
+    PURPLE: ClassVar[tuple[int, int, int, int]] = (148, 0, 211, 255)
+    RED: ClassVar[tuple[int, int, int, int]] = (230, 30, 30, 255)
+    BLUE: ClassVar[tuple[int, int, int, int]] = (40, 110, 240, 255)
+    YELLOW: ClassVar[tuple[int, int, int, int]] = (255, 215, 0, 255)
     OUTLIERSIZE: ClassVar[int] = 10
     DEFAULT_SYMBOL: ClassVar[str] = "o"
     DEFAULT_SYMBOL_SIZE: ClassVar[int] = 6
@@ -312,7 +316,8 @@ class TOOLTIPSTEXT:
     OPACITY: str = "Opacity of the selected mask (0–100%)"
     FEATURE: str = "Change the plotted feature."
     OUT: str = (
-        "Show only identified outliers. Available after running outlier detection."
+        "Show only identified outliers and close-mask cases. Available after "
+        "running outlier or close-mask detection."
     )
     ALL: str = "Show all Tree-IDs for each position."
     EYEV: str = "Show/Hide this viewer."
@@ -370,6 +375,30 @@ class TOOLTIPSTEXT:
         "• AND = flag inside a band (both conditions are true)"
     )
     NEXT_OUT: str = "Review summary and run."
+    NEXT_CLOSE: str = "Set up close-mask detection."
+    CLOSE_DIST: str = (
+        "Flag a tracking point when a second mask lies at most this many "
+        "pixels from it. Cannot exceed the tolerance used for matching."
+    )
+    CLOSE_MASK: str = "Masks whose second candidates are checked."
+    OUT_NEXT: str = (
+        "Go to the next Tree-ID with an outlier or a flagged close mask."
+    )
+    OUT_PREVIOUS: str = (
+        "Go to the previous Tree-ID with an outlier or a flagged close mask."
+    )
+    OUT_RESET: str = (
+        "Remove all outlier and close-mask flags and the saved rules."
+    )
+    CLOSE_CHECK: str = (
+        "Mark the flagged close-mask case on screen as checked and jump to "
+        "the next one (C)."
+    )
+    CLOSE_FIND: str = "Flag tracking points with a close second mask."
+    CLOSE_RESET: str = (
+        "Remove all close-mask flags, including reviewed ones, and stop "
+        "detecting them until 'Find close masks' is run again."
+    )
     REFRESH_SUMMARY: str = "Rebuild summary from the current GUI selections."
     ADD_PLOT_BTN: str = (
         "Add a new histogram panel, pre-filled with a copy of this panel's settings."
@@ -801,6 +830,14 @@ class Rule:
     combine: str = "OR"
     masks_raw: list[int] = field(default_factory=list)
     channels_raw: list[str] = field(default_factory=list)
+
+
+@dataclass
+class CloseMaskSettings:
+    """Close-mask detection: flag points with a second mask within `distance` px."""
+
+    distance: float
+    masks: list[int] | None = None
 
 
 @dataclass
