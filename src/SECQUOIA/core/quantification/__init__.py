@@ -45,6 +45,7 @@ from SECQUOIA.core.quantification.naming import (
     safe_op_series,
 )
 from SECQUOIA.core.quantification.progress import ProgressReporter
+from SECQUOIA.utils.profiling import active_stage
 from SECQUOIA.utils.timing import calculate_time
 
 # Public API of this package
@@ -256,14 +257,15 @@ def quantify(
     )
 
     # 1 Measure
-    object_rows = measure_objects(
-        main_window,
-        label_entries,
-        naming,
-        position=position,
-        min_area_pixels=min_area_pixels,
-        progress=progress,
-    )
+    with active_stage("measure"):
+        object_rows = measure_objects(
+            main_window,
+            label_entries,
+            naming,
+            position=position,
+            min_area_pixels=min_area_pixels,
+            progress=progress,
+        )
     if not object_rows:
         LOG.warning(
             "No measurements computed (no labeled regions after size filtering?)."
@@ -284,17 +286,18 @@ def quantify(
         return
 
     # 2 Match objects to tracks
-    merged_df = _merge_objects_into_tracks(
-        main_window,
-        objects_df,
-        mask_indices,
-        naming,
-        position=position,
-        max_pixel_distance=max_pixel_distance,
-        one_to_one=one_to_one,
-        match_strategy=match_strategy,
-        progress=progress,
-    )
+    with active_stage("matching"):
+        merged_df = _merge_objects_into_tracks(
+            main_window,
+            objects_df,
+            mask_indices,
+            naming,
+            position=position,
+            max_pixel_distance=max_pixel_distance,
+            one_to_one=one_to_one,
+            match_strategy=match_strategy,
+            progress=progress,
+        )
 
     # 3 Finalise
     _replace_position_rows(main_window, merged_df, position)

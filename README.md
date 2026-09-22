@@ -27,6 +27,7 @@
 - [Switch to a different position](#switch-to-a-different-position)
 - [Save and export data](#save-and-export-data)
 - [Cytometric analysis](#cytometric-analysis)
+- [Performance measurement](#performance-measurement).
 - [Contributing](#contributing)
 - [License](#license)
 - [Issues](#issues)
@@ -195,6 +196,10 @@ To [export images or movies](docs/image-and-movie-export.md), use `Export Data â
 SECQUOIA enables [cytometric analysis](docs/cytometric-analysis.md) to extract fluorescence and morphological features from all cells over time without requiring tracking data.
 
 Launch the cytometric analysis GUI via `File â†’ Cytometric Analysis` or `Ctrl+F`.
+
+## Performance measurement
+
+Developers can record how long loading takes and how much memory SECQUOIA uses, to report how runtime and RAM scale with dataset size. See [performance measurement](docs/performance-measurement.md).
 
 ## Contributing
 

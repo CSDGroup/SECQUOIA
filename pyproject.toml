@@ -32,6 +32,7 @@ dependencies = [
     "matplotlib>=3.10,<4",
     "pyqtgraph>=0.14,<0.15",
     "qtawesome>=1.4,<2",
+    "psutil>=6.0,<8",
     "napari[bermuda,optional-base,optional-numba,pyside6]>=0.6,<0.7",
     "markdown>=3.10,<4",
     "Pillow>=12.1,<13",

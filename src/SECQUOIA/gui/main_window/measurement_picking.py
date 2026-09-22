@@ -43,6 +43,7 @@ from SECQUOIA.gui.lineage_tree.lineage_zoom import (
     restore_dynamics_zoom,
 )
 from SECQUOIA.utils.plotting import update_plot
+from SECQUOIA.utils.profiling import mask_edit_measurement
 
 LOG = logging.getLogger(__name__)
 
@@ -469,50 +470,51 @@ class MeasurementPicking:
         if target is None:
             return
 
-        columns, lab_col = measurement_columns(self, target.mask_idx)
-        touched = columns + [lab_col]
-        before = snapshot_columns(self.track_df, target.row_idx, touched)
+        with mask_edit_measurement(self, current_position(self)):
+            columns, lab_col = measurement_columns(self, target.mask_idx)
+            touched = columns + [lab_col]
+            before = snapshot_columns(self.track_df, target.row_idx, touched)
 
-        measured = measure_edit(self, target)
-        write_measurements(self, target, measured)
+            measured = measure_edit(self, target)
+            write_measurements(self, target, measured)
 
-        try:
-            rows = refresh_distances_and_candidates(self, target)
-            update_flags_after_edit(self, rows, target.row_idx)
-        except (
-            KeyError,
-            TypeError,
-            ValueError,
-            RuntimeError,
-            AttributeError,
-        ) as err:
-            LOG.warning("[update][candidates] refresh failed: %s", err)
+            try:
+                rows = refresh_distances_and_candidates(self, target)
+                update_flags_after_edit(self, rows, target.row_idx)
+            except (
+                KeyError,
+                TypeError,
+                ValueError,
+                RuntimeError,
+                AttributeError,
+            ) as err:
+                LOG.warning("[update][candidates] refresh failed: %s", err)
 
-        compute_step_distance_for_row(
-            self.track_df,
-            ident=target.ident,
-            track_no=target.track_no,
-            t=target.t,
-            mask_idx=target.mask_idx,
-        )
-
-        try:
-            self._recompute_derived_for_row(
-                target.row_idx, mask_idx=target.mask_idx
+            compute_step_distance_for_row(
+                self.track_df,
+                ident=target.ident,
+                track_no=target.track_no,
+                t=target.t,
+                mask_idx=target.mask_idx,
             )
-        except (
-            KeyError,
-            TypeError,
-            ValueError,
-            RuntimeError,
-            AttributeError,
-        ) as err:
-            LOG.warning("[update][derived] recompute failed: %s", err)
 
-        after = snapshot_columns(self.track_df, target.row_idx, touched)
-        log_measurement_update(
-            target, changed_columns(before, after, touched), source=source
-        )
+            try:
+                self._recompute_derived_for_row(
+                    target.row_idx, mask_idx=target.mask_idx
+                )
+            except (
+                KeyError,
+                TypeError,
+                ValueError,
+                RuntimeError,
+                AttributeError,
+            ) as err:
+                LOG.warning("[update][derived] recompute failed: %s", err)
+
+            after = snapshot_columns(self.track_df, target.row_idx, touched)
+            log_measurement_update(
+                target, changed_columns(before, after, touched), source=source
+            )
 
         self._refresh_after_measurement_update(target)
 

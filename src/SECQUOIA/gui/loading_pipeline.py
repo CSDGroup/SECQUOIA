@@ -34,6 +34,7 @@ from SECQUOIA.utils.positions import (
     position_number_from_folder,
     resolve_position_range,
 )
+from SECQUOIA.utils.profiling import PositionRun
 from SECQUOIA.utils.timing import (
     current_t_range as _current_t_range,
 )
@@ -245,26 +246,30 @@ def _load_data(main_window) -> None:
         main_window.current_position_index
     ]
 
+    position = position_number_from_folder(main_window.position_selection)
+    run = PositionRun.start(position, mode="Positions")
+
     # Load BaSiC metrics (if enabled + available)
     _, _, t_idx_min, t_idx_max = _current_t_range(main_window)
     t_file_min, t_file_max = _prepare_basic_correction_inputs(main_window)
 
     seg_input = getattr(main_window, "segmentation_paths", None)
 
-    # Parallel load FL + masks
     main_window.images = {}
     executor = concurrent.futures.ThreadPoolExecutor(max_workers=3)
+    load_stages = run.stage_group(("load_channels", "load_masks"))
+    load_stages.__enter__()
 
     shared.update("fl", 0.0, "Starting: Load fluorescence")
 
     future_fl = executor.submit(
-        load_fl_channels,
+        run.wrap_timed("load_channels", load_fl_channels),
         main_window,
         lambda f, m=None: shared.update("fl", f, m),
     )
 
     future_segmentation = executor.submit(
-        load_masks,
+        run.wrap_timed("load_masks", load_masks),
         seg_input,
         main_window.position_selection,
         main_window.image_format,
@@ -309,54 +314,65 @@ def _load_data(main_window) -> None:
                 "[load_data] Could not check/load precomputed CSV: %s", e
             )
 
-        # Run Basic
-        shared.update("basic", 0.0, "Starting: Background correction")
-        apply_basic_correction(
-            main_window,
-            progress_cb=lambda f, m=None: shared.update("basic", f, m),
-        )
-
-        if not skip_measure:
-            shared.update("measure", 0.0, "Starting: Measurements")
-            quantify(
-                main_window,
-                progress_cb=lambda f, m=None: shared.update("measure", f, m),
-            )
-
-        apply_derived_features(main_window)
-
-        # Consume the dedicated 5% for final UI updates
-        shared.update("ui", 0.00, "Updating viewer…")
-        main_window.update_napari_viewer()
-        QApplication.processEvents()
-
-        shared.update("ui", 0.33, "Adding labels…")
-        add_missing_rows(main_window)
-        _apply_import_realtime_to_track_df(main_window)
-        main_window.filtered_df = main_window.track_df[
-            main_window.track_df["Position"] == position
-        ].copy()
-        QApplication.processEvents()
-
-        shared.update("ui", 1.00, "Finalizing…")
-        main_window.update_window_title()
-        QApplication.processEvents()
-
         try:
-            save_track_df(main_window)
-        except (RuntimeError, AttributeError, TypeError, OSError) as e:
-            LOG.warning("[load_data] Could not save updated CSV: %s", e)
+            # Run Basic
+            shared.update("basic", 0.0, "Starting: Background correction")
+            with run.stage("bg_correction"):
+                apply_basic_correction(
+                    main_window,
+                    progress_cb=lambda f, m=None: shared.update("basic", f, m),
+                )
 
-        btn = getattr(main_window, "start_curation_btn", None)
-        if btn is not None:
-            with contextlib.suppress(RuntimeError, AttributeError, TypeError):
-                btn.setEnabled(True)
-                btn.show()
+            if not skip_measure:
+                shared.update("measure", 0.0, "Starting: Measurements")
+                with run.stage("quantify"):
+                    quantify(
+                        main_window,
+                        progress_cb=lambda f, m=None: shared.update(
+                            "measure", f, m
+                        ),
+                    )
 
-        QTimer.singleShot(0, lambda: main_window._force_max_layout(ratio=0.30))
-        shared.update("fl", 1.0)
-        shared.update("basic", 1.0)
-        shared.update("measure", 1.0, "All done")
+            apply_derived_features(main_window)
+
+            shared.update("ui", 0.00, "Updating viewer…")
+            main_window.update_napari_viewer()
+            QApplication.processEvents()
+
+            shared.update("ui", 0.33, "Adding labels…")
+            add_missing_rows(main_window)
+            _apply_import_realtime_to_track_df(main_window)
+            main_window.filtered_df = main_window.track_df[
+                main_window.track_df["Position"] == position
+            ].copy()
+            QApplication.processEvents()
+
+            shared.update("ui", 1.00, "Finalizing…")
+            main_window.update_window_title()
+            QApplication.processEvents()
+
+            try:
+                with run.stage("save"):
+                    save_track_df(main_window)
+            except (RuntimeError, AttributeError, TypeError, OSError) as e:
+                LOG.warning("[load_data] Could not save updated CSV: %s", e)
+
+            btn = getattr(main_window, "start_curation_btn", None)
+            if btn is not None:
+                with contextlib.suppress(
+                    RuntimeError, AttributeError, TypeError
+                ):
+                    btn.setEnabled(True)
+                    btn.show()
+
+            QTimer.singleShot(
+                0, lambda: main_window._force_max_layout(ratio=0.30)
+            )
+            shared.update("fl", 1.0)
+            shared.update("basic", 1.0)
+            shared.update("measure", 1.0, "All done")
+        finally:
+            run.finish(main_window, position)
 
     def _finish_when_ready():
         if any(not f.done() for f in stack):
@@ -367,6 +383,7 @@ def _load_data(main_window) -> None:
             main_window.labels = future_segmentation.result()
         finally:
             executor.shutdown(wait=False)
+            load_stages.__exit__(None, None, None)
 
         for i in range(len(stack)):
             if stack[i].exception():
@@ -522,28 +539,38 @@ def _process_one_position(
     setp(0)
     setmsg(f"p{pnum:04d}: preparing…")
 
-    # FL load (shows messages like "Loading FL… 56/67")
-    load_fl_channels(
-        main_window, progress_cb=_phase_progress_callback("fl", setp, setmsg)
-    )
+    run = PositionRun.start(pnum, mode="All")
+    try:
+        # FL load (shows messages like "Loading FL… 56/67")
+        with run.stage("load_channels"):
+            load_fl_channels(
+                main_window,
+                progress_cb=_phase_progress_callback("fl", setp, setmsg),
+            )
 
-    # BaSiC correction (if enabled; shows "BaSiC 123/456")
-    apply_basic_correction(
-        main_window,
-        progress_cb=_phase_progress_callback("basic", setp, setmsg),
-    )
+        # BaSiC correction (if enabled; shows "BaSiC 123/456")
+        with run.stage("bg_correction"):
+            apply_basic_correction(
+                main_window,
+                progress_cb=_phase_progress_callback("basic", setp, setmsg),
+            )
 
-    # Masks + measure
-    main_window.labels = load_masks(
-        getattr(main_window, "segmentation_paths", []),
-        ppath,
-        main_window.image_format,
-        t_file_min=tmin,
-        t_file_max=tmax,
-    )
-    quantify(
-        main_window, progress_cb=_phase_progress_callback("meas", setp, setmsg)
-    )
+        # Masks + measure
+        with run.stage("load_masks"):
+            main_window.labels = load_masks(
+                getattr(main_window, "segmentation_paths", []),
+                ppath,
+                main_window.image_format,
+                t_file_min=tmin,
+                t_file_max=tmax,
+            )
+        with run.stage("quantify"):
+            quantify(
+                main_window,
+                progress_cb=_phase_progress_callback("meas", setp, setmsg),
+            )
+    finally:
+        run.finish(main_window, pnum)
 
 
 def _finish_position_iteration(
@@ -706,7 +733,7 @@ def _resolve_target_position(main_window) -> int | None:
 
 
 def _load_images_and_masks(
-    main_window, seg_input, t_file_min, t_file_max, cb_fl
+    main_window, seg_input, t_file_min, t_file_max, cb_fl, run
 ):
     """Load FL images and segmentation masks for the current position.
 
@@ -716,10 +743,17 @@ def _load_images_and_masks(
     """
     main_window.images = {}
 
-    with concurrent.futures.ThreadPoolExecutor() as executor:
-        future_fl = executor.submit(load_fl_channels, main_window, cb_fl)
+    with (
+        run.stage_group(("load_channels", "load_masks")),
+        concurrent.futures.ThreadPoolExecutor() as executor,
+    ):
+        future_fl = executor.submit(
+            run.wrap_timed("load_channels", load_fl_channels),
+            main_window,
+            cb_fl,
+        )
         future_seg = executor.submit(
-            load_masks,
+            run.wrap_timed("load_masks", load_masks),
             seg_input,
             main_window.position_selection,
             main_window.image_format,
@@ -749,7 +783,7 @@ def _load_images_and_masks(
 
 
 def _measure_current_position(
-    main_window, position, t_file_min, t_file_max, cb_basic, cb_measure
+    main_window, position, t_file_min, t_file_max, cb_basic, cb_measure, run
 ) -> None:
     """Populate measurements for the current position: from cache if available, else by measuring."""
     skip_measure = False
@@ -770,11 +804,13 @@ def _measure_current_position(
         )
 
     main_window.basic.update_all(position=main_window.current_position_number)
-    apply_basic_correction(main_window, progress_cb=cb_basic)
+    with run.stage("bg_correction"):
+        apply_basic_correction(main_window, progress_cb=cb_basic)
 
     try:
         if not skip_measure:
-            quantify(main_window, progress_cb=cb_measure)
+            with run.stage("quantify"):
+                quantify(main_window, progress_cb=cb_measure)
     except (RuntimeError, AttributeError, TypeError) as e:
         LOG.error("Fluorescence measurement error: %s", e)
 
@@ -814,13 +850,23 @@ def update_images(main_window, progress_cb=None) -> None:
         else:
             cb_fl = cb_basic = cb_measure = progress_cb
 
-        _load_images_and_masks(
-            main_window, seg_input, t_file_min, t_file_max, cb_fl
-        )
+        run = PositionRun.start(position, mode="Switch")
+        try:
+            _load_images_and_masks(
+                main_window, seg_input, t_file_min, t_file_max, cb_fl, run
+            )
 
-        _measure_current_position(
-            main_window, position, t_file_min, t_file_max, cb_basic, cb_measure
-        )
+            _measure_current_position(
+                main_window,
+                position,
+                t_file_min,
+                t_file_max,
+                cb_basic,
+                cb_measure,
+                run,
+            )
+        finally:
+            run.finish(main_window, position)
 
         update_list(main_window)
         main_window.current_time_index = 0
