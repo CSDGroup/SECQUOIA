@@ -10,6 +10,7 @@ from skimage.segmentation import expand_labels
 __all__ = [
     "compute_bitwise_mask",
     "connected_components_stack",
+    "nudge_label_footprint",
     "relabel_separated",
 ]
 
@@ -39,6 +40,18 @@ def apply_mask_morphology(mask: np.ndarray, x: int) -> np.ndarray:
         raise ValueError("Unsupported mask ndim (only 2D or 3D supported).")
 
     return out
+
+
+def nudge_label_footprint(
+    slice2d: np.ndarray, label_id: int, grow: bool
+) -> np.ndarray:
+    """Boolean footprint of `label_id` in `slice2d` after growing/shrinking by 1 px.
+
+    Growing never encroaches on a neighboring label's pixels.
+    """
+    current = slice2d == label_id
+    new = apply_mask_morphology(current, 1 if grow else -1)
+    return new & ((slice2d == 0) | current) if grow else new
 
 
 def connected_components_stack(binary_stack: np.ndarray) -> np.ndarray:

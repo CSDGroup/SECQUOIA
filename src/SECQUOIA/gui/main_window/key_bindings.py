@@ -18,6 +18,7 @@ from qtpy.QtWidgets import (
     QToolTip,
 )
 
+from SECQUOIA.config import CURATIONSTATUS
 from SECQUOIA.core.segmentation.close_mask_view import assigned_mask_tooltip
 from SECQUOIA.core.segmentation.mask_selection import (
     ensure_current_df_subset,
@@ -26,6 +27,7 @@ from SECQUOIA.core.segmentation.mask_selection import (
 )
 from SECQUOIA.core.tracking import on_division_clicked
 from SECQUOIA.gui.cell_inspector.integration import open_cell_inspector
+from SECQUOIA.gui.curation_tree import apply_curation_status
 from SECQUOIA.gui.dialogs.lineage_style_dialog import (
     open_lineage_style_dialog,
 )
@@ -310,6 +312,13 @@ class KeyBindings:
         add_hotkey_both("Shift+Z", _redo_cb)
         add_hotkey_both("Y", _redo_cb)
 
+        add_hotkey(
+            "]", _guard_if_typing(lambda: self._nudge_selected_mask(True))
+        )
+        add_hotkey(
+            "[", _guard_if_typing(lambda: self._nudge_selected_mask(False))
+        )
+
         install_alt_plus_minus_brush_resize(self, step=1, accel=5)
         self._install_arrow_event_filter()
         self._global_hotkeys_installed = True
@@ -528,6 +537,16 @@ def cell_fate(main_window, fate: str) -> None:
         main_window.track_df["Identification"] == main_window.ident
     ]
     lineage_tree(main_window)
+
+    track = main_window.current_TrackNumber_plot
+    item = main_window._find_tree_item_for(main_window.ident, track)
+    if item is not None:
+        main_window._set_inspected_for_track(main_window.ident, track, 2)
+        apply_curation_status(item, CURATIONSTATUS.CURATION_CHECKED)
+        parent = item.parent()
+        if parent is not None:
+            main_window._apply_parent_status_from_children(parent)
+
     LOG.info("%s is marked as %s.", main_window.ident, fate)
 
 

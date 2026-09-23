@@ -32,6 +32,7 @@ Two tools are available for editing masks:
 - `Eraser` (button with eraser icon, hotkey `1`) — reduces or completely removes a mask.
 - `Paint` (button with pen icon, hotkey `2`) — draws on the currently selected mask or generates a new mask.
 - `Space` allows to quickly switch between Eraser and Paint tools.
+- While `Paint` or `Eraser` is active, `]` grows and `[` shrinks the selected mask by 1 px.
 - Right-clicking on the Paint or Eraser button opens menus to select `Show all masks` or `Create a new mask`:
   - `Show all masks` or `Ctrl + M` — displays all masks.
   - `Create a new Mask` or `M` — draws a new mask with a new Label ID.

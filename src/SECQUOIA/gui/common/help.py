@@ -70,6 +70,8 @@ class HelpDocs:
         "- **6** → Pan/Zoom tool\n"
         "- **Alt + +** → Increase brush size\n"
         "- **Alt + -** → Decrease brush size\n"
+        "- **]** → Grow the selected mask by 1 px\n"
+        "- **[** → Shrink the selected mask by 1 px\n"
         "- **Ctrl+M** → Show all masks\n"
         "- **Ctrl+Shift+M** → Show only current track's mask (undo Show all masks)\n"
         "- **M** → Create a new mask\n"

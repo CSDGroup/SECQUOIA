@@ -12,6 +12,7 @@ import weakref
 import numpy as np
 from napari.layers import Labels
 
+from SECQUOIA.core.segmentation.mask_arithmetic import nudge_label_footprint
 from SECQUOIA.gui.lineage_tree.lineage_tree import lineage_tree
 from SECQUOIA.gui.lineage_tree.lineage_zoom import (
     capture_dynamics_zoom,
@@ -425,6 +426,43 @@ class LabelsEditing:
             return
 
         self._finish_labels_edit(layer, "undo")
+
+    def _nudge_selected_mask(self, grow: bool) -> bool:
+        """Grow or shrink the selected label of the focused viewer's Labels layer by 1 px."""
+        viewer, _tools = self._active_viewer_and_tools()
+        layer = self._labels_layer_for_viewer(viewer)
+        if layer is None:
+            return False
+
+        mode = (
+            getattr(getattr(layer, "mode", None), "name", layer.mode) or ""
+        ).lower()
+        if mode not in ("paint", "erase"):
+            return False
+
+        label = int(getattr(layer, "selected_label", 0) or 0)
+        if not label:
+            return False
+
+        t = int(getattr(self, "current_time_index", 0))
+        slice2d = self._labels_slice_at(layer, t)
+        new_mask = nudge_label_footprint(slice2d, label, grow)
+        changed = new_mask != (slice2d == label)
+        if not changed.any():
+            return False
+
+        ys, xs = np.where(changed)
+        indices = (
+            (np.full(ys.shape, t, dtype=ys.dtype), ys, xs)
+            if layer.data.ndim == 3
+            else (ys, xs)
+        )
+        value = np.where(new_mask[ys, xs], label, 0)
+
+        self._edit_begin(layer)
+        layer.data_setitem(indices, value)
+        self._finish_labels_edit(layer, "dilate" if grow else "erode")
+        return True
 
     def redo_labels_edit(self, layer):
         """Redo the last undone Labels edit via napari's own layer history.
