@@ -12,10 +12,7 @@ import os
 
 import pytest
 
-from SECQUOIA.gui.ttt_data_format_transformer import (
-    find_one_image_file,
-    iter_image_files,
-    no_images_message,
+from SECQUOIA.core.ttt_naming import (
     normalize_initials,
     normalize_pos,
     normalize_setup,
@@ -24,8 +21,14 @@ from SECQUOIA.gui.ttt_data_format_transformer import (
     normalize_z,
     parse_experiment_token_from_filename,
     parse_name,
+    resolve_positions,
     yymmdd_compact,
     yyyymmdd_from_prefix,
+)
+from SECQUOIA.gui.ttt_data_format_transformer import (
+    find_one_image_file,
+    iter_image_files,
+    no_images_message,
 )
 
 
@@ -52,6 +55,55 @@ class TestNormalizePos:
     def test_an_empty_token_stays_empty(self):
         assert normalize_pos("") == ""
 
+    def test_a_bare_number_with_no_letter_prefix_still_pads(self):
+        """From a custom pattern built with no fixed prefix, e.g. Leica's
+        scene index captured as just '3'."""
+        assert normalize_pos("3") == "p0003"
+
+    def test_a_well_id_is_not_mistaken_for_a_bare_number(self):
+        assert normalize_pos("A1") == "a1"
+
+
+class TestResolvePositions:
+    """Every position must land in a 'p####' folder, even a well ID."""
+
+    def test_numeric_labels_keep_their_own_number(self):
+        assert resolve_positions(["p1", "xy3"]) == {
+            "p1": "p0001",
+            "xy3": "p0003",
+        }
+
+    def test_well_ids_are_assigned_sequential_numbers(self):
+        assert resolve_positions(["A1", "A2", "B1"]) == {
+            "A1": "p0001",
+            "A2": "p0002",
+            "B1": "p0003",
+        }
+
+    def test_the_same_label_always_resolves_to_the_same_number(self):
+        result = resolve_positions(["A1", "A2", "A1", "A2", "A1"])
+
+        assert result == {"A1": "p0001", "A2": "p0002"}
+
+    def test_well_ids_are_assigned_in_natural_not_lexical_order(self):
+        """'A10' must sort after 'A2', not before it."""
+        result = resolve_positions(["A10", "A2", "A1"])
+
+        assert result == {"A1": "p0001", "A2": "p0002", "A10": "p0003"}
+
+    def test_well_ids_do_not_collide_with_an_explicit_numeric_position(self):
+        """A file typed as 'p0002' must not be overwritten by a well ID
+        that would otherwise land on the same sequential number."""
+        result = resolve_positions(["p2", "A1", "A2"])
+
+        assert result["p2"] == "p0002"
+        assert {result["A1"], result["A2"]} == {"p0001", "p0003"}
+
+    def test_an_empty_label_is_left_empty_rather_than_assigned_a_number(self):
+        """No position information at all must still be reported as
+        missing, not silently turned into a fake 'p0001'."""
+        assert resolve_positions(["", "A1"]) == {"": "", "A1": "p0001"}
+
 
 class TestNormalizeT:
     @pytest.mark.parametrize(
@@ -64,6 +116,12 @@ class TestNormalizeT:
     def test_leaves_an_unrecognised_token_alone(self):
         assert normalize_t("time1") == "time1"
 
+    def test_a_bare_number_with_no_letter_prefix_still_pads(self):
+        """From a custom pattern built with e.g. before='Time', so only
+        the digits are captured."""
+        assert normalize_t("001") == "t00001"
+        assert normalize_t("3") == "t00003"
+
 
 class TestNormalizeZ:
     @pytest.mark.parametrize(
@@ -72,6 +130,9 @@ class TestNormalizeZ:
     )
     def test_pads_to_three_digits(self, raw, expected):
         assert normalize_z(raw) == expected
+
+    def test_a_bare_number_with_no_letter_prefix_still_pads(self):
+        assert normalize_z("2") == "z002"
 
 
 class TestNormalizeW:
@@ -94,6 +155,17 @@ class TestNormalizeW:
 
     def test_surrounding_whitespace_is_ignored(self):
         assert normalize_w("  c2  ") == "w01"
+
+    def test_a_bare_number_defaults_to_zero_indexed(self):
+        """From a custom pattern built with e.g. before='Ch', with the
+        'one-indexed' checkbox left unchecked."""
+        assert normalize_w("2") == "w02"
+
+    def test_a_bare_number_can_be_treated_as_one_indexed(self):
+        assert normalize_w("2", one_indexed=True) == "w01"
+
+    def test_a_bare_zero_is_rejected_when_one_indexed(self):
+        assert normalize_w("0", one_indexed=True) == ""
 
 
 class TestNormalizeSetup:
@@ -200,6 +272,39 @@ class TestParseName:
 
     def test_the_extension_is_not_parsed(self):
         assert parse_name("/a/b/240323MA35_p0001_t1_z1_w0.tiff")["ch"] == "w0"
+
+
+class TestParseOtherVendorNaming:
+    """Other microscope vendors' typical single frame export naming."""
+
+    def test_reads_leicas_double_hyphen_style(self):
+        """Leica: 'Series--Z00--C00--T00.tif'."""
+        info = parse_name("Experiment--Z02--C01--T03.tif")
+
+        assert (
+            normalize_z(info["z"]),
+            normalize_w(info["ch"]),
+            normalize_t(info["t"]),
+        ) == ("z002", "w00", "t00003")
+
+    def test_reads_zeiss_and_olympus_equals_style(self):
+        """Zeiss/Olympus: 'Image - T=1 - Z=3 - C=2.tif'."""
+        info = parse_name("Image - T=1 - Z=3 - C=2.tif")
+
+        assert (
+            normalize_t(info["t"]),
+            normalize_z(info["z"]),
+            normalize_w(info["ch"]),
+        ) == ("t00001", "z003", "w01")
+
+    def test_reads_zeiss_style_with_underscores_instead_of_spaces(self):
+        info = parse_name("Image_T=2_Z=1_C=1.tif")
+
+        assert (
+            normalize_t(info["t"]),
+            normalize_z(info["z"]),
+            normalize_w(info["ch"]),
+        ) == ("t00002", "z001", "w00")
 
 
 class TestParseExperimentTokenFromFilename:
@@ -497,6 +602,67 @@ class TestRunRenames:
         position_1 = out_folder / EXP / f"{EXP}_p0001"
         contents = {p.read_bytes() for p in position_1.iterdir()}
         assert contents == {b"first", b"second"}
+
+
+@pytest.fixture
+def well_id_pattern(monkeypatch):
+    """Recognize 'Well_A1' style positions."""
+    import SECQUOIA.core.ttt_naming as ttt_naming
+    from SECQUOIA.core.ttt_patterns import PatternSet, compile_patterns
+
+    original = ttt_naming._COMPILED
+    compiled, errors = compile_patterns(
+        PatternSet(pos=r"Well_(?P<pos>[A-Za-z0-9]{1,4})")
+    )
+    assert errors == {}
+    ttt_naming._COMPILED = compiled
+    yield
+    ttt_naming._COMPILED = original
+
+
+class TestRunWithWellIdPositions:
+    """A well-plate ID like 'A1' has no 'p####' of its own. It must still
+    end up in a numbered '..._p####' folder, since that's what the rest
+    of SECQUOIA's loading pipeline requires."""
+
+    @pytest.fixture
+    def well_id_source_images(self, tmp_path):
+        folder = tmp_path / "raw"
+        folder.mkdir()
+        for well in ("A1", "A2"):
+            for t in (1, 2):
+                (folder / f"Well_{well}_t{t:03d}c1.tif").write_bytes(b"img")
+        return folder
+
+    def test_each_well_gets_its_own_sequential_position_folder(
+        self, transformer, well_id_source_images, out_folder, well_id_pattern
+    ):
+        configure(transformer, well_id_source_images, out_folder)
+
+        transformer.run()
+
+        assert (out_folder / EXP / f"{EXP}_p0001").is_dir()
+        assert (out_folder / EXP / f"{EXP}_p0002").is_dir()
+
+    def test_both_files_for_the_same_well_land_in_the_same_folder(
+        self, transformer, well_id_source_images, out_folder, well_id_pattern
+    ):
+        configure(transformer, well_id_source_images, out_folder)
+
+        transformer.run()
+
+        position_1 = out_folder / EXP / f"{EXP}_p0001"
+        assert len(list(position_1.iterdir())) == 2
+
+    def test_no_well_folder_is_named_after_the_well_id_itself(
+        self, transformer, well_id_source_images, out_folder, well_id_pattern
+    ):
+        configure(transformer, well_id_source_images, out_folder)
+
+        transformer.run()
+
+        names = [p.name for p in (out_folder / EXP).iterdir()]
+        assert not any("a1" in name.lower() for name in names)
 
 
 class TestRunGuards:

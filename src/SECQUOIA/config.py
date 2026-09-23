@@ -203,6 +203,10 @@ class LINKS:
     GITHUB_tTt_FORMAT: str = (
         "https://github.com/CSDGroup/SECQUOIA/blob/main/docs/data-formats.md"
     )
+    GITHUB_tTt_PATTERNS: str = (
+        "https://github.com/CSDGroup/SECQUOIA/blob/main/docs/"
+        "data-formats.md#create-additional-parsing-patterns"
+    )
     GITHUB_DYNAMICS_PLOT: str = (
         "https://github.com/CSDGroup/SECQUOIA/blob/main/docs/dynamics-plot.md"
     )
@@ -703,6 +707,60 @@ class TOOLTIPSTEXT:
     PROGRESS_tTt: str = "Progress bar showing copy/rename status."
     HELP_BTN_tTt: str = (
         "Open the online help page for tTt Data Format Transformer."
+    )
+    PATTERN_SETTINGS_tTt: str = (
+        "Edit the regular patterns used to find tokens in filenames."
+    )
+    HELP_BTN_tTt_PATTERNS: str = "Open the online help page."
+    PRESET_COMBO_tTt: str = (
+        "Which saved parsing pattern to use. "
+        "Add or edit parsing patterns from Pattern settings."
+    )
+    BEFORE_tTt_PATTERNS: str = (
+        "Fixed text that appears right before the value in your "
+        "filename. Leave empty if there is none."
+    )
+    VALUE_tTt_PATTERNS: str = (
+        "One real example of the value, exactly as it appears in one of "
+        "your own filenames (e.g. 'A1')."
+    )
+    AFTER_tTt_PATTERNS: str = (
+        "Fixed text that appears right after the value in your "
+        "filename. Leave empty if there is none."
+    )
+    PATTERN_FIELD_tTt_PATTERNS: str = (
+        "The pattern used to search filenames, generated from "
+        "the fields above."
+    )
+    EXP_TOKEN_FIELD_tTt_PATTERNS: str = (
+        "Regular pattern matching the whole date+initials+setup "
+        "token at once (e.g. '240323MA35')."
+    )
+    PRESET_COMBO_tTt_PATTERNS: str = (
+        "Pick a saved pattern, or type a new name and click "
+        "Save to add one."
+    )
+    DELETE_PRESET_tTt_PATTERNS: str = (
+        "Delete this parsing pattern. Built-in ones (Nikon, Leica, "
+        "Zeiss/Olympus) can't be deleted."
+    )
+    PREVIEW_tTt_PATTERNS: str = (
+        "What the fixed text + example value above resolves to."
+    )
+    CH_ONE_INDEXED_tTt_PATTERNS: str = (
+        "Leave unticked if the first channel is numbered 0 instead "
+        "(e.g. 'Ch0')."
+    )
+    SAVE_BTN_tTt_PATTERNS: str = (
+        "Save the current fields under the parsing pattern name above, "
+        "and make it the active one."
+    )
+    CANCEL_BTN_tTt_PATTERNS: str = "Close without saving any changes."
+    RESTORE_DEFAULTS_BTN_tTt_PATTERNS: str = (
+        "Reset the fields below to the built-in patterns."
+    )
+    STATUS_OK_tTt_PATTERNS: str = (
+        "This pattern compiles and defines the group it needs."
     )
 
     PROJECT_PATH: str = "Path to project_metadata.json."

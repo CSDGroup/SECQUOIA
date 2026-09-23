@@ -197,14 +197,35 @@ Below is an example scheme of the tTt folder structure using a hypothetical expe
 
 This tool renames and restructures exported images into the tTt folder format.
 
-1. Select an experiment folder.
-2. Click `Read File Naming` to auto-fill the fields based on the first image filename. Common naming patterns, such as `xy` for position, `t` for time point, `z` for z position, and `c` for channel, are detected automatically. More patterns can be added [here](../src/SECQUOIA/gui/ttt_data_format_transformer.py).
-3. Edit the fields if needed.
-4. Select an output folder.
-5. Click `Run`. Progress is shown in the progress bar.
-6. Optional: If the images are 16-bit, they need to be converted into 8-bit. This step can be done using the [tTt Converter](https://bsse.ethz.ch/csd/software/ttt-and-qtfy.html).
+1. Select the `Parsing pattern`, e.g. `Nikon`.
+   > **Note:**
+   > If your images follow a different naming pattern than the ones shipped with SECQUOIA, click `+` to [create a new parsing pattern](#create-additional-parsing-patterns).
+2. Select an experiment folder that contains all exported single images.
+3. Click `Read File Naming` to auto-fill the fields based on the first image filename. Common naming patterns are detected automatically.
+4. Edit the fields if needed, e.g. add the experiment date, initials, or setup if these are not provided by the image naming convention you use.
+5. Select an output folder.
+6. Click `Run`. Progress is shown in the progress bar.
+7. Optional: if the images are 16-bit, they need to be converted to 8-bit first. This can be done using the [tTt Converter](https://bsse.ethz.ch/csd/software/ttt-and-qtfy.html).
 
 ![tTt Data Format Transformer](images/Experiment_Folder_Renamer.png)
+
+### Create additional parsing patterns
+
+SECQUOIA ships with a few common parsing patterns, but these might still differ slightly from your own naming convention. You can add an additional parsing pattern for your specific imaging setup.
+
+1. Open the tTt Parsing Pattern Settings dialog by clicking `+` in the tTt Data Format Transformer GUI.
+2. Type in a name for the newly created parsing pattern.
+3. Fill in the information in the different boxes (Date, Time point, Position, Z-slice, and Channel):
+   - `Fixed text before` - the fixed text before the value (e.g. `Well_`, `Time`), leave empty if there is none.
+   - `Example value` - one real value exactly as it appears in one of your own filenames (e.g. `A1`, `001`).
+   - `Fixed text after` - the fixed text after the value (e.g. `_`), leave empty if there is none.
+   - As soon as you type an example value, a matching pattern is generated automatically (shown in the `Pattern` box below) and marked "ok" or "invalid". Below that, a live line shows exactly what your example resolves to.
+   - For `Channel`, select the checkbox if your channel numbering starts at `1` instead of `0`.
+   - The `Date + initials + setup` field is used to auto-fill the experiment date/initials/setup in the tTt Data Format Transformer GUI. This information can also be added by typing it directly into the tTt Data Format Transformer GUI.
+   - Click `Restore Defaults` at any time to restore the built-in patterns.
+4. Click `Save`. The new pattern is stored in `~/.SECQUOIA/ttt_patterns.json` and becomes available to select in the tTt Data Format Transformer GUI.
+
+![tTt parsing setting GUI](images/tTt_parsing_setting_GUI.png)
 
 ## Exported .csv files by SECQUOIA
 

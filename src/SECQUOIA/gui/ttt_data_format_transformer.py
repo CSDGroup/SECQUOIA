@@ -1,8 +1,9 @@
 """Copy microscopy experiment images into the tTt DataFormat layout.
 
-This module provides a Qt widget and a set of helper functions that parse
-image filenames, normalize their date, initials, setup, position, time
-point, z-slice, and channel tokens, and copy the images into
+This module provides a Qt widget that scans an experiment folder, uses
+SECQUOIA.core.ttt_naming to parse image filenames into their date,
+initials, setup, position, time point, z-slice, and channel tokens, and
+copies the images into
 
     <output>/240323MA35/
         Analysis/
@@ -12,10 +13,8 @@ The source folder is never modified; the renaming happens on the copies.
 """
 
 import os
-import re
 import shutil
 from collections.abc import Iterator
-from pathlib import Path
 
 import qtawesome as qta
 from qtpy import QtWidgets
@@ -23,123 +22,29 @@ from qtpy.QtCore import QRegularExpression, Qt
 from qtpy.QtGui import QRegularExpressionValidator
 
 from SECQUOIA.config import LINKS, TOOLTIPSTEXT
-from SECQUOIA.gui.common.ui_utils import add_progress_bar, make_help_button
-
-# Parsing logic
-DATE_RE = re.compile(r"^(?P<date>\d{6,8})[_-]?")
-TIME_RE = re.compile(r"(?<![A-Za-z])(?P<t>t\d{1,5})", re.IGNORECASE)
-POS_RE = re.compile(r"(?<![A-Za-z])(?P<pos>xy\d{1,4}|p\d{1,4})", re.IGNORECASE)
-Z_RE = re.compile(r"(?<![A-Za-z])(?P<z>z\d{1,4})", re.IGNORECASE)
-CH_RE = re.compile(r"(?<![A-Za-z])(?P<ch>[cw]\d{1,3})", re.IGNORECASE)
-IMAGE_EXTS = {".tif", ".tiff", ".png", ".jpg", ".jpeg", ".bmp"}
-EXP_TOKEN_RE = re.compile(
-    r"^(?P<date>\d{6,8})[_-]?(?P<initials>[A-Za-z]{2,4})(?P<setup>\d{1,3})"
-    r"(?![A-Za-z0-9])",
-    re.IGNORECASE,
+from SECQUOIA.core.ttt_naming import (
+    active_preset_name,
+    channel_is_one_indexed,
+    list_preset_names,
+    normalize_initials,
+    normalize_pos,
+    normalize_setup,
+    normalize_t,
+    normalize_w,
+    normalize_z,
+    parse_experiment_token_from_filename,
+    parse_name,
+    reload_patterns,
+    resolve_positions,
+    set_active_preset,
+    yymmdd_compact,
 )
+from SECQUOIA.gui.common.ui_utils import add_progress_bar, make_help_button
+from SECQUOIA.gui.dialogs.ttt_pattern_dialog import TttPatternDialog
+
+IMAGE_EXTS = {".tif", ".tiff", ".png", ".jpg", ".jpeg", ".bmp"}
 SETUP_VALIDATOR_RE = QRegularExpression(r"\d{0,3}")
 INITIALS_VALIDATOR_RE = QRegularExpression(r"[A-Za-z]{0,4}")
-
-
-def normalize_setup(s: str) -> str:
-    """Zero-pad a setup number to at least two digits ('7' -> '07')."""
-    digits = re.sub(r"\D", "", s or "")
-    if not digits:
-        return ""
-    return f"{int(digits):02d}"
-
-
-def yymmdd_compact(date_str: str) -> str:
-    """Accept 'YYYY-MM-DD', 'YYYYMMDD', 'YY-MM-DD' or 'YYMMDD' and return 'YYMMDD'."""
-    s = re.sub(r"[^0-9]", "", (date_str or "").strip())
-    if len(s) == 8:
-        s = s[2:]
-    if not re.fullmatch(r"\d{6}", s):
-        return ""
-    yy, mm, dd = s[0:2], s[2:4], s[4:6]
-    if not (1 <= int(mm) <= 12 and 1 <= int(dd) <= 31):
-        return ""
-    return f"{yy}{mm}{dd}"
-
-
-def normalize_initials(s: str) -> str:
-    """Strip non-letters, uppercase, and truncate to 4 characters."""
-    return re.sub(r"[^A-Za-z]", "", s or "").upper()[:4]
-
-
-def normalize_pos(pos: str) -> str:
-    """Normalize a position token to tTt style like 'p0001'.
-
-    Supports 'p1', 'p0001', and 'xy12' (mapped to 'p0012').
-    """
-    pos = (pos or "").lower()
-    m = re.fullmatch(r"p(\d+)", pos)
-    if m:
-        return f"p{int(m.group(1)):04d}"
-    m = re.fullmatch(r"xy(\d+)", pos)
-    if m:
-        return f"p{int(m.group(1)):04d}"
-    return pos
-
-
-def normalize_t(t: str) -> str:
-    """Normalize time token to 't00001' (5 digits)."""
-    t = (t or "").lower()
-    m = re.fullmatch(r"t(\d+)", t)
-    if not m:
-        return t
-    return f"t{int(m.group(1)):05d}"
-
-
-def normalize_z(z: str) -> str:
-    """Normalize z token to 'z001' (3 digits)."""
-    z = (z or "").lower()
-    m = re.fullmatch(r"z(\d+)", z)
-    if not m:
-        return z
-    return f"z{int(m.group(1)):03d}"
-
-
-def normalize_w(ch: str) -> str:
-    """Normalize channel token to 'w00' (2 digits).
-
-    Mapping rules:
-      - w0 -> w00, w1 -> w01, ...
-      - c1 -> w00, c2 -> w01, ...   (c is 1-based)
-    """
-    ch = (ch or "").strip().lower()
-
-    m = re.fullmatch(r"w(\d+)", ch)
-    if m:
-        return f"w{int(m.group(1)):02d}"
-
-    m = re.fullmatch(r"c(\d+)", ch)
-    if m:
-        idx = int(m.group(1)) - 1
-        if idx < 0:
-            return ""
-        return f"w{idx:02d}"
-
-    return ch
-
-
-def parse_experiment_token_from_filename(filename: str) -> dict:
-    """Parse date/initials/setup from a filename such as
-    '240323MA35_p0001_t00001_z001_w00.png'."""
-    stem = Path(filename).stem
-    m = EXP_TOKEN_RE.search(stem)
-    if not m:
-        d = DATE_RE.search(stem)
-        return {
-            "date": yyyymmdd_from_prefix(d.group("date")) if d else "",
-            "initials": "",
-            "setup": "",
-        }
-    return {
-        "date": yyyymmdd_from_prefix(m.group("date")),
-        "initials": m.group("initials").upper(),
-        "setup": normalize_setup(m.group("setup")),
-    }
 
 
 def iter_image_files(root: str) -> Iterator[str]:
@@ -168,45 +73,6 @@ def no_images_message(folder: str) -> str:
             "themselves."
         )
     return msg
-
-
-def yyyymmdd_from_prefix(s: str) -> str:
-    """Convert a 6- or 8-digit date prefix to 'YYYY-MM-DD'."""
-    if len(s) == 6:
-        yy, mm, dd = s[0:2], s[2:4], s[4:6]
-        return f"20{yy}-{mm}-{dd}"
-    if len(s) == 8:
-        yyyy, mm, dd = s[0:4], s[4:6], s[6:8]
-        return f"{yyyy}-{mm}-{dd}"
-    return ""
-
-
-def parse_name(filename: str) -> dict:
-    """Extract date/initials/pos/t/z/ch tokens from a filename into a dict."""
-    name = os.path.splitext(os.path.basename(filename))[0]
-    out = {"date": "", "initials": "", "pos": "", "t": "", "z": "", "ch": ""}
-
-    m = DATE_RE.search(name)
-    if m:
-        out["date"] = yyyymmdd_from_prefix(m.group("date"))
-
-    m = TIME_RE.search(name)
-    if m:
-        out["t"] = m.group("t").lower()
-
-    m = POS_RE.search(name)
-    if m:
-        out["pos"] = m.group("pos").lower()
-
-    m = Z_RE.search(name)
-    if m:
-        out["z"] = m.group("z").lower()
-
-    m = CH_RE.search(name)
-    if m:
-        out["ch"] = m.group("ch").lower()
-
-    return out
 
 
 def find_one_image_file(folder: str) -> str:
@@ -242,7 +108,20 @@ class TttDataFormatTransformer(QtWidgets.QWidget):
         help_btn = make_help_button(
             self, TOOLTIPSTEXT.HELP_BTN_tTt, LINKS.GITHUB_tTt_FORMAT
         )
-        help_btn.clicked.connect(self.show_help)
+
+        # Pattern settings button
+        settings_btn = QtWidgets.QToolButton()
+        settings_btn.setAutoRaise(True)
+        settings_btn.setCursor(Qt.PointingHandCursor)
+        settings_btn.setIcon(qta.icon("mdi.plus", color="white"))
+        settings_btn.setToolTip(TOOLTIPSTEXT.PATTERN_SETTINGS_tTt)
+        settings_btn.clicked.connect(self.open_pattern_settings)
+
+        # Pattern selector
+        self.preset_combo = QtWidgets.QComboBox()
+        self.preset_combo.setToolTip(TOOLTIPSTEXT.PRESET_COMBO_tTt)
+        self.refresh_preset_combo()
+        self.preset_combo.activated.connect(self.on_preset_selected)
 
         # Input row controls
         self.in_path = QtWidgets.QLineEdit()
@@ -325,7 +204,14 @@ class TttDataFormatTransformer(QtWidgets.QWidget):
 
         r = 0
         # Help row
-        grid.addWidget(help_btn, r, 1, alignment=Qt.AlignRight)
+        grid.addWidget(
+            hrow(settings_btn, help_btn), r, 1, alignment=Qt.AlignRight
+        )
+        r += 1
+
+        # Parsing pattern row
+        grid.addWidget(QtWidgets.QLabel("Parsing pattern:"), r, 0)
+        grid.addWidget(self.preset_combo, r, 1)
         r += 1
 
         # Experiment folder row
@@ -395,18 +281,38 @@ class TttDataFormatTransformer(QtWidgets.QWidget):
         self.adjustSize()
         self.setMinimumSize(self.minimumSizeHint())
 
-    def show_help(self) -> None:
-        """Show a popup summarizing the transformer's usage steps."""
-        QtWidgets.QMessageBox.information(
-            self,
-            "Help",
-            "1) Select an Experiment folder\n"
-            "2) Click 'Read File naming' to auto-fill fields from the first image filename\n"
-            "3) Edit fields if needed - initials and setup are often not part of the\n"
-            "   original filename and have to be typed in by hand\n"
-            "4) Select an Output folder\n"
-            "5) Click Run",
-        )
+    def open_pattern_settings(self) -> None:
+        """Open the dialog for editing filename-parsing patterns."""
+        dlg = TttPatternDialog(self)
+        if dlg.exec_():
+            errors = reload_patterns()
+            self.refresh_preset_combo()
+            if errors:
+                self._warn(
+                    "Some patterns were not used",
+                    "These patterns did not compile and fall back to the "
+                    "default for that field:\n\n"
+                    + "\n".join(f"- {f}: {e}" for f, e in errors.items()),
+                )
+
+    def refresh_preset_combo(self) -> None:
+        """Repopulate the preset dropdown and select the active one."""
+        self.preset_combo.blockSignals(True)
+        self.preset_combo.clear()
+        self.preset_combo.addItems(list_preset_names())
+        self.preset_combo.setCurrentText(active_preset_name())
+        self.preset_combo.blockSignals(False)
+
+    def on_preset_selected(self) -> None:
+        """Switch which saved preset is used to parse filenames."""
+        errors = set_active_preset(self.preset_combo.currentText())
+        if errors:
+            self._warn(
+                "Some patterns were not used",
+                "These patterns did not compile and fall back to the "
+                "default for that field:\n\n"
+                + "\n".join(f"- {f}: {e}" for f, e in errors.items()),
+            )
 
     def _normalize_date_field(self) -> None:
         """Rewrite whatever the user typed as YYMMDD, if it parses."""
@@ -462,7 +368,9 @@ class TttDataFormatTransformer(QtWidgets.QWidget):
         self.ed_pos.setText(normalize_pos(info["pos"]))
         self.ed_time.setText(normalize_t(info["t"]))
         self.ed_z.setText(normalize_z(info["z"]))
-        self.ed_ch.setText(normalize_w(info["ch"]))
+        self.ed_ch.setText(
+            normalize_w(info["ch"], one_indexed=channel_is_one_indexed())
+        )
 
         missing = []
         if not self.ed_date.text():
@@ -540,19 +448,27 @@ class TttDataFormatTransformer(QtWidgets.QWidget):
             self._warn("No images", no_images_message(self.in_folder))
             return
 
+        parsed = [parse_name(src) for src in files]
+        position_map = resolve_positions(
+            [info["pos"] or self.ed_pos.text() for info in parsed]
+        )
+
         self.progress.setRange(0, len(files))
         self.progress.setValue(0)
 
         problems = []
         pos_dirs_made = set()
 
-        for i, src in enumerate(files, start=1):
-            info = parse_name(src)
-
-            pos = normalize_pos(info["pos"] or self.ed_pos.text())
+        for i, (src, info) in enumerate(
+            zip(files, parsed, strict=True), start=1
+        ):
+            pos = position_map[info["pos"] or self.ed_pos.text()]
             t = normalize_t(info["t"] or self.ed_time.text())
             z = normalize_z(info["z"] or self.ed_z.text() or "z001")
-            w = normalize_w(info["ch"] or self.ed_ch.text())
+            w = normalize_w(
+                info["ch"] or self.ed_ch.text(),
+                one_indexed=channel_is_one_indexed(),
+            )
 
             # Require at least position + time + channel; z defaults to z001 if empty
             if not pos or not t or not w:

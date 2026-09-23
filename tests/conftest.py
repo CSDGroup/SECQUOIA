@@ -48,6 +48,24 @@ def _isolate_system_temp_dir(tmp_path_factory):
 
 
 @pytest.fixture(autouse=True, scope="session")
+def _isolate_ttt_patterns(tmp_path_factory):
+    """Keep tTt pattern tests off this machine's real ~/.SECQUOIA config."""
+    import SECQUOIA.core.ttt_naming as ttt_naming
+    import SECQUOIA.core.ttt_patterns as ttt_patterns
+
+    real_config_path = ttt_patterns.CONFIG_PATH
+    ttt_patterns.CONFIG_PATH = (
+        tmp_path_factory.mktemp("secquoia_home") / "ttt_patterns.json"
+    )
+    ttt_naming.reload_patterns()
+    try:
+        yield
+    finally:
+        ttt_patterns.CONFIG_PATH = real_config_path
+        ttt_naming.reload_patterns()
+
+
+@pytest.fixture(autouse=True, scope="session")
 def _stock_log_record_factory():
     """Log the way the application does, not the way napari's plugin does."""
     original = logging.getLogRecordFactory()
