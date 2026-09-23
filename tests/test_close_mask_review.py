@@ -29,8 +29,15 @@ from SECQUOIA.core.outlier_detection.close_masks import (
     set_close_mask_flag,
     update_flags_after_edit,
 )
+from SECQUOIA.core.outlier_detection.track_sync import (
+    update_unique_outliers_ids,
+)
 from SECQUOIA.gui.outlier import close_mask_review, navigation
-from SECQUOIA.gui.outlier.close_mask_review import mark_close_mask_checked
+from SECQUOIA.gui.outlier.close_mask_review import (
+    mark_close_mask_checked,
+    mark_outlier_reviewed,
+    review_current_point,
+)
 
 NAN = np.nan
 
@@ -74,6 +81,34 @@ def make_window(*, ident="A", t=1) -> SimpleNamespace:
 def flag_at(df: pd.DataFrame, ident: str, t: int) -> str:
     return df[(df["Identification"] == ident) & (df["t"] == t)][
         CLOSE_MASK_FLAG
+    ].iloc[0]
+
+
+def outlier_window(*, ident="A", t=0) -> SimpleNamespace:
+    """`review_frame()` plus a plain Outlier_detection column: A is an
+    outlier at t=0, B at t=0; neither overlaps a close-mask-flagged time.
+    """
+    df = review_frame()
+    df["Outlier_detection"] = "OK"
+    df.loc[
+        (df["Identification"].isin(["A", "B"])) & (df["t"] == 0),
+        "Outlier_detection",
+    ] = "Outlier"
+    return SimpleNamespace(
+        filtered_df=df.copy(),
+        track_df=df.copy(),
+        unique_ids=["A", "B"],
+        current_ident_index=0 if ident == "A" else 1,
+        current_TrackNumber_plot=1,
+        current_time_index=t,
+        close_mask_threshold=5.0,
+        close_mask_masks=None,
+    )
+
+
+def outlier_flag_at(df: pd.DataFrame, ident: str, t: int) -> str:
+    return df[(df["Identification"] == ident) & (df["t"] == t)][
+        "Outlier_detection"
     ].iloc[0]
 
 
@@ -348,6 +383,9 @@ def recorder(monkeypatch):
         close_mask_review, "_refresh_close_mask_views", refresh_ids
     )
     monkeypatch.setattr(
+        close_mask_review, "_refresh_outlier_views", refresh_outlier_ids
+    )
+    monkeypatch.setattr(
         close_mask_review, "select_ident_in_tree", lambda w: None
     )
     return rec
@@ -360,6 +398,11 @@ def refresh_ids(window) -> None:
     )
 
     update_unique_close_mask_ids(window)
+
+
+def refresh_outlier_ids(window) -> None:
+    """What the real refresh does to the data: rebuild the outlier id list."""
+    update_unique_outliers_ids(window)
 
 
 def test_c_marks_the_row_reviewed_in_both_tables_and_jumps_to_the_next_time(
@@ -493,6 +536,100 @@ def test_a_second_pass_of_the_detection_keeps_the_checked_cases(recorder):
     assert flag_at(window.track_df, "A", 1) == FLAG_REVIEWED
 
 
+def test_mark_outlier_reviewed_marks_the_row_and_moves_to_the_next_identification(
+    recorder,
+):
+    window = outlier_window(ident="A", t=0)
+
+    mark_outlier_reviewed(window)
+
+    assert outlier_flag_at(window.filtered_df, "A", 0) == "Reviewed"
+    assert outlier_flag_at(window.track_df, "A", 0) == "Reviewed"
+    assert recorder.idents == ["B"]
+    assert recorder.times == [0]
+
+
+def test_mark_outlier_reviewed_shows_the_all_reviewed_dialog_once_nothing_is_left(
+    recorder,
+):
+    window = outlier_window(ident="A", t=0)
+    mark_outlier_reviewed(window)
+    recorder.idents.clear()
+
+    mark_outlier_reviewed(window)
+
+    assert recorder.dialogs == ["All outliers reviewed"]
+    assert window.unique_outliers_ids == []
+
+
+def test_mark_outlier_reviewed_leaves_a_non_outlier_row_alone(recorder):
+    window = outlier_window(ident="A", t=1)
+
+    mark_outlier_reviewed(window)
+
+    assert outlier_flag_at(window.filtered_df, "A", 1) == "OK"
+    assert recorder.times == [] and recorder.idents == []
+
+
+def test_mark_outlier_reviewed_before_any_detection_does_nothing(
+    recorder, caplog
+):
+    window = outlier_window()
+    window.filtered_df = window.filtered_df.drop(columns=["Outlier_detection"])
+
+    mark_outlier_reviewed(window)
+
+    assert recorder.times == [] and recorder.dialogs == []
+    assert "run outlier detection" in caplog.text
+
+
+def test_a_second_pass_of_the_detection_keeps_the_reviewed_outlier(recorder):
+    from SECQUOIA.core.outlier_detection.detection import (
+        RulesPack,
+        run_outlier_pipeline,
+    )
+
+    window = outlier_window(ident="A", t=0)
+    mark_outlier_reviewed(window)
+    pack = RulesPack(
+        version=1,
+        m_n=1,
+        ch_n=1,
+        rules=[],
+        sliding_windows=[],
+    )
+
+    window.filtered_df = run_outlier_pipeline(window.filtered_df, pack)
+
+    assert outlier_flag_at(window.filtered_df, "A", 0) == "Reviewed"
+
+
+def test_review_current_point_reviews_a_close_mask_case_first(recorder):
+    window = make_window(ident="A", t=1)
+
+    review_current_point(window)
+
+    assert flag_at(window.filtered_df, "A", 1) == FLAG_REVIEWED
+
+
+def test_review_current_point_reviews_a_plain_outlier(recorder):
+    window = outlier_window(ident="A", t=0)
+
+    review_current_point(window)
+
+    assert outlier_flag_at(window.filtered_df, "A", 0) == "Reviewed"
+
+
+def test_review_current_point_does_nothing_on_an_unflagged_row(recorder):
+    window = outlier_window(ident="A", t=2)
+
+    review_current_point(window)
+
+    assert recorder.times == [] and recorder.idents == []
+    assert outlier_flag_at(window.filtered_df, "A", 2) == "OK"
+    assert flag_at(window.filtered_df, "A", 2) == FLAG_OK
+
+
 @pytest.fixture
 def hotkey_host(qtbot, monkeypatch):
     from SECQUOIA.gui.main_window import key_bindings
@@ -508,7 +645,7 @@ def hotkey_host(qtbot, monkeypatch):
     qtbot.addWidget(host)
     calls = []
     monkeypatch.setattr(
-        key_bindings, "mark_close_mask_checked", lambda w: calls.append(w)
+        key_bindings, "review_current_point", lambda w: calls.append(w)
     )
     host.install_global_hotkeys()
     return host, calls
@@ -518,7 +655,7 @@ def shortcut_for(host, key: str):
     return next(sc for sc in host._shortcuts if sc.key().toString() == key)
 
 
-def test_the_c_key_marks_the_case_as_checked(hotkey_host):
+def test_the_c_key_reviews_the_current_point(hotkey_host):
     host, calls = hotkey_host
 
     shortcut_for(host, "C").activated.emit()

@@ -52,7 +52,7 @@ from SECQUOIA.gui.outlier import (
     open_outlier_detection_window,
     show_current_outlier_parameters,
 )
-from SECQUOIA.gui.outlier.close_mask_review import mark_close_mask_checked
+from SECQUOIA.gui.outlier.close_mask_review import review_current_point
 from SECQUOIA.gui.outlier.navigation import (
     change_outlier,
     change_to_next_outlier,
@@ -150,9 +150,7 @@ class KeyBindings:
         add_hotkey_both(
             "Q", _guard_if_typing(lambda: reset_lineage_zoom(self))
         )
-        add_hotkey(
-            "C", _guard_if_typing(lambda: mark_close_mask_checked(self))
-        )
+        add_hotkey("C", _guard_if_typing(lambda: review_current_point(self)))
         add_hotkey("D", lambda: cell_fate(self, "Dead"))
         add_hotkey("H", lambda: cell_fate(self, "Healthy"))
         add_hotkey("K", lambda: cell_fate(self, "LowSignal"))

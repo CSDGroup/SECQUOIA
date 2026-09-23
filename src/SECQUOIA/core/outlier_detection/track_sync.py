@@ -4,11 +4,13 @@ from __future__ import annotations
 
 import logging
 
+import numpy as np
 import pandas as pd
 
 LOG = logging.getLogger(__name__)
 
 __all__ = [
+    "outlier_times",
     "update_outlier_detection_in_track_df",
     "update_outlier_detection_in_track_df_fast",
     "update_unique_outliers_ids",
@@ -164,6 +166,19 @@ def update_unique_outliers_ids(
     )
 
     main_window.unique_outliers_ids = ids
+
+
+def outlier_times(
+    df: pd.DataFrame, ident, *, outcol: str = "Outlier_detection"
+) -> np.ndarray:
+    """Sorted time points at which `ident` has an ``Outlier`` row."""
+    if outcol not in df.columns or "Identification" not in df.columns:
+        return np.array([], dtype=int)
+    keep = (df["Identification"].astype(str) == str(ident)) & (
+        df[outcol] == "Outlier"
+    )
+    times = pd.to_numeric(df.loc[keep, "t"], errors="coerce").dropna()
+    return np.unique(times.to_numpy(dtype=int))
 
 
 def _shared_match_keys(df_all, track_df) -> list[str]:

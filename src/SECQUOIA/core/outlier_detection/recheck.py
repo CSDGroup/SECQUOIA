@@ -320,10 +320,13 @@ def _apply_outlier_status_updates(
     """Evaluate `outcol` for every row in `target_idxs`, returning True if any row changed.
 
     A row is an outlier if it hits any threshold rule or is flagged in the
-    precomputed `sliding_hits`."""
+    precomputed `sliding_hits`. A row already marked "Reviewed" is left
+    alone, the same as a "Reviewed" close-mask flag."""
     changed_any = False
     for idx in target_idxs:
         prev = df_all.at[idx, outcol]
+        if prev == "Reviewed":
+            continue
         threshold_hit = any(_row_hits_rule(df_all, idx, r) for r in rules)
         new_val = (
             "Outlier"

@@ -395,8 +395,8 @@ class TOOLTIPSTEXT:
         "Remove all outlier and close-mask flags and the saved rules."
     )
     CLOSE_CHECK: str = (
-        "Mark the flagged close-mask case on screen as checked and jump to "
-        "the next one (C)."
+        "Mark the flagged close-mask case or outlier on screen as reviewed "
+        "and jump to the next one (C)."
     )
     CLOSE_FIND: str = "Flag tracking points with a close second mask."
     CLOSE_RESET: str = (

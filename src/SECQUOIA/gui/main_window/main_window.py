@@ -83,7 +83,7 @@ from SECQUOIA.gui.outlier import (
     open_outlier_detection_window,
     show_current_outlier_parameters,
 )
-from SECQUOIA.gui.outlier.close_mask_review import mark_close_mask_checked
+from SECQUOIA.gui.outlier.close_mask_review import review_current_point
 from SECQUOIA.gui.outlier.navigation import change_outlier
 from SECQUOIA.gui.outlier.reset import reset_outlier_state
 from SECQUOIA.gui.position_navigation import (
@@ -917,11 +917,11 @@ class MainWindow(
         Outlier_menu.addAction(Previous_Outlier_action)
 
         Mark_Close_Mask_action = QAction(
-            "Mark close mask as checked, jump to next (C)", self
+            "Mark outlier or close mask as reviewed, jump to next (C)", self
         )
         Mark_Close_Mask_action.setToolTip(TOOLTIPSTEXT.CLOSE_CHECK)
         Mark_Close_Mask_action.triggered.connect(
-            partial(mark_close_mask_checked, self)
+            partial(review_current_point, self)
         )
         Outlier_menu.addAction(Mark_Close_Mask_action)
 

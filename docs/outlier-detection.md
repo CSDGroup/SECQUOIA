@@ -78,6 +78,7 @@ At a flagged time point, both napari viewers highlight the assigned mask in red 
 
 - Press `C` to mark the current case as reviewed. This clears its purple star and highlight, and jumps to the next flagged time point.
 - Editing the mask assignment at a flagged point also marks it reviewed automatically.
+- If the current time point is both a flagged close-mask case and a plain outlier, `C` reviews the close-mask case first.
 
 ## Run Tab
 
@@ -112,6 +113,12 @@ The `Load` tab allows you to reuse previously defined outlier rules.
 - Within a single Tree-ID:
   - `Ctrl+Arrow Right`: Jump to the next outlier in the current Tree-ID.
   - `Ctrl+Arrow Left`: Jump to the previous outlier in the current Tree-ID.
+
+### Mark as Reviewed
+
+- Press `C` on an outlier time point to mark it reviewed. This clears its star and jumps to the next outlier time point.
+- A point marked reviewed this way stays reviewed even if you rerun outlier detection or edit the mask at that point, so it will not be reflagged.
+- Use `Outlier detection → Reset outliers` (`Ctrl+R`) to clear reviewed outliers along with every other outlier and close-mask flag.
 
 ### Current Parameters
 

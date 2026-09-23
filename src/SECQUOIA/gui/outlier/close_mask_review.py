@@ -17,7 +17,15 @@ from SECQUOIA.core.outlier_detection.close_masks import (
     unpin_close_mask_row,
     update_unique_close_mask_ids,
 )
-from SECQUOIA.core.outlier_detection.recheck import _refresh_close_mask_views
+from SECQUOIA.core.outlier_detection.recheck import (
+    _refresh_close_mask_views,
+    _refresh_outlier_views,
+)
+from SECQUOIA.core.outlier_detection.track_sync import (
+    outlier_times,
+    update_outlier_detection_in_track_df_fast,
+    update_unique_outliers_ids,
+)
 from SECQUOIA.core.segmentation.close_mask_view import clear_close_mask_view
 from SECQUOIA.core.segmentation.mask_selection import current_selection_row
 from SECQUOIA.gui.outlier.navigation import go_to_ident
@@ -30,7 +38,11 @@ from SECQUOIA.utils.helpers import (
 
 LOG = logging.getLogger(__name__)
 
-__all__ = ["mark_close_mask_checked"]
+__all__ = [
+    "mark_close_mask_checked",
+    "mark_outlier_reviewed",
+    "review_current_point",
+]
 
 
 def _jump_to_time(main_window, t: int) -> None:
@@ -44,7 +56,7 @@ def _jump_to_time(main_window, t: int) -> None:
         _on_time_index_changed(main_window, t)
 
 
-def _all_checked(main_window) -> None:
+def _all_close_masks_checked(main_window) -> None:
     """Tell the user nothing is left to review and go back to the normal view."""
     clear_close_mask_view(main_window)
     LOG.info("[CloseMasks] All close-mask cases checked.")
@@ -52,6 +64,43 @@ def _all_checked(main_window) -> None:
         _show_info_dialog(
             main_window, "Close masks", "All close-mask cases checked"
         )
+
+
+def _all_outliers_reviewed(main_window) -> None:
+    """Tell the user every outlier has been reviewed."""
+    LOG.info("[Outliers] All outliers reviewed.")
+    with contextlib.suppress(RuntimeError, AttributeError, TypeError):
+        _show_info_dialog(main_window, "Outliers", "All outliers reviewed")
+
+
+def _advance_to_next_review(
+    main_window,
+    *,
+    ident: str,
+    old_ids: list,
+    times_for_ident,
+    ids_attr: str,
+    on_finished,
+) -> None:
+    """Jump to `ident`'s next still-to-review time point, else its next
+    identification, else call `on_finished`."""
+    df = getattr(main_window, "filtered_df", None)
+    current_t = int(getattr(main_window, "current_time_index", 0))
+    next_t = next_flagged_time(times_for_ident(df, ident), current_t)
+    if next_t is not None:
+        select_ident_in_tree(main_window)
+        _jump_to_time(main_window, next_t)
+        return
+
+    next_ident = next_flagged_ident(
+        old_ids, ident, getattr(main_window, ids_attr)
+    )
+    if next_ident is not None and go_to_ident(main_window, next_ident):
+        first_t = int(times_for_ident(df, next_ident)[0])
+        _jump_to_time(main_window, first_t)
+        return
+
+    on_finished()
 
 
 def mark_close_mask_checked(main_window) -> None:
@@ -94,19 +143,61 @@ def mark_close_mask_checked(main_window) -> None:
     unpin_close_mask_row(main_window)
     _refresh_close_mask_views(main_window)
 
-    current_t = int(getattr(main_window, "current_time_index", row["t"]))
-    next_t = next_flagged_time(flagged_times(df, ident), current_t)
-    if next_t is not None:
-        select_ident_in_tree(main_window)
-        _jump_to_time(main_window, next_t)
-        return
-
-    next_ident = next_flagged_ident(
-        old_ids, ident, main_window.unique_close_mask_ids
+    _advance_to_next_review(
+        main_window,
+        ident=ident,
+        old_ids=old_ids,
+        times_for_ident=flagged_times,
+        ids_attr="unique_close_mask_ids",
+        on_finished=lambda: _all_close_masks_checked(main_window),
     )
-    if next_ident is not None and go_to_ident(main_window, next_ident):
-        first_t = int(flagged_times(df, next_ident)[0])
-        _jump_to_time(main_window, first_t)
+
+
+def mark_outlier_reviewed(main_window) -> None:
+    """Mark the outlier time point on screen as reviewed and go to the next one."""
+    df = getattr(main_window, "filtered_df", None)
+    if df is None or len(df) == 0 or "Outlier_detection" not in df.columns:
+        LOG.warning("[Outliers] No outliers yet: run outlier detection first.")
         return
 
-    _all_checked(main_window)
+    row = current_selection_row(main_window)
+    if row is None:
+        return
+
+    if row.get("Outlier_detection") != "Outlier":
+        LOG.info("[Outliers] The current time point is not an outlier.")
+        return
+
+    ident = str(row["Identification"])
+    update_unique_outliers_ids(main_window)
+    old_ids = list(main_window.unique_outliers_ids)
+
+    df.loc[[row.name], "Outlier_detection"] = "Reviewed"
+    update_outlier_detection_in_track_df_fast(main_window, [row.name])
+    _refresh_outlier_views(main_window)
+
+    _advance_to_next_review(
+        main_window,
+        ident=ident,
+        old_ids=old_ids,
+        times_for_ident=outlier_times,
+        ids_attr="unique_outliers_ids",
+        on_finished=lambda: _all_outliers_reviewed(main_window),
+    )
+
+
+def review_current_point(main_window) -> None:
+    """The "C" hotkey: review whatever is flagged at the current time point."""
+    row = current_selection_row(main_window)
+    if row is not None and (
+        row.get(CLOSE_MASK_FLAG) == FLAG_FLAGGED
+        or is_pinned_close_mask_row(main_window, row)
+    ):
+        mark_close_mask_checked(main_window)
+        return
+
+    if row is not None and row.get("Outlier_detection") == "Outlier":
+        mark_outlier_reviewed(main_window)
+        return
+
+    LOG.info("[Outliers] The current time point is not flagged.")

@@ -300,7 +300,7 @@ def run_threshold_rules(
                     )
                 mask = (m1 & m2) if r.combine.upper() == "AND" else (m1 | m2)
 
-            df.loc[mask, outcol] = "Outlier"
+            df.loc[mask & (df[outcol] != "Reviewed"), outcol] = "Outlier"
         if on_rule_done is not None:
             on_rule_done()
     return df
@@ -538,7 +538,7 @@ def run_sliding_windows(
             on_window_done()
 
     if any_out.any():
-        df.loc[any_out, outcol] = "Outlier"
+        df.loc[any_out & (df[outcol] != "Reviewed"), outcol] = "Outlier"
 
     return df
 
@@ -567,7 +567,10 @@ def run_outlier_pipeline(
     df, pack: RulesPack, outcol="Outlier_detection"
 ) -> pd.DataFrame:
     """Run the full outlier detection pipeline, resetting `outcol` to 'OK' first."""
+    reviewed = df[outcol] == "Reviewed" if outcol in df.columns else None
     df[outcol] = "OK"
+    if reviewed is not None:
+        df.loc[reviewed, outcol] = "Reviewed"
     df = run_threshold_rules(df, pack, outcol=outcol)
     df = run_sliding_windows(df, pack, outcol=outcol)
     return df
