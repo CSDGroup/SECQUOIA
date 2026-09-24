@@ -47,9 +47,6 @@ from SECQUOIA.gui.dialogs.plot_params_dialog import (
 from SECQUOIA.gui.loading.channel_mask_manager_dialog import (
     open_channel_mask_manager,
 )
-from SECQUOIA.gui.loading.experiment_loader_dialog import (
-    open_experiment_loader_window,
-)
 from SECQUOIA.gui.loading.load_data import load_data_window
 from SECQUOIA.gui.loading.loading_dialogs import (
     open_load_previous_project_gui,
@@ -341,10 +338,10 @@ class MainWindow(
             )  # {viewer row idx: last user-set (left, right) contrast slider positions}, kept across position switches
             self._viewer_channel = (
                 {}
-            )  # {viewer row idx: last user-selected channel}, kept across position switches
+            )  # {viewer row idx: last user selected channel}, kept across position switches
             self._viewer_mask = (
                 {}
-            )  # {viewer row idx: last user-selected mask combo value}, kept across position switches
+            )  # {viewer row idx: last user selected mask combo value}, kept across position switches
             self.lineage_tools = {}  # Dict of lineage tree control widgets
             self.plot_grid_container = None  # Container widget for plot grid
             self._plot_grid_layout = None  # Grid layout managing plots
@@ -761,9 +758,7 @@ class MainWindow(
         file_menu.addAction(Open_data_action)
 
         cytometric_analysis = QAction("Cytometric Analysis (Ctrl+F)", self)
-        cytometric_analysis.triggered.connect(
-            partial(open_experiment_loader_window, self)
-        )
+        cytometric_analysis.triggered.connect(self.open_cytometric_analysis)
         file_menu.addAction(cytometric_analysis)
 
         tTt_action = QAction("tTt Data Format Transformer (Ctrl+T)", self)
