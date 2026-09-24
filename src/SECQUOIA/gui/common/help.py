@@ -33,6 +33,7 @@ class HelpDocs:
         "- **Up Arrow** → Previous Tree-ID\n"
         "- **Right Arrow** → Next time point\n"
         "- **Left Arrow** → Previous time point\n"
+        "- **0** → Mark current Tree-ID as checked and jump to the next one\n"
         "\n"
         "## **Position Navigation**\n"
         "- **Ctrl+Shift+Left** → Previous position\n"

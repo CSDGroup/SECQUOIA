@@ -148,6 +148,7 @@ class KeyBindings:
             "Q", _guard_if_typing(lambda: reset_lineage_zoom(self))
         )
         add_hotkey("C", _guard_if_typing(lambda: review_current_point(self)))
+        add_hotkey("0", _guard_if_typing(lambda: check_current_ident(self)))
         add_hotkey("D", lambda: cell_fate(self, "Dead"))
         add_hotkey("H", lambda: cell_fate(self, "Healthy"))
         add_hotkey("K", lambda: cell_fate(self, "LowSignal"))
@@ -543,6 +544,25 @@ def cell_fate(main_window, fate: str) -> None:
             main_window._apply_parent_status_from_children(parent)
 
     LOG.info("%s is marked as %s.", main_window.ident, fate)
+
+
+def check_current_ident(main_window) -> None:
+    """Mark the whole current Identification as checked and advance to the next one."""
+    if not hasattr(main_window, "folder_list") or not main_window.folder_list:
+        from SECQUOIA.gui.common.messages import show_folder_warning
+
+        LOG.warning("Please first load CSV file and select folder")
+        show_folder_warning(main_window)
+        return
+
+    item = main_window._find_tree_item_for(main_window.ident, None)
+    if item is not None:
+        apply_curation_status(item, CURATIONSTATUS.CURATION_CHECKED)
+        main_window._set_inspected_for_ident(main_window.ident, 2)
+        main_window._sync_children_visuals_from_df(item)
+
+    LOG.info("%s is marked as checked.", main_window.ident)
+    change_cell(main_window, "next")
 
 
 def install_alt_plus_minus_brush_resize(
