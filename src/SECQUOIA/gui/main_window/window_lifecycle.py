@@ -31,9 +31,14 @@ from SECQUOIA.gui.common.messages import (
 )
 from SECQUOIA.gui.curation_tree import update_list
 from SECQUOIA.gui.exporter import ImageMovieExporter
+from SECQUOIA.gui.lineage_tree.lineage_tree import lineage_tree
+from SECQUOIA.gui.loading.experiment_loader_dialog import (
+    open_experiment_loader_window,
+)
 from SECQUOIA.gui.outlier.outlier_list import _update_outlier_list
 from SECQUOIA.gui.ttt_data_format_transformer import TttDataFormatTransformer
 from SECQUOIA.utils.helpers import update_time_marker
+from SECQUOIA.utils.plotting import _clear_all_rows, _plot_counts
 from SECQUOIA.utils.positions import position_number_at_current_index
 
 LOG = logging.getLogger(__name__)
@@ -224,6 +229,114 @@ class WindowLifecycle:
             btn.setStyleSheet(orig_ss)
             btn.setIcon(orig_icon)
             btn.setEnabled(True)
+
+    def open_cytometric_analysis(self) -> None:
+        """Leave Curation Mode for Cytometric Analysis, guarding against data loss.
+
+        If a curation dataset is loaded, asks whether to save it first. The
+        loaded dataset is then cleared so a later Save can't mix stale
+        curation state into a cytometric-analysis run.
+        """
+        if not getattr(self, "folder_list", None):
+            open_experiment_loader_window(self)
+            return
+
+        dlg = QMessageBox(self)
+        dlg.setWindowTitle("Switch to Cytometric Analysis")
+        dlg.setText("Switch to Cytometric Analysis")
+        dlg.setInformativeText("Save the data and close Curation Mode?")
+        dlg.setIcon(QMessageBox.Warning)
+
+        btn_save = dlg.addButton("Switch and\nSave", QMessageBox.AcceptRole)
+        btn_discard = dlg.addButton(
+            "Switch without\nsaving", QMessageBox.DestructiveRole
+        )
+        btn_cancel = dlg.addButton("Cancel", QMessageBox.RejectRole)
+        dlg.setDefaultButton(btn_cancel)
+        dlg.setEscapeButton(btn_cancel)
+
+        apply_dialog_platform_style(dlg)
+
+        all_buttons = (btn_save, btn_discard, btn_cancel)
+        button_size = all_buttons[0].sizeHint()
+        for button in all_buttons[1:]:
+            button_size = button_size.expandedTo(button.sizeHint())
+        for button in all_buttons:
+            button.setMinimumSize(button_size)
+
+        try:
+            dlg.exec_()
+        except AttributeError:
+            dlg.exec()
+
+        clicked = dlg.clickedButton()
+        if clicked is not btn_save and clicked is not btn_discard:
+            return
+
+        if clicked is btn_save:
+            try:
+                self.on_save_clicked()
+            except (
+                OSError,
+                RuntimeError,
+                ValueError,
+                KeyError,
+                AttributeError,
+                TypeError,
+            ):
+                LOG.exception("[cytometric] save before switching failed")
+                QMessageBox.warning(
+                    self,
+                    "Save failed",
+                    "Your data could not be saved, so Curation Mode "
+                    "stays open. See the log for details.",
+                )
+                return
+
+        self.track_df = None
+        self.filtered_df = None
+        self.df_subset = None
+        self.folder_list = []
+        self.folder = None
+        self.tracking_path = None
+        self._clear_curation_ui()
+
+        open_experiment_loader_window(self)
+
+    def _clear_curation_ui(self) -> None:
+        """Blank the viewers, dynamics plots, and ID tree after data was cleared.
+
+        Makes the switch away from Curation Mode visible instead of leaving
+        the last session's images/plots/tree on screen.
+        """
+        self.ident = None
+        self.unique_ids = None
+        self.unique_outliers_ids = None
+        self.current_ident_index = 0
+        self.current_TrackNumber_plot = None
+        self.current_time_index = 0
+        self.current_outlier_index = 0
+
+        if getattr(self, "tree_widget", None) is not None:
+            self.tree_widget.clear()
+
+        for viewer in (
+            getattr(self, "viewer_1", None),
+            getattr(self, "viewer_2", None),
+        ):
+            if viewer is not None:
+                with contextlib.suppress(
+                    RuntimeError, AttributeError, TypeError
+                ):
+                    viewer.layers.clear()
+                    self.add_empty_segmentation_image_layer(viewer)
+        self._viewers_dirty = False
+
+        _, _, max_plots = _plot_counts(self)
+        _clear_all_rows(self, max_plots)
+        lineage_tree(self)
+        self._refresh_all_row_igt()
+        self._refresh_all_row_summaries()
 
     def closeEvent(self, event: QCloseEvent) -> None:
         """Confirm exit with Close/Export data/Cancel.

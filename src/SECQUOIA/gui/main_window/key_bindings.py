@@ -41,9 +41,6 @@ from SECQUOIA.gui.lineage_tree.lineage_zoom import reset_lineage_zoom
 from SECQUOIA.gui.loading.channel_mask_manager_dialog import (
     open_channel_mask_manager,
 )
-from SECQUOIA.gui.loading.experiment_loader_dialog import (
-    open_experiment_loader_window,
-)
 from SECQUOIA.gui.loading.load_data import load_data_window
 from SECQUOIA.gui.loading.loading_dialogs import (
     open_load_previous_project_gui,
@@ -160,7 +157,7 @@ class KeyBindings:
         add_hotkey_both("S", self.on_save_clicked)
         add_hotkey_both("N", lambda: load_data_window(self))
         add_hotkey_both("O", lambda: open_load_previous_project_gui(self))
-        add_hotkey_both("F", lambda: open_experiment_loader_window(self))
+        add_hotkey_both("F", self.open_cytometric_analysis)
         add_hotkey_both("H", lambda: open_outlier_detection_window(self))
         add_hotkey_both("R", lambda: reset_outlier_state(self))
         add_hotkey_both("E", self.open_image_movie_exporter)
