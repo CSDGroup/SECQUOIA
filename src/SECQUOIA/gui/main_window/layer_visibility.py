@@ -64,19 +64,25 @@ class LayerVisibility:
         return None
 
     def select_channel_one_all(self) -> None:
-        """Select Channel 1 in every viewer, auto-pick mask, and sync contrast UI."""
+        """Restore each viewer's last selected channel, auto-pick mask, and sync contrast UI."""
         combos = getattr(self, "channel_combos", [])
         if not combos:
             return
+        default_channel = self.ids_channels[0][1:]
+        viewer_channel = getattr(self, "_viewer_channel", {})
         for vi, combo in enumerate(combos):
-            idx = combo.findData(self.ids_channels[0][1:])
+            channel = viewer_channel.get(vi, default_channel)
+            idx = combo.findData(channel)
+            if idx == -1:
+                channel = default_channel
+                idx = combo.findData(channel)
             if idx == -1:
                 continue
             combo.setCurrentIndex(idx)
 
             v = self._viewer_for_row_index(vi)
             with contextlib.suppress(RuntimeError, AttributeError, TypeError):
-                self._set_active_channel_only(v, self.ids_channels[0])
+                self._set_active_channel_only(v, f"w{channel}")
 
             if hasattr(self, "mask_combos") and vi < len(self.mask_combos):
                 mcombo = self.mask_combos[vi]
@@ -542,15 +548,33 @@ class LayerVisibility:
 
         self._apply_mask_defaults_now()
 
+        for vi in range(2):
+            oc = (
+                self.opacity_widgets[vi]
+                if vi < len(self.opacity_widgets)
+                else None
+            )
+            cc = (
+                self.contrast_widgets[vi]
+                if vi < len(self.contrast_widgets)
+                else None
+            )
+            with contextlib.suppress(RuntimeError, AttributeError, TypeError):
+                self._restore_viewer_display_settings(vi, oc, cc)
+
         notify_cell_inspector(self, "refresh_sources")
 
         self._viewers_dirty = True
 
     def _apply_mask_defaults_now(self) -> None:
-        """Apply default mask settings to both viewers."""
+        """Restore each viewer's last selected mask, falling back to the default."""
         m_n = max(0, int(getattr(self, "n_masks", 0)))
+        viewer_mask = getattr(self, "_viewer_mask", {})
         for vi, v in enumerate((self.viewer_1, self.viewer_2)):
-            desired = 2 if (vi == 1 and m_n >= 2) else (1 if m_n >= 1 else 0)
+            default = 2 if (vi == 1 and m_n >= 2) else (1 if m_n >= 1 else 0)
+            desired = viewer_mask.get(vi, default)
+            if desired > m_n:
+                desired = default
             try:
                 if desired > 0:
                     self._set_active_seg_only(v, desired)

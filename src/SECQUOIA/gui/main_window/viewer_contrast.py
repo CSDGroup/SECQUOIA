@@ -234,6 +234,13 @@ class ViewerContrast:
             layer.contrast_limits = (lo, hi)
         except (RuntimeError, AttributeError, TypeError, ValueError) as e:
             LOG.warning("[contrast] could not set contrast_limits: %s", e)
+            return
+
+        with contextlib.suppress(
+            RuntimeError, AttributeError, TypeError, ValueError
+        ):
+            vi = self.viewer_fluorescence.index(viewer)
+            self._viewer_contrast[vi] = (s_left.value(), s_right.value())
 
     def _get_active_channel_layer(self, viewer) -> Image | None:
         """Return the active channel image layer for *viewer*, or None."""
@@ -324,6 +331,12 @@ class ViewerContrast:
         else:
             _set_mask_opacity(int(m_val))
 
+        with contextlib.suppress(
+            RuntimeError, AttributeError, TypeError, ValueError
+        ):
+            vi = self.viewer_fluorescence.index(viewer)
+            self._viewer_opacity[vi] = new_alpha
+
     def _sync_opacity_ui_from_mask(self, viewer, opacity_container):
         """Enable the opacity slider and set its value from the segmentation layer(s)
         when at least one mask exists, else disable and reset it to 100.
@@ -375,3 +388,28 @@ class ViewerContrast:
         s.blockSignals(True)
         s.setValue(val)
         s.blockSignals(False)
+
+    def _restore_viewer_display_settings(
+        self, viewer_idx, opacity_container, contrast_container
+    ) -> None:
+        """Reapply the last user-chosen opacity/contrast for this viewer row onto
+        its freshly built layers, e.g. after a position switch.
+        """
+        contrast = self._viewer_contrast.get(viewer_idx)
+        if contrast is not None and contrast_container is not None:
+            li, ri = contrast
+            contrast_container._s_left.blockSignals(True)
+            contrast_container._s_left.setValue(li)
+            contrast_container._s_left.blockSignals(False)
+            contrast_container._s_right.blockSignals(True)
+            contrast_container._s_right.setValue(ri)
+            contrast_container._s_right.blockSignals(False)
+            self._apply_contrast_from_ui(contrast_container, who="right")
+
+        opacity = self._viewer_opacity.get(viewer_idx)
+        if opacity is not None and opacity_container is not None:
+            s = opacity_container._slider
+            s.blockSignals(True)
+            s.setValue(int(round(opacity * 100.0)))
+            s.blockSignals(False)
+            self._apply_opacity_from_ui(opacity_container)

@@ -150,15 +150,25 @@ class ViewerToolbar:
         with contextlib.suppress(RuntimeError, AttributeError, TypeError):
             self._sync_opacity_ui_from_mask(v, oc)
 
+        with contextlib.suppress(
+            RuntimeError, AttributeError, TypeError, ValueError
+        ):
+            self._viewer_mask[self.viewer_fluorescence.index(v)] = m_val
+
     def _on_channel_combo_changed(
         self, index, v, chc, mc, cc, ts, oc, ch_n
     ) -> None:
-        """Handle channel-dropdown changes by updating visible channels, mask state, contrast UI, and opacity UI."""
+        """Handle channel dropdown changes by updating visible channels, mask state, contrast UI, and opacity UI."""
         if v is None or index < 0:
             return
         channel = chc.itemData(index)
         if channel is None:
             return
+
+        with contextlib.suppress(
+            RuntimeError, AttributeError, TypeError, ValueError
+        ):
+            self._viewer_channel[self.viewer_fluorescence.index(v)] = channel
 
         self._set_active_channel_only(v, f"w{channel}")
 

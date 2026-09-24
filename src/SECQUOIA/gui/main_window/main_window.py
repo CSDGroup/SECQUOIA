@@ -333,6 +333,18 @@ class MainWindow(
                 []
             )  # List of tool strips (paint/erase/pan) per viewer
             self.opacity_widgets = []  # List of opacity sliders per viewer
+            self._viewer_opacity = (
+                {}
+            )  # {viewer row idx: last user-set mask opacity (0-1)}, kept across position switches
+            self._viewer_contrast = (
+                {}
+            )  # {viewer row idx: last user-set (left, right) contrast slider positions}, kept across position switches
+            self._viewer_channel = (
+                {}
+            )  # {viewer row idx: last user-selected channel}, kept across position switches
+            self._viewer_mask = (
+                {}
+            )  # {viewer row idx: last user-selected mask combo value}, kept across position switches
             self.lineage_tools = {}  # Dict of lineage tree control widgets
             self.plot_grid_container = None  # Container widget for plot grid
             self._plot_grid_layout = None  # Grid layout managing plots
