@@ -87,10 +87,11 @@ At a flagged time point, both napari viewers highlight the assigned mask in red 
 The `Run` tab displays a summary of all defined rules (both threshold and sliding-window based).
 
 - Click `Refresh` to update the displayed summary.
-- Click `Apply` to start the outlier detection.
+- Click `Apply to this position` to start the outlier detection just for the currently loaded position.
   - A progress bar indicates the status of the calculations.
   - A `.json` file is created containing all information used for the outlier detection.
   - This file is saved in the `outlier_detection` folder inside the `SECQUOIA` folder in the `Analysis` directory of the current experiment.
+- Click `Apply to all positions` to run outlier and close-mask detection on every already quantified position at once. A summary popup lists which positions were updated and which were skipped because they have not been quantified yet.
 - All outlier time points are marked with a yellow star in the plots.
 - All Tree-IDs with at least one outlier time point are listed in the `OUT` list.
 - Click `EXIT` to close the Outlier Detection window.

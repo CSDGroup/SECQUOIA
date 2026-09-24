@@ -106,10 +106,14 @@ def find_close_mask_cases(
     df: pd.DataFrame,
     threshold_px: float,
     masks: Iterable[int] | None = None,
+    *,
+    keep_reviewed: bool = True,
 ) -> None:
     """Flag the rows with a close second mask."""
     hits = close_mask_hits(df, threshold_px, masks)
     flags = _normalised_flags(df)
+    if not keep_reviewed:
+        flags = flags.where(flags != FLAG_REVIEWED, FLAG_OK)
 
     flags[hits & (flags != FLAG_REVIEWED)] = FLAG_FLAGGED
     flags[~hits & (flags == FLAG_FLAGGED)] = FLAG_OK

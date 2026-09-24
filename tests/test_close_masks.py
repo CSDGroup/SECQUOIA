@@ -131,6 +131,16 @@ def test_reviewed_rows_stay_reviewed_when_the_detection_runs_again():
     assert flags(df) == [FLAG_OK, FLAG_REVIEWED, FLAG_FLAGGED, FLAG_FLAGGED]
 
 
+def test_keep_reviewed_false_re_evaluates_reviewed_rows_too():
+    df = close_frame()
+    find_close_mask_cases(df, 5.0)
+    df.loc[df["t"] == 1, CLOSE_MASK_FLAG] = FLAG_REVIEWED
+
+    find_close_mask_cases(df, 5.0, keep_reviewed=False)
+
+    assert flags(df) == [FLAG_OK, FLAG_FLAGGED, FLAG_FLAGGED, FLAG_FLAGGED]
+
+
 def test_flagged_rows_that_no_longer_qualify_return_to_ok():
     df = close_frame()
     find_close_mask_cases(df, 5.0)

@@ -13,7 +13,13 @@ import numpy as np
 import pandas as pd
 
 from SECQUOIA.config import CloseMaskSettings, Rule, SlidingWindow
+from SECQUOIA.core.outlier_detection.close_masks import (
+    CLOSE_MASK_FLAG,
+    find_close_mask_cases,
+)
+from SECQUOIA.core.project_state import save_position_measurements
 from SECQUOIA.utils.paths import project_analysis_dir
+from SECQUOIA.utils.positions import position_number_from_folder
 
 LOG = logging.getLogger(__name__)
 
@@ -24,6 +30,7 @@ __all__ = [
     "load_outlier_rules_from_disk",
     "resolve_feature_columns",
     "run_outlier_pipeline",
+    "run_outlier_pipeline_for_all_positions",
     "run_sliding_windows",
     "run_threshold_rules",
     "save_outlier_rules_to_disk",
@@ -564,13 +571,97 @@ def sliding_window_outlier_mask(
 
 
 def run_outlier_pipeline(
-    df, pack: RulesPack, outcol="Outlier_detection"
+    df,
+    pack: RulesPack,
+    outcol="Outlier_detection",
+    *,
+    keep_reviewed: bool = True,
 ) -> pd.DataFrame:
-    """Run the full outlier detection pipeline, resetting `outcol` to 'OK' first."""
-    reviewed = df[outcol] == "Reviewed" if outcol in df.columns else None
+    """Run the full outlier detection pipeline, resetting `outcol` to 'OK' first.
+
+    With ``keep_reviewed`` (the default), rows already marked ``Reviewed``
+    stay that way.
+    """
+    reviewed = (
+        df[outcol] == "Reviewed"
+        if keep_reviewed and outcol in df.columns
+        else None
+    )
     df[outcol] = "OK"
     if reviewed is not None:
         df.loc[reviewed, outcol] = "Reviewed"
     df = run_threshold_rules(df, pack, outcol=outcol)
     df = run_sliding_windows(df, pack, outcol=outcol)
     return df
+
+
+_LABEL_ID_COLUMN_RE = re.compile(r"^label_id_m\d+$")
+
+
+def _is_quantified(df_pos: pd.DataFrame) -> bool:
+    """Whether mask matching has written measurements into `df_pos`.
+
+    The ``label_id_m*`` columns only exist once `quantify` has actually matched
+    masks onto those rows.
+    """
+    label_cols = [c for c in df_pos.columns if _LABEL_ID_COLUMN_RE.match(c)]
+    return bool(label_cols) and df_pos[label_cols].notna().any().any()
+
+
+def run_outlier_pipeline_for_all_positions(
+    main_window,
+    pack: RulesPack,
+    *,
+    outcol="Outlier_detection",
+    on_position=None,
+) -> tuple[list[int], list[int]]:
+    """Run outlier and close-mask detection for every quantified position."""
+    track_df = getattr(main_window, "track_df", None)
+    if (
+        track_df is None
+        or track_df.empty
+        or "Position" not in track_df.columns
+    ):
+        return [], []
+
+    all_positions = sorted(
+        int(p) for p in track_df["Position"].dropna().unique()
+    )
+    quantified = [
+        p
+        for p in all_positions
+        if _is_quantified(track_df[track_df["Position"] == p])
+    ]
+
+    on_disk = {
+        position_number_from_folder(f)
+        for f in getattr(main_window, "position_folders", None) or []
+    }
+    not_quantified = (on_disk | set(all_positions)) - set(quantified)
+    skipped = sorted(p for p in not_quantified if p is not None)
+
+    n_masks = getattr(main_window, "n_masks", "NA")
+    total = len(quantified)
+    for i, pnum in enumerate(quantified, 1):
+        df_pos = track_df[track_df["Position"] == pnum].copy()
+        df_pos = run_outlier_pipeline(
+            df_pos, pack, outcol=outcol, keep_reviewed=False
+        )
+        if pack.close_masks is not None:
+            find_close_mask_cases(
+                df_pos,
+                pack.close_masks.distance,
+                pack.close_masks.masks,
+                keep_reviewed=False,
+            )
+
+        cols = [outcol]
+        if CLOSE_MASK_FLAG in df_pos.columns:
+            cols.append(CLOSE_MASK_FLAG)
+        main_window.track_df.loc[df_pos.index, cols] = df_pos[cols]
+
+        save_position_measurements(main_window, pnum, n_masks)
+        if on_position is not None:
+            on_position(i, total, pnum)
+
+    return quantified, skipped

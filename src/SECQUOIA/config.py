@@ -332,7 +332,11 @@ class TOOLTIPSTEXT:
 
     # Outlier window
     ADD_BTN: str = "Add another row for outlier detection."
-    APPLY_BTN: str = "Run outlier detection."
+    APPLY_BTN: str = "Run outlier detection for the position shown now."
+    APPLY_ALL_BTN: str = (
+        "Run outlier and close-mask detection for every already "
+        "quantified position, resetting all flags, including Reviewed ones."
+    )
     EXIT_BTN: str = "Close this window."
     RM_BTN: str = "Remove this rule."
     FEAT_OUT: str = "Select a feature for outlier detection."

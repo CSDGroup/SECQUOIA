@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from qtpy.QtWidgets import (
     QApplication,
+    QMessageBox,
     QPlainTextEdit,
     QPushButton,
     QSizePolicy,
@@ -12,6 +13,7 @@ from qtpy.QtWidgets import (
 
 from SECQUOIA.config import TOOLTIPSTEXT
 from SECQUOIA.core.outlier_detection import (
+    run_outlier_pipeline_for_all_positions,
     run_sliding_windows,
     run_threshold_rules,
     save_outlier_rules_to_disk,
@@ -22,6 +24,7 @@ from SECQUOIA.core.outlier_detection.close_masks import (
     apply_close_mask_detection,
     close_mask_summary,
 )
+from SECQUOIA.core.project_state import save_track_df
 from SECQUOIA.core.segmentation.mask_selection import ensure_current_df_subset
 from SECQUOIA.gui.common.ui_utils import make_tab_scaffold, make_tab_title
 from SECQUOIA.gui.outlier.markers import update_outlier_marker
@@ -63,10 +66,15 @@ class RunTab:
         )
         refresh_summary_btn.setToolTip(TOOLTIPSTEXT.REFRESH_SUMMARY)
 
-        apply_btn = QPushButton("Apply")
+        apply_btn = QPushButton("Apply to this position")
         apply_btn.setToolTip(TOOLTIPSTEXT.APPLY_BTN)
         apply_btn.setMinimumHeight(28)
         apply_btn.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
+
+        apply_all_btn = QPushButton("Apply to all positions")
+        apply_all_btn.setToolTip(TOOLTIPSTEXT.APPLY_ALL_BTN)
+        apply_all_btn.setMinimumHeight(28)
+        apply_all_btn.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
 
         exit_btn = QPushButton("Exit")
         exit_btn.setToolTip(TOOLTIPSTEXT.EXIT_BTN)
@@ -75,10 +83,12 @@ class RunTab:
 
         side_v.addWidget(refresh_summary_btn)
         side_v.addWidget(apply_btn)
+        side_v.addWidget(apply_all_btn)
         side_v.addWidget(exit_btn)
 
         refresh_summary_btn.clicked.connect(self.refresh_summary)
         apply_btn.clicked.connect(self._on_apply)
+        apply_all_btn.clicked.connect(self._on_apply_all)
         exit_btn.clicked.connect(win.close)
 
     def refresh_summary(self):
@@ -164,9 +174,6 @@ class RunTab:
                 df_all = run_threshold_rules(
                     df_all, pack, outcol=outcol, on_rule_done=advance
                 )
-                # `run_sliding_windows` returns a new (sorted) DataFrame rather
-                # than mutating in place, so `main_window.filtered_df` must be
-                # updated before the sync/refresh calls below read it.
                 df_all = run_sliding_windows(
                     df_all, pack, outcol=outcol, on_window_done=advance
                 )
@@ -201,3 +208,84 @@ class RunTab:
         finally:
             finish()
             self.win.close()
+
+    def _on_apply_all(self):
+        """Apply the selected outlier rules to every already quantified position."""
+        main_window = self.main_window
+        step = self.win.set_progress_step
+        setp = self.win.set_progress
+        finish = self.win.finish_progress
+
+        setp(0)
+        QApplication.processEvents()
+
+        try:
+            pack = snapshot_outlier_ui_to_pack(main_window)
+            payload = pack.to_dict()
+            main_window._last_outlier_rules = payload
+            save_outlier_rules_to_disk(main_window, payload)
+
+            def on_position(i, total, _pnum):
+                """Advance the progress bar to position i of total."""
+                step(i, total)
+                QApplication.processEvents()
+
+            processed, skipped = run_outlier_pipeline_for_all_positions(
+                main_window, pack, on_position=on_position
+            )
+            save_track_df(main_window)
+
+            self._refresh_current_position_view(main_window)
+            self._show_apply_all_summary(processed, skipped)
+        finally:
+            finish()
+            self.win.close()
+
+    @staticmethod
+    def _refresh_current_position_view(main_window) -> None:
+        """Reload filtered_df from track_df for the on-screen position and refresh the outlier UI."""
+        cur_pos = getattr(main_window, "current_position_number", None)
+        track_df = getattr(main_window, "track_df", None)
+        if (
+            cur_pos is None
+            or track_df is None
+            or "Position" not in track_df.columns
+        ):
+            return
+
+        main_window.filtered_df = track_df[
+            track_df["Position"] == cur_pos
+        ].copy()
+        if "Identification" in main_window.filtered_df.columns:
+            main_window.unique_ids = main_window.filtered_df[
+                "Identification"
+            ].unique()
+
+        ensure_current_df_subset(main_window)
+        update_unique_outliers_ids(main_window)
+        _update_outlier_list(main_window)
+        update_outlier_marker(main_window)
+        auto_select_first_item(main_window)
+
+    @staticmethod
+    def _show_apply_all_summary(
+        processed: list[int], skipped: list[int]
+    ) -> None:
+        """Popup listing which positions were detected and which were skipped."""
+
+        def fmt(nums):
+            """Format position numbers as a comma separated 'pNNNN' list."""
+            return ", ".join(f"p{n:04d}" for n in nums)
+
+        lines = [f"Applied to {len(processed)} position(s): {fmt(processed)}."]
+        if skipped:
+            lines.append(
+                f"Skipped {len(skipped)} position(s) - not yet quantified: "
+                f"{fmt(skipped)}."
+            )
+
+        msg = QMessageBox()
+        msg.setIcon(QMessageBox.Information)
+        msg.setWindowTitle("Apply to all positions")
+        msg.setText("\n\n".join(lines))
+        msg.exec_()

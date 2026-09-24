@@ -9,12 +9,14 @@ held steady for the sliding window tests apart from one large spike.
 from __future__ import annotations
 
 import json
+from pathlib import Path
 
 import numpy as np
 import pandas as pd
 import pytest
 
-from SECQUOIA.config import Rule, SlidingWindow
+from SECQUOIA.config import CloseMaskSettings, Rule, SlidingWindow
+from SECQUOIA.core.outlier_detection.close_masks import CLOSE_MASK_FLAG
 from SECQUOIA.core.outlier_detection.detection import (
     RulesPack,
     compare_series_op,
@@ -22,9 +24,11 @@ from SECQUOIA.core.outlier_detection.detection import (
     resolve_feature_columns,
     rule_is_active,
     run_outlier_pipeline,
+    run_outlier_pipeline_for_all_positions,
     run_sliding_windows,
     run_threshold_rules,
 )
+from SECQUOIA.utils.paths import project_analysis_dir
 
 COLUMNS = [
     "AreaMorphologyM1",
@@ -526,8 +530,23 @@ class TestRunOutlierPipeline:
 
         assert (out["Outlier_detection"] == "OK").all()
 
+    def test_keeps_reviewed_rows_by_default(self):
+        df = sliding_df([100.0, 101.0, 99.0])
+        df["Outlier_detection"] = ["Reviewed", "OK", "OK"]
 
-# Rules pack serialisation
+        out = run_outlier_pipeline(df, pack())
+
+        assert out.loc[out["t"] == 0, "Outlier_detection"].item() == "Reviewed"
+
+    def test_keep_reviewed_false_re_evaluates_reviewed_rows_too(self):
+        df = sliding_df([100.0, 101.0, 99.0])
+        df["Outlier_detection"] = ["Reviewed", "OK", "OK"]
+
+        out = run_outlier_pipeline(df, pack(), keep_reviewed=False)
+
+        assert (out["Outlier_detection"] == "OK").all()
+
+
 class TestRulesPackRoundTrip:
     def test_survives_a_dict_round_trip(self):
         original = pack(
@@ -605,3 +624,153 @@ class TestRulesPackRoundTrip:
         path.write_text("{not json")
 
         assert load_outlier_rules_from_disk(str(path)) is None
+
+
+class TestRunOutlierPipelineForAllPositions:
+    """Positions 1 and 2 are quantified; 3 only exists as a folder on disk;
+    4 has tracking rows but no mask matching yet,
+    both 3 and 4 must be skipped, not just 3."""
+
+    _POSITIONS = (1, 2, 3, 4)
+
+    @staticmethod
+    def _df() -> pd.DataFrame:
+        return pd.DataFrame(
+            {
+                "Position": [1, 1, 2, 2, 4, 4],
+                "Identification": [
+                    "p1-a",
+                    "p1-a",
+                    "p2-a",
+                    "p2-a",
+                    "p4-a",
+                    "p4-a",
+                ],
+                "TrackNumber": [1, 1, 1, 1, 1, 1],
+                "t": [0, 1, 0, 1, 0, 1],
+                "AreaMorphologyM1": [10.0, 200.0, 10.0, 11.0, np.nan, np.nan],
+                "alt_dist_px_m1": [
+                    np.nan,
+                    3.0,
+                    np.nan,
+                    np.nan,
+                    np.nan,
+                    np.nan,
+                ],
+                "label_id_m1": [1, 1, 1, 1, np.nan, np.nan],
+                "Outlier_detection": [
+                    "Reviewed",
+                    "OK",
+                    "OK",
+                    "OK",
+                    "OK",
+                    "OK",
+                ],
+            }
+        )
+
+    @staticmethod
+    def _rule() -> Rule:
+        return Rule(
+            feat="AreaMorphology", masks=[1], channels=[], op1=">", val1=100.0
+        )
+
+    def _window(self, fake_main_window, tmp_path, **extra):
+        root = tmp_path / "exp"
+        for p in self._POSITIONS:
+            (root / f"exp_p{p:04d}").mkdir(parents=True)
+        attrs = {
+            "folder": str(root),
+            "tracking_format": "tTt",
+            "project_name": "Project_1",
+            "time_min_selected": 1,
+            "time_max_selected": 2,
+            "n_masks": 1,
+            "n_channels": 1,
+            "track_df": self._df(),
+            "position_folders": [
+                str(root / f"exp_p{p:04d}") for p in self._POSITIONS
+            ],
+        }
+        attrs.update(extra)
+        return fake_main_window(**attrs)
+
+    def test_re_evaluates_every_quantified_position_from_scratch(
+        self, fake_main_window, tmp_path
+    ):
+        window = self._window(fake_main_window, tmp_path)
+
+        processed, skipped = run_outlier_pipeline_for_all_positions(
+            window, pack([self._rule()])
+        )
+
+        assert processed == [1, 2]
+        out = window.track_df.set_index(["Position", "t"])["Outlier_detection"]
+        assert out.loc[(1, 0)] == "OK"
+        assert out.loc[(1, 1)] == "Outlier"
+        assert out.loc[(2, 0)] == "OK"
+        assert out.loc[(2, 1)] == "OK"
+
+    def test_reports_unquantified_positions_as_skipped(
+        self, fake_main_window, tmp_path
+    ):
+        """Both p3 (no rows at all) and p4 (tracked but not mask-matched)."""
+        window = self._window(fake_main_window, tmp_path)
+
+        _processed, skipped = run_outlier_pipeline_for_all_positions(
+            window, pack([self._rule()])
+        )
+
+        assert skipped == [3, 4]
+
+    def test_applies_close_mask_detection_when_configured(
+        self, fake_main_window, tmp_path
+    ):
+        window = self._window(fake_main_window, tmp_path)
+        rules_pack = RulesPack(
+            version=1,
+            m_n=1,
+            ch_n=1,
+            rules=[],
+            sliding_windows=[],
+            close_masks=CloseMaskSettings(distance=5.0),
+        )
+
+        run_outlier_pipeline_for_all_positions(window, rules_pack)
+
+        flags = window.track_df.set_index(["Position", "t"])[CLOSE_MASK_FLAG]
+        assert flags.loc[(1, 1)] == "Flagged"
+        assert flags.loc[(1, 0)] == "OK"
+
+    def test_calls_on_position_with_progress(self, fake_main_window, tmp_path):
+        window = self._window(fake_main_window, tmp_path)
+        calls = []
+
+        run_outlier_pipeline_for_all_positions(
+            window,
+            pack(),
+            on_position=lambda i, total, p: calls.append((i, total, p)),
+        )
+
+        assert calls == [(1, 2, 1), (2, 2, 2)]
+
+    def test_writes_a_csv_only_for_processed_positions(
+        self, fake_main_window, tmp_path
+    ):
+        window = self._window(fake_main_window, tmp_path)
+
+        run_outlier_pipeline_for_all_positions(window, pack([self._rule()]))
+
+        folder = Path(project_analysis_dir(window))
+        assert list(folder.glob("SECQUOIA_p0001_*.csv"))
+        assert list(folder.glob("SECQUOIA_p0002_*.csv"))
+        assert not list(folder.glob("SECQUOIA_p0003_*.csv"))
+        assert not list(folder.glob("SECQUOIA_p0004_*.csv"))
+
+    def test_returns_empty_without_a_track_df(self, fake_main_window):
+        window = fake_main_window(track_df=None)
+
+        assert run_outlier_pipeline_for_all_positions(window, pack()) == (
+            [],
+            [],
+        )
