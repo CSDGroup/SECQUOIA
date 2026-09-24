@@ -17,9 +17,9 @@ from qtpy.QtWidgets import (
     QHBoxLayout,
     QLabel,
     QLineEdit,
-    QListWidget,
-    QListWidgetItem,
     QPushButton,
+    QTreeWidget,
+    QTreeWidgetItem,
     QVBoxLayout,
     QWidget,
 )
@@ -69,12 +69,12 @@ __all__ = [
 _POSITION_RE = re.compile(r"_p(\d+)")
 
 _LIST_STYLESHEET = (
-    "QListWidget { border: 1px solid #555; border-radius: 4px;"
+    "QTreeWidget { border: 1px solid #555; border-radius: 4px;"
     " background-color: #2b2b2b; color: #ffffff; }"
-    "QListWidget::item { padding: 6px 8px;"
+    "QTreeWidget::item { padding: 6px 8px;"
     " background-color: transparent; color: #ffffff; }"
-    "QListWidget::item:hover { background-color: #3a3a3a; }"
-    "QListWidget::item:selected { background-color: #0a84ff;"
+    "QTreeWidget::item:hover { background-color: #3a3a3a; }"
+    "QTreeWidget::item:selected { background-color: #0a84ff;"
     " color: #ffffff; }"
 )
 
@@ -676,16 +676,33 @@ class PositionSelectDialog(QDialog):
         self.search_edit.setPalette(palette)
         return self.search_edit
 
-    def _build_list_widget(self) -> QListWidget:
-        """Build the position list."""
-        widget = QListWidget(self)
+    def _show_position_comments(self) -> bool:
+        """Show the Position Comment column only for tTt experiments with a parsed TAT file."""
+        return (
+            getattr(self.main_window, "tracking_format", "") == "tTt"
+        ) and bool(getattr(self.main_window, "position_comment_map", {}))
+
+    def _build_list_widget(self) -> QTreeWidget:
+        """Build the position list, with a Position Comment column when available."""
+        self.show_comment = self._show_position_comments()
+
+        widget = QTreeWidget(self)
+        widget.setColumnCount(2 if self.show_comment else 1)
+        widget.setHeaderLabels(
+            ["Position", "Position Comment"]
+            if self.show_comment
+            else ["Position"]
+        )
+        widget.setRootIsDecorated(False)
         widget.setSelectionMode(QAbstractItemView.SingleSelection)
         widget.setSelectionBehavior(QAbstractItemView.SelectRows)
         widget.setVerticalScrollBarPolicy(Qt.ScrollBarAsNeeded)
         widget.setHorizontalScrollBarPolicy(Qt.ScrollBarAsNeeded)
-        widget.setUniformItemSizes(True)
+        widget.setUniformRowHeights(True)
         widget.setToolTip(TOOLTIPSTEXT.SELECT_POS)
         widget.setStyleSheet(_LIST_STYLESHEET)
+        if self.show_comment:
+            widget.header().setStretchLastSection(True)
         return widget
 
     def _build_button_row(self) -> QHBoxLayout:
@@ -708,30 +725,37 @@ class PositionSelectDialog(QDialog):
         current_pos = getattr(
             self.main_window, "current_position_number", None
         )
+        pos_comment_map = getattr(self.main_window, "position_comment_map", {})
 
         for pos_number, folder in parse_position_entries(
             self.main_window.folder_list
         ):
-            item = QListWidgetItem(folder)
-            item.setData(Qt.UserRole, pos_number)
+            comment = (
+                pos_comment_map.get(pos_number, "")
+                if self.show_comment
+                else ""
+            )
+            item = QTreeWidgetItem(
+                self.list_widget,
+                [folder, comment] if self.show_comment else [folder],
+            )
+            item.setData(0, Qt.UserRole, pos_number)
 
             if current_pos is not None and pos_number == int(current_pos):
-                font = item.font()
+                font = item.font(0)
                 font.setBold(True)
-                item.setFont(font)
-                item.setText(f"{folder}   ● current")
+                item.setFont(0, font)
+                item.setText(0, f"{folder}   ● current")
                 item.setToolTip(
-                    f"Position {pos_number:04d} (currently loaded)"
+                    0, f"Position {pos_number:04d} (currently loaded)"
                 )
-                self.list_widget.addItem(item)
                 self.list_widget.setCurrentItem(item)
                 continue
 
-            item.setToolTip(f"Load position {pos_number:04d}")
-            self.list_widget.addItem(item)
+            item.setToolTip(0, f"Load position {pos_number:04d}")
 
         self.count_lbl.setText(
-            f"{self.list_widget.count()} position(s) available"
+            f"{self.list_widget.topLevelItemCount()} position(s) available"
         )
 
     def _connect_signals(self) -> None:
@@ -744,7 +768,7 @@ class PositionSelectDialog(QDialog):
         self.load_btn.clicked.connect(self._on_load_clicked)
         self.exit_btn.clicked.connect(self.close)
 
-    def _selected_item(self) -> QListWidgetItem | None:
+    def _selected_item(self) -> QTreeWidgetItem | None:
         """Return the highlighted item, ignoring ones hidden by the filter."""
         items = self.list_widget.selectedItems()
         item = items[0] if items else None
@@ -756,36 +780,35 @@ class PositionSelectDialog(QDialog):
         """Enable the Load button only when a real position is highlighted."""
         item = self._selected_item()
         self.load_btn.setEnabled(
-            item is not None and item.data(Qt.UserRole) is not None
+            item is not None and item.data(0, Qt.UserRole) is not None
         )
 
     def _on_filter(self, text: str) -> None:
-        """Hide items that do not match the filter text."""
+        """Hide items whose position name does not match the filter text."""
         needle = text.strip().lower()
         visible = 0
-        for i in range(self.list_widget.count()):
-            item = self.list_widget.item(i)
-            match = needle in item.text().lower()
+        total = self.list_widget.topLevelItemCount()
+        for i in range(total):
+            item = self.list_widget.topLevelItem(i)
+            match = needle in item.text(0).lower()
             item.setHidden(not match)
             visible += int(match)
 
-        self.count_lbl.setText(
-            f"{visible} of {self.list_widget.count()} position(s) shown"
-        )
+        self.count_lbl.setText(f"{visible} of {total} position(s) shown")
         self._sync_button_state()
 
     def _on_load_clicked(self) -> None:
         """Close the window and switch to the highlighted position."""
         item = self._selected_item()
-        if item is None or item.data(Qt.UserRole) is None:
+        if item is None or item.data(0, Qt.UserRole) is None:
             return
-        pos_number = int(item.data(Qt.UserRole))
+        pos_number = int(item.data(0, Qt.UserRole))
         self.close()
         switch_to_position_with_progress(self.main_window, pos_number)
 
 
 def open_position_window(main_window: QWidget) -> PositionSelectDialog | None:
-    """Open the position-selection window, if an experiment is loaded."""
+    """Open the position selection window, if an experiment is loaded."""
     if not getattr(main_window, "folder_list", None):
         LOG.warning("Please first load CSV file and select folder")
         show_folder_warning(main_window)
