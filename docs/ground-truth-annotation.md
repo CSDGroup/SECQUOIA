@@ -23,7 +23,7 @@ SECQUOIA_GT_ANNOTATION=1 SECQUOIA
     - `Missed`: no mask is assigned.
 - `X` accepts all open masks of the current time point of the current Tree-ID as they are and jumps to the next open time point.
 - Enter a comment in the `Notes` field and press `Enter` to save it.
-- Right-click, paint, erase, undo and redo record the label under the tracking point as `checked_label_id`. If it differs from the assigned label, the row becomes `Incorrect`.
+- Right-click, paint, erase, undo and redo record the label under the tracking point as `checked_label_id`.
 
 ## Output
 
