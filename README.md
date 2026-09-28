@@ -27,7 +27,8 @@
 - [Switch to a different position](#switch-to-a-different-position)
 - [Save and export data](#save-and-export-data)
 - [Cytometric analysis](#cytometric-analysis)
-- [Performance measurement](#performance-measurement).
+- [Performance measurement](#performance-measurement-for-developers)
+- [Ground truth annotation](#ground-truth-annotation-for-developers)
 - [Contributing](#contributing)
 - [License](#license)
 - [Issues](#issues)
@@ -197,9 +198,13 @@ SECQUOIA enables [cytometric analysis](docs/cytometric-analysis.md) to extract f
 
 Launch the cytometric analysis GUI via `File → Cytometric Analysis` or `Ctrl+F`.
 
-## Performance measurement
+## Performance measurement (for developers)
 
 Developers can record how long loading takes and how much memory SECQUOIA uses, to report how runtime and RAM scale with dataset size. See [performance measurement](docs/performance-measurement.md).
+
+## Ground truth annotation (for developers)
+
+Developers can score the mask-to-track linking against hand-checked annotations. See [ground truth annotation](docs/ground-truth-annotation.md).
 
 ## Contributing
 

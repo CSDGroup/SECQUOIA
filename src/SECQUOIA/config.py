@@ -290,9 +290,7 @@ class TOOLTIPSTEXT:
     SEG_TREE_INFO: str = (
         "Tick one or more segmentation results to use during loading/curation."
     )
-    CH_TREE_INFO: str = (
-        "Tick the channels to quantify. Comments (if any) are shown in the next column."
-    )
+    CH_TREE_INFO: str = "Tick the channels to quantify."
     CH_TREE: str = "Select channels to include in analysis."
     LOAD_DATA_BTN: str = (
         "Scan folder for channels/segmentation; enable other tabs."
@@ -407,6 +405,13 @@ class TOOLTIPSTEXT:
         "Remove all close-mask flags, including reviewed ones, and stop "
         "detecting them until 'Find close masks' is run again."
     )
+    GT_MASK: str = "Mask whose assignment is judged."
+    GT_CORRECT: str = "The assigned mask is right."
+    GT_INCORRECT: str = "Wrong assigned."
+    GT_MISSED: str = "No mask is assigned."
+    GT_NOTES: str = (
+        "Add an optional note, e.g. division, crowding or missing segmentation."
+    )
     REFRESH_SUMMARY: str = "Rebuild summary from the current GUI selections."
     ADD_PLOT_BTN: str = (
         "Add a new histogram panel, pre-filled with a copy of this panel's settings."
@@ -428,7 +433,7 @@ class TOOLTIPSTEXT:
     RFEATURE: str = "Select a feature for arithmetic operations."
     ROP: str = "Choose a mathematical operator."
     RLOP: str = (
-        "intersection of 2 masks (logical AND), union of 2 masks (logical OR), mutually exclusive regions of each mask (logical XOR), NONE: only the first mask is used."
+        "Intersection of 2 masks (logical AND), union of 2 masks (logical OR), mutually exclusive regions of each mask (logical XOR), NONE: only the first mask is used."
     )
     RRUN: str = "Create and add the calculated feature to the plots."
     RLRUN: str = "Create and add the calculated mask to the plots."

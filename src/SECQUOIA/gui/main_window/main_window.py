@@ -37,6 +37,7 @@ from SECQUOIA.config import (
     TracksViewConfig,
 )
 from SECQUOIA.core.basic_correction import DataSetBaSiC
+from SECQUOIA.core.ground_truth import gt_annotation_mode
 from SECQUOIA.gui.cell_inspector.integration import open_cell_inspector
 from SECQUOIA.gui.dialogs.lineage_style_dialog import (
     open_lineage_style_dialog,
@@ -44,6 +45,7 @@ from SECQUOIA.gui.dialogs.lineage_style_dialog import (
 from SECQUOIA.gui.dialogs.plot_params_dialog import (
     open_plot_params_dialog,
 )
+from SECQUOIA.gui.ground_truth_bar import GroundTruthBar
 from SECQUOIA.gui.loading.channel_mask_manager_dialog import (
     open_channel_mask_manager,
 )
@@ -186,7 +188,7 @@ class MainWindow(
             self.clt_parser = None  # clt_io.CLTParser class
             self.segmentation_paths = (
                 []
-            )  # list[str] — segmentation folder(s) chosen in Analysis.
+            )  # list[str], segmentation folder(s) chosen in Analysis.
             self._memmap_dir = None  # Temporary directory path used to store memory-mapped files (numpy.memmap) for image data.
             self._memmap_files = None  # List of file paths for memory-mapped (numpy.memmap) raw image stacks.
             self.position_selection = (
@@ -734,6 +736,10 @@ class MainWindow(
         self.fate_bar = hbox
         self.fate_bar_container = QWidget()
         self.fate_bar_container.setLayout(hbox)
+        self.gt_bars = []
+        if gt_annotation_mode() == 1:
+            self.gt_bars.append(GroundTruthBar(self))
+            self.layout2.addWidget(self.gt_bars[0])
         self.layout2.addWidget(self.fate_bar_container)
         self.add_viewers_to_layout2()
 
