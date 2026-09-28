@@ -15,6 +15,7 @@ from qtpy.QtWidgets import (
 
 from SECQUOIA.core.segmentation.mask_selection import (
     ensure_current_df_subset,
+    first_track_number,
     set_active_layers_from_header_buttons,
 )
 from SECQUOIA.gui.curation_tree import update_list
@@ -308,7 +309,9 @@ def change_cell(main_window: QWidget, direction: str) -> None:
 
     ensure_current_df_subset(main_window)
     main_window.current_time_index = 0
-    main_window.current_TrackNumber_plot = 1
+    main_window.current_TrackNumber_plot = first_track_number(
+        getattr(main_window, "df_subset", None)
+    )
     synchronize_viewers_tracking(main_window)
     update_plot(main_window)
     main_window.zoom_in()
@@ -378,7 +381,10 @@ def jump_to_identification(
     else:
         main_window.current_time_index = int(t)
 
-    main_window.current_TrackNumber_plot = int(tracknumber or 1)
+    main_window.current_TrackNumber_plot = int(
+        tracknumber
+        or first_track_number(main_window.filtered_df, target_ident)
+    )
 
     with contextlib.suppress(
         RuntimeError, AttributeError, TypeError, ValueError

@@ -401,6 +401,21 @@ def ensure_current_df_subset(main_window) -> bool:
     return not sub.empty
 
 
+def first_track_number(df, ident=None) -> int:
+    """Lowest TrackNumber in ``df`` (of ``ident``, if given); 1 if there is none.
+
+    A tree loaded from the start begins with TrackNumber 1. When the loaded
+    time interval starts after a division, the tree begins with a later
+    generation and TrackNumber 1 has no rows, so selecting it shows nothing.
+    """
+    if not isinstance(df, pd.DataFrame) or "TrackNumber" not in df.columns:
+        return 1
+    if ident is not None:
+        df = df[df["Identification"].astype(str) == str(ident)]
+    tracks = pd.to_numeric(df["TrackNumber"], errors="coerce").dropna()
+    return int(tracks.min()) if not tracks.empty else 1
+
+
 def rebuild_segmentation_layer_index(main_window) -> None:
     """Build main_window.seg_layers_by_viewer = {viewer_idx: {mask_idx: layer_name}}."""
     viewers = [

@@ -14,6 +14,7 @@ import pandas as pd
 from SECQUOIA.config import NAPARIPARAMETERS
 from SECQUOIA.core.segmentation.mask_selection import (
     ensure_current_df_subset,
+    first_track_number,
     set_active_layers_from_header_buttons,
 )
 from SECQUOIA.gui.lineage_tree.lineage_tree import lineage_tree
@@ -216,7 +217,7 @@ def _select_identification(main_window, item) -> None:
     except (RuntimeError, AttributeError, TypeError):
         main_window.current_time_index = 0
 
-    main_window.current_TrackNumber_plot = 1
+    main_window.current_TrackNumber_plot = first_track_number(df_ident)
 
     try:
         main_window.df_subset = df_ident.copy()
@@ -232,7 +233,7 @@ def _select_identification(main_window, item) -> None:
             (df_ident["TrackNumber"] == main_window.current_TrackNumber_plot)
             & (df_ident["t"] == main_window.current_time_index)
         ].iloc[0]
-    except (RuntimeError, AttributeError, TypeError):
+    except (RuntimeError, AttributeError, TypeError, IndexError):
         row = df_ident.iloc[0]
 
     _finish_selection(main_window, row, df_ident, selected_ident)

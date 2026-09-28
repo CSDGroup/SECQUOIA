@@ -31,6 +31,7 @@ from SECQUOIA.core.quantification.naming import (
     alt_label_column,
 )
 from SECQUOIA.core.segmentation.mask_selection import (
+    first_track_number,
     rebuild_segmentation_layer_index,
     set_active_layers_from_header_buttons,
 )
@@ -706,7 +707,10 @@ def update_track_df(main_window) -> None:
         main_window.unique_ids = None
 
     main_window.current_ident_index = 0
-    main_window.current_TrackNumber_plot = 1
+    ids = main_window.unique_ids
+    main_window.current_TrackNumber_plot = first_track_number(
+        filtered_df, ids[0] if ids is not None and len(ids) else None
+    )
 
     mask_indices: list[int] = []
     try:

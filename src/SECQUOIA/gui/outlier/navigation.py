@@ -17,6 +17,7 @@ from SECQUOIA.core.outlier_detection.close_masks import (
 )
 from SECQUOIA.core.segmentation.mask_selection import (
     ensure_current_df_subset,
+    first_track_number,
     set_active_layers_from_header_buttons,
 )
 from SECQUOIA.gui.lineage_tree.lineage_tree import lineage_tree
@@ -81,7 +82,9 @@ def go_to_ident(main_window: QWidget, ident) -> bool:
     main_window.ident = ident_str
     ensure_current_df_subset(main_window)
     main_window.current_time_index = 0
-    main_window.current_TrackNumber_plot = 1
+    main_window.current_TrackNumber_plot = first_track_number(
+        getattr(main_window, "df_subset", None)
+    )
     update_plot(main_window)
     main_window.zoom_in()
     lineage_tree(main_window)
