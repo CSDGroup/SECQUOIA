@@ -24,6 +24,7 @@ from SECQUOIA.core.segmentation.mask_io import (
     mask_reader_for_format,
     position_dir_for_mask,
     position_name,
+    save_masks_incremental,
     t_file_from_idx,
 )
 
@@ -359,25 +360,115 @@ class TestTFileFromIdx:
     def test_maps_the_first_index_of_a_selection_to_its_first_file(
         self, fake_main_window
     ):
-        """t_idx is an absolute 0-based file index, not a stack row.
+        """t_idx is the rebased row of the loaded interval, not a file index.
 
-        For a selection of t-files 5..10, ``current_t_range`` reports the
-        index range 4..9, so index 4 -- not 0 -- is the first frame.
+        For a selection of t-files 5..10 the stack has 6 rows, so row 0 is
+        file t00005 and row 5 is file t00010.
         """
         main_window = fake_main_window(
             time_min_selected=5, time_max_selected=10
         )
 
-        assert t_file_from_idx(main_window, 4) == 5
+        assert t_file_from_idx(main_window, 0) == 5
+        assert t_file_from_idx(main_window, 5) == 10
+
+    def test_a_late_interval_keeps_its_original_file_numbers(
+        self, fake_main_window
+    ):
+        """Rows 0..100 of a 700..800 selection must not land on t00001..t00101."""
+        main_window = fake_main_window(
+            time_min_selected=700, time_max_selected=800
+        )
+
+        assert t_file_from_idx(main_window, 0) == 700
+        assert t_file_from_idx(main_window, 100) == 800
+
+    def test_a_selection_from_the_start_maps_row_to_row_plus_one(
+        self, fake_main_window
+    ):
+        main_window = fake_main_window(
+            time_min_selected=1, time_max_selected=10
+        )
+
+        assert t_file_from_idx(main_window, 0) == 1
         assert t_file_from_idx(main_window, 9) == 10
 
-    def test_is_always_one_more_than_the_index(self, fake_main_window):
-        """The selected range cancels out of the arithmetic entirely."""
-        for lo, hi in ((1, 10), (5, 10), (3, 6)):
-            main_window = fake_main_window(
-                time_min_selected=lo, time_max_selected=hi
-            )
-            assert t_file_from_idx(main_window, 4) == 5
+
+class TestSaveMasksIncremental:
+    """Edits made on a loaded interval must be written back to the same files."""
+
+    def edit_and_save(self, seg_folder, position, fake_main_window, rows):
+        """Load t-files 2..4, overwrite ``rows`` with a marker, save, return the folder."""
+        stack = load_masks(
+            str(seg_folder), position, "tif", t_file_min=2, t_file_max=4
+        )
+        for row in rows:
+            stack[row] = labelled_plane(9)
+        main_window = fake_main_window(
+            segmentation_paths=[str(seg_folder)],
+            position_selection=position,
+            labels=stack,
+            n_masks=1,
+            image_format="tif",
+            time_min_selected=2,
+            time_max_selected=4,
+            _corrected_slices={(1, row) for row in rows},
+        )
+
+        save_masks_incremental(main_window)
+
+        return seg_folder / "exp_p0001"
+
+    def test_an_edit_lands_on_the_file_it_was_loaded_from(
+        self, seg_folder, position, fake_main_window
+    ):
+        """Row 2 of a 2..4 interval is t-file 4, not t-file 3."""
+        folder = self.edit_and_save(
+            seg_folder, position, fake_main_window, rows=[2]
+        )
+
+        assert (
+            tifffile.imread(folder / "exp_p0001_t00004_w01_mask.tif").max()
+            == 9
+        )
+
+    def test_no_new_file_and_no_other_frame_is_touched(
+        self, seg_folder, position, fake_main_window
+    ):
+        """The first frames of the experiment stay exactly as they were."""
+        folder = self.edit_and_save(
+            seg_folder, position, fake_main_window, rows=[2]
+        )
+
+        assert sorted(p.name for p in folder.iterdir()) == [
+            "exp_p0001_t00001_w01_mask.tif",
+            "exp_p0001_t00002_w01_mask.tif",
+            "exp_p0001_t00004_w01_mask.tif",
+        ]
+        assert (
+            tifffile.imread(folder / "exp_p0001_t00001_w01_mask.tif").max()
+            == 2
+        )
+        assert (
+            tifffile.imread(folder / "exp_p0001_t00002_w01_mask.tif").max()
+            == 3
+        )
+
+    def test_the_first_row_of_the_interval_overwrites_its_own_file(
+        self, seg_folder, position, fake_main_window
+    ):
+        folder = self.edit_and_save(
+            seg_folder, position, fake_main_window, rows=[0]
+        )
+
+        assert (
+            tifffile.imread(folder / "exp_p0001_t00002_w01_mask.tif").max()
+            == 9
+        )
+        assert (
+            tifffile.imread(folder / "exp_p0001_t00001_w01_mask.tif").max()
+            == 2
+        )
 
 
 class TestFindExactMask:

@@ -40,6 +40,7 @@ from SECQUOIA.gui.ttt_data_format_transformer import TttDataFormatTransformer
 from SECQUOIA.utils.helpers import update_time_marker
 from SECQUOIA.utils.plotting import _clear_all_rows, _plot_counts
 from SECQUOIA.utils.positions import position_number_at_current_index
+from SECQUOIA.utils.timing import t_rebase_offset
 
 LOG = logging.getLogger(__name__)
 
@@ -214,6 +215,7 @@ class WindowLifecycle:
                     df=self.filtered_df,
                     user=self.user,
                     output_root=self.tracking_path,
+                    t_offset=t_rebase_offset(self),
                 )
 
             save_masks_incremental(self)
@@ -407,6 +409,7 @@ class WindowLifecycle:
                 df=self.track_df,
                 user=self.user,
                 output_root=self.tracking_path,
+                t_offset=t_rebase_offset(self),
             )
         save_masks_incremental(self)
 

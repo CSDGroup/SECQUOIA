@@ -51,6 +51,19 @@ def current_t_range(main_window) -> tuple[int, int, int, int]:
     return t_file_min, t_file_max, t_idx_min, t_idx_max
 
 
+def t_rebase_offset(main_window) -> int:
+    """Frames that ``track_df['t']`` is shifted from the experiment's first frame.
+
+    Loading a time interval rebases ``t`` to start at 0, so this is the amount
+    to add back to get the original 0-based frame (``t_idx_min``); 0 when no
+    interval is set.
+    """
+    try:
+        return current_t_range(main_window)[2]
+    except (TypeError, ValueError):
+        return 0
+
+
 def calculate_time(main_window) -> None:
     """Fill ``Calculated_Time`` (minutes) from the saved Δt and the ``t`` column."""
     dt_sec = float(main_window.dt_seconds)
@@ -90,6 +103,7 @@ def build_realtime_lookup(
     except (TypeError, ValueError):
         n_channels = 0
 
+    t_offset = t_rebase_offset(main_window)
     rows = []
     for s, ms in zip(
         rt_df["Image File"].astype(str),
@@ -102,7 +116,10 @@ def build_realtime_lookup(
         pos = int(m.group("p").lstrip("0") or "0")
         t_raw = int(m.group("t"))
         ch_orig = int(m.group("w"))
-        t_adj = max(0, t_raw - 1)  # filenames are 1-based, track_df is 0-based
+        # filenames are 1-based, track_df is 0-based and rebased to the interval
+        t_adj = max(0, t_raw - 1) - t_offset
+        if t_adj < 0:
+            continue
 
         try:
             minutes = float(ms) / 60_000.0  # ms -> minutes

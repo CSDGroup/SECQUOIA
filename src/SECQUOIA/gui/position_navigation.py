@@ -52,6 +52,7 @@ from SECQUOIA.gui.outlier.outlier_list import (
 )
 from SECQUOIA.utils.plotting import update_plot
 from SECQUOIA.utils.positions import coerce_int, position_number_from_folder
+from SECQUOIA.utils.timing import t_rebase_offset
 
 LOG = logging.getLogger(__name__)
 
@@ -158,7 +159,7 @@ def _make_subprogress_factory(bridge):
                 if on_done:
                     QTimer.singleShot(0, on_done)
 
-            bridge.update.emit(val, msg or f"{int(f*100)}%")
+            bridge.update.emit(val, msg or f"{int(f * 100)}%")
 
         return cb
 
@@ -202,6 +203,7 @@ def load_position(main_window: QWidget, direction: str) -> None:
             df=main_window.filtered_df,
             user=main_window.user,
             output_root=main_window.tracking_path,
+            t_offset=t_rebase_offset(main_window),
         )
 
     bar.setValue(20)
@@ -361,6 +363,7 @@ def switch_to_position_with_progress(
                     df=main_window.filtered_df,
                     user=main_window.user,
                     output_root=main_window.tracking_path,
+                    t_offset=t_rebase_offset(main_window),
                 )
         else:
             bar.setValue(5)

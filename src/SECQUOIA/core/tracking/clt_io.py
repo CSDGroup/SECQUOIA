@@ -127,6 +127,7 @@ class CLTParser:
         remark: str | None,
         imaging_channel: int,
         default_zindex: int,
+        t_offset: int = 0,
     ) -> str:
         """Build a %% Quantification block from a per Identification DataFrame."""
         required_cols = {"t", "Position", "TrackNumber"}
@@ -202,7 +203,7 @@ class CLTParser:
             for _, row in df_track_sorted.iterrows():
                 # Time point (1-based)
                 try:
-                    timepoint = int(_as_scalar(row["t"])) + 1
+                    timepoint = int(_as_scalar(row["t"])) + t_offset + 1
                 except (TypeError, ValueError):
                     continue
 
@@ -265,11 +266,14 @@ class CLTParser:
         um = self.tat.um_per_px
         return x_px * um + posx, y_px * um + posy
 
-    def _build_trackingdata_block_from_df(self, df_ident: pd.DataFrame) -> str:
+    def _build_trackingdata_block_from_df(
+        self, df_ident: pd.DataFrame, t_offset: int = 0
+    ) -> str:
         """Build a '%% TrackingData' block (one % Cell per TrackNumber).
 
         Row format: TimePoint;FieldOfView;ZIndex;ImagingChannel;x;y
-        - TimePoint is 1-based in the file.
+        - TimePoint is 1-based in the file; ``t_offset`` is added to ``t``
+          first, so a rebased interval keeps its original file time points.
         - x/y are converted from internal pixels back to global coords via TAT.
         """
         df = df_ident.copy()
@@ -311,7 +315,7 @@ class CLTParser:
 
             for _, row in df_track.iterrows():
                 try:
-                    tp = int(row["t"]) + 1  # file is 1-based
+                    tp = int(row["t"]) + t_offset + 1  # file is 1-based
                 except (TypeError, ValueError):
                     continue
 
@@ -328,7 +332,9 @@ class CLTParser:
 
         return "\n".join(lines)
 
-    def _new_clt_text(self, df_ident: pd.DataFrame, user: str) -> str:
+    def _new_clt_text(
+        self, df_ident: pd.DataFrame, user: str, t_offset: int = 0
+    ) -> str:
         """Minimal valid CLT skeleton (header + TrackingData) for a new file."""
         header = "\n".join(
             [
@@ -352,7 +358,7 @@ class CLTParser:
                 "",
             ]
         )
-        tracking = self._build_trackingdata_block_from_df(df_ident)
+        tracking = self._build_trackingdata_block_from_df(df_ident, t_offset)
         return header + "\n" + tracking + "\n"
 
     _ROW_COLS = [
@@ -735,6 +741,7 @@ class CLTParser:
         create_missing: bool,
         new_root: str,
         pos_tag_dirs: dict[str, str],
+        t_offset: int = 0,
     ) -> None:
         """Write one Identification's quantification into its CLT file."""
         # ensure consistent Identification format
@@ -749,6 +756,7 @@ class CLTParser:
             remark=remark,
             imaging_channel=0,
             default_zindex=1,
+            t_offset=t_offset,
         )
         if not quant_block:
             return
@@ -780,7 +788,11 @@ class CLTParser:
                     overwrite_existing_quant=overwrite_existing_quant,
                 )
             else:
-                text = self._new_clt_text(df_ident, user) + "\n" + quant_block
+                text = (
+                    self._new_clt_text(df_ident, user, t_offset)
+                    + "\n"
+                    + quant_block
+                )
 
         os.makedirs(os.path.dirname(out_path), exist_ok=True)
         write_text_with_reload(out_path, text)
@@ -799,6 +811,7 @@ class CLTParser:
         overwrite_existing_quant: bool = True,
         create_missing: bool = True,
         output_root: str | None = None,
+        t_offset: int = 0,
     ) -> None:
         """Export quantifications from a track DataFrame into CLT files."""
         if "Identification" not in df.columns:
@@ -840,6 +853,7 @@ class CLTParser:
                         create_missing=create_missing,
                         new_root=new_root,
                         pos_tag_dirs=pos_tag_dirs,
+                        t_offset=t_offset,
                     )
                 except (OSError, ValueError, RuntimeError) as e:
                     LOG.error("[CLT export] Skipping '%s': %r", ident, e)

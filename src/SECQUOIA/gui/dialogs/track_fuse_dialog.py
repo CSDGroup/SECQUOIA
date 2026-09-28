@@ -76,12 +76,13 @@ class TrackFuseDialog(QDialog):
         main_window._fuse_next_slot = 1
 
         # Initial spinbox range + value
-        t_min, t_max = 0, max(
-            int(getattr(main_window, "current_time_index", 0)), 0
+        t_min, t_max = (
+            0,
+            max(int(getattr(main_window, "current_time_index", 0)), 0),
         )
         with contextlib.suppress(Exception):
-            _, _, t_idx_min, t_idx_max = _current_t_range(main_window)
-            t_min, t_max = int(t_idx_min), int(t_idx_max)
+            t_file_min, t_file_max, _, _ = _current_t_range(main_window)
+            t_min, t_max = 0, int(t_file_max - t_file_min)
 
         main_window.fuse_time_spin.setRange(t_min, t_max)
         cur_t = int(getattr(main_window, "current_time_index", 0))
@@ -154,8 +155,10 @@ class TrackFuseDialog(QDialog):
         """Re-sync the time point spinbox range and value with the current data."""
         main_window = self.main_window
         with contextlib.suppress(Exception):
-            _, _, t_idx_min, t_idx_max = _current_t_range(main_window)
-            main_window.fuse_time_spin.setRange(int(t_idx_min), int(t_idx_max))
+            t_file_min, t_file_max, _, _ = _current_t_range(main_window)
+            main_window.fuse_time_spin.setRange(
+                0, int(t_file_max - t_file_min)
+            )
 
         with contextlib.suppress(Exception):
             cur_t = int(getattr(main_window, "current_time_index", 0))

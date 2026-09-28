@@ -237,7 +237,7 @@ def _write_combined_stack(
     t_idx_max: int,
 ) -> None:
     """Write every time slice of a combined stack to disk as a mask image."""
-    for t_idx in range(t_idx_min, t_idx_max + 1):
+    for t_idx in range(t_idx_max - t_idx_min + 1):
         labels2d = combined_stack[t_idx]
         t_file = t_file_from_idx(main_window, t_idx)
         out_path = fallback_mask_filename(

@@ -262,10 +262,8 @@ def load_masks(
 
 def t_file_from_idx(main_window, t_idx: int) -> int:
     """Map a rebased time index back to the original on disk t-file number."""
-    t_file_min, t_file_max, t_idx_min, t_idx_max = _current_t_range(
-        main_window
-    )
-    return int(t_file_min + (t_idx - t_idx_min))
+    t_file_min, _, _, _ = _current_t_range(main_window)
+    return int(t_file_min + t_idx)
 
 
 def position_name(main_window) -> str:

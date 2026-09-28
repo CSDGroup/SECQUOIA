@@ -59,13 +59,18 @@ def _get_current_time_index(main_window) -> int:
 
 
 def _current_t_bounds(main_window) -> tuple[int, int, int]:
-    """Return ``(t_file_min, t_idx_min, t_idx_max)`` for the current view."""
-    t_file_min = t_idx_min = t_idx_max = None
+    """Return ``(t_file_min, t_idx_min, t_idx_max)`` in ``track_df['t']`` terms.
+
+    ``track_df['t']`` is rebased to the loaded interval, so the bounds are
+    ``0`` and the interval length minus one, whatever the first file number.
+    """
+    t_file_min = t_idx_max = None
     with contextlib.suppress(AttributeError, ValueError, KeyError):
-        t_file_min, _, t_idx_min, t_idx_max = _current_t_range(main_window)
+        t_file_min, t_file_max, _, _ = _current_t_range(main_window)
+        t_idx_max = t_file_max - t_file_min
     return (
         int(t_file_min) if t_file_min is not None else 0,
-        int(t_idx_min) if t_idx_min is not None else 0,
+        0,
         int(t_idx_max) if t_idx_max is not None else 0,
     )
 
@@ -159,7 +164,8 @@ def _forward_t_max(
     """Last time point an edit should extend to."""
     t_max = None
     with contextlib.suppress(AttributeError, ValueError, KeyError):
-        _, _, _, t_max = _current_t_range(main_window)
+        t_file_min, t_file_max, _, _ = _current_t_range(main_window)
+        t_max = t_file_max - t_file_min
     if t_max is None:
         return _ident_t_max(df, ident, default)
     return int(t_max)
