@@ -22,6 +22,8 @@ from SECQUOIA.config import (
     TOOLTIPSTEXT,
     TracksViewConfig,
 )
+from SECQUOIA.core.ground_truth import gt_annotation_mode
+from SECQUOIA.gui.ground_truth_bar import GroundTruthBar
 from SECQUOIA.gui.main_window.key_bindings import setup_key_bindings_curation
 
 QWIDGETSIZE_MAX = (1 << 24) - 1
@@ -172,6 +174,11 @@ class ViewerSetup:
                 outer_vbox.addWidget(win)
                 outer_vbox.setStretch(0, 0)
                 outer_vbox.setStretch(1, 1)
+
+                if gt_annotation_mode() == 2:
+                    wrapper._gt_bar = GroundTruthBar(self, mask_idx=i + 1)
+                    outer_vbox.addWidget(wrapper._gt_bar)
+                    self.gt_bars.append(wrapper._gt_bar)
 
                 try:
                     viewer = self.viewer_fluorescence[i]
@@ -373,6 +380,9 @@ class ViewerSetup:
 
         if win is not None:
             win.setVisible(not minimized)
+        gt_bar = getattr(wrapper, "_gt_bar", None)
+        if gt_bar is not None:
+            gt_bar.setVisible(not minimized)
 
         if header is not None:
             header_h = header.sizeHint().height() + 6

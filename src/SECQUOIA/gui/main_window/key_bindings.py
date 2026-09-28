@@ -19,6 +19,7 @@ from qtpy.QtWidgets import (
 )
 
 from SECQUOIA.config import CURATIONSTATUS
+from SECQUOIA.core.ground_truth import gt_annotation_mode
 from SECQUOIA.core.segmentation.close_mask_view import assigned_mask_tooltip
 from SECQUOIA.core.segmentation.mask_selection import (
     ensure_current_df_subset,
@@ -32,6 +33,7 @@ from SECQUOIA.gui.dialogs.lineage_style_dialog import (
     open_lineage_style_dialog,
 )
 from SECQUOIA.gui.dialogs.plot_params_dialog import open_plot_params_dialog
+from SECQUOIA.gui.ground_truth_review import accept_current_point
 from SECQUOIA.gui.lineage_tree.lineage_selection import (
     _clear_track_selection,
     _select_all_tracks,
@@ -149,6 +151,10 @@ class KeyBindings:
         )
         add_hotkey("C", _guard_if_typing(lambda: review_current_point(self)))
         add_hotkey("0", _guard_if_typing(lambda: check_current_ident(self)))
+        if gt_annotation_mode() > 0:
+            add_hotkey(
+                "X", _guard_if_typing(lambda: accept_current_point(self))
+            )
         add_hotkey("D", lambda: cell_fate(self, "Dead"))
         add_hotkey("H", lambda: cell_fate(self, "Healthy"))
         add_hotkey("K", lambda: cell_fate(self, "LowSignal"))

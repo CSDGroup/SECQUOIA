@@ -13,6 +13,7 @@ import pandas as pd
 from napari.layers import Labels
 
 from SECQUOIA.config import CURATIONSTATUS
+from SECQUOIA.core.ground_truth import gt_annotation_mode, record_correction
 from SECQUOIA.core.outlier_detection import (
     apply_outlier_selection_for_current_point,
     resolve_current_ident,
@@ -477,6 +478,15 @@ class MeasurementPicking:
 
             measured = measure_edit(self, target)
             write_measurements(self, target, measured)
+
+            if gt_annotation_mode():
+                try:
+                    record_correction(self, target)
+                except (KeyError, TypeError, ValueError) as err:
+                    LOG.warning(
+                        "[update][ground truth] correction not recorded: %s",
+                        err,
+                    )
 
             try:
                 rows = refresh_distances_and_candidates(self, target)
