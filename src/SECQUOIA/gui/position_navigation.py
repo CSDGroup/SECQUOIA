@@ -17,6 +17,7 @@ from qtpy.QtWidgets import (
     QHBoxLayout,
     QLabel,
     QLineEdit,
+    QMessageBox,
     QPushButton,
     QTreeWidget,
     QTreeWidgetItem,
@@ -51,7 +52,11 @@ from SECQUOIA.gui.outlier.outlier_list import (
     auto_select_first_item,
 )
 from SECQUOIA.utils.plotting import update_plot
-from SECQUOIA.utils.positions import coerce_int, position_number_from_folder
+from SECQUOIA.utils.positions import (
+    coerce_int,
+    position_index_from_number,
+    position_number_from_folder,
+)
 from SECQUOIA.utils.timing import t_rebase_offset
 
 LOG = logging.getLogger(__name__)
@@ -166,6 +171,79 @@ def _make_subprogress_factory(bridge):
     return make_subprogress
 
 
+def tree_counts(main_window) -> dict[int, int] | None:
+    """Number of individual Tree-IDs (distinct Identification) per position, or None without tracking data."""
+    df = getattr(main_window, "track_df", None)
+    if (
+        df is None
+        or getattr(df, "empty", True)
+        or "Position" not in df.columns
+    ):
+        return None
+    id_col = next(
+        (c for c in ("Identification", "track_id") if c in df.columns), None
+    )
+    if id_col is None:
+        return None
+    counts = df.groupby("Position")[id_col].nunique()
+    return {int(pos): int(n) for pos, n in counts.items()}
+
+
+def _tracked_neighbour(
+    main_window, pos_number: int, step: int, counts: dict[int, int]
+) -> int | None:
+    """Nearest position with tracking data from `pos_number`, walking in `step` direction with wrap-around."""
+    numbers = [
+        position_number_from_folder(f)
+        for f in getattr(main_window, "position_folders", None) or []
+    ]
+    numbers = [n for n in numbers if n is not None]
+    if pos_number not in numbers:
+        return None
+    start = numbers.index(pos_number)
+    for k in range(1, len(numbers) + 1):
+        cand = numbers[(start + k * step) % len(numbers)]
+        if counts.get(cand, 0) > 0:
+            return cand
+    return None
+
+
+def confirm_tracked_target(
+    main_window, pos_number: int, step: int = 1
+) -> int | None:
+    """Warn when `pos_number` has no tracking; return the position to load, or None to cancel."""
+    counts = tree_counts(main_window)
+    if counts is None or counts.get(int(pos_number), 0) > 0:
+        return int(pos_number)
+
+    alt = _tracked_neighbour(main_window, int(pos_number), step, counts)
+    box = QMessageBox(
+        main_window if isinstance(main_window, QWidget) else None
+    )
+    box.setIcon(QMessageBox.Warning)
+    box.setWindowTitle("No tracking data")
+    box.setText(f"Position p{int(pos_number):04d} has no tracking data.")
+    box.setInformativeText("Do you still want to go there?")
+    go_btn = box.addButton("Go anyway", QMessageBox.AcceptRole)
+    alt_btn = None
+    if alt is not None:
+        direction = "Next" if step >= 0 else "Previous"
+        alt_btn = box.addButton(
+            f"{direction} position with tracking (p{alt:04d})",
+            QMessageBox.ActionRole,
+        )
+    box.addButton(QMessageBox.Cancel)
+    box.setDefaultButton(alt_btn or go_btn)
+    box.exec_()
+
+    clicked = box.clickedButton()
+    if clicked is go_btn:
+        return int(pos_number)
+    if alt_btn is not None and clicked is alt_btn:
+        return alt
+    return None
+
+
 def load_position(main_window: QWidget, direction: str) -> None:
     """Load the next or previous position based on the direction, showing a custom pop-up progress dialog."""
     if not hasattr(main_window, "folder_list") or not main_window.folder_list:
@@ -174,6 +252,19 @@ def load_position(main_window: QWidget, direction: str) -> None:
         return
 
     assert direction in ("next", "previous"), "Invalid direction"
+
+    increment = 1 if direction == "next" else -1
+    target_idx = (main_window.current_position_index + increment) % len(
+        main_window.position_folders
+    )
+    target_pos = position_number_from_folder(
+        main_window.position_folders[target_idx]
+    )
+    if target_pos is not None:
+        target_pos = confirm_tracked_target(main_window, target_pos, increment)
+        if target_pos is None:
+            return
+        target_idx = position_index_from_number(main_window, target_pos)
 
     dlg, bar, status_lbl, start_curation_btn, bridge = _create_loading_dialog(
         main_window, title="Loading position"
@@ -184,8 +275,6 @@ def load_position(main_window: QWidget, direction: str) -> None:
     status_lbl.setText("Switching position…")
     QApplication.processEvents()
     QApplication.setOverrideCursor(Qt.WaitCursor)
-
-    increment = 1 if direction == "next" else -1
 
     bar.setValue(10)
     status_lbl.setText("Saving current position state…")
@@ -209,9 +298,7 @@ def load_position(main_window: QWidget, direction: str) -> None:
     bar.setValue(20)
     status_lbl.setText("Selecting new position…")
     QApplication.processEvents()
-    main_window.current_position_index = (
-        main_window.current_position_index + increment
-    ) % len(main_window.position_folders)
+    main_window.current_position_index = target_idx
 
     try:
         new_sel = main_window.position_folders[
@@ -288,8 +375,13 @@ def switch_to_position_with_progress(
     pos_number: int,
     *,
     save_current: bool = True,
+    step: int = 1,
 ) -> None:
     """Switch to the given position.
+
+    When `save_current` is set (a user-initiated switch), a position without
+    tracking data first asks for confirmation; `step` is the direction used
+    to find the alternative position with tracking.
 
     Optionally saves the current position's state, locates the target
     position folder, loads its images and masks with weighted progress
@@ -303,6 +395,12 @@ def switch_to_position_with_progress(
             int(pos_number),
         )
         return
+
+    if save_current:
+        confirmed = confirm_tracked_target(main_window, int(pos_number), step)
+        if confirmed is None:
+            return
+        pos_number = confirmed
 
     main_window._switching_position = True
     main_window._pending_position_switch = None
@@ -614,7 +712,9 @@ class PositionSelectDialog(QDialog):
         self.main_window = main_window
 
         self.setWindowTitle("Selection of a specific position")
-        self.setMinimumSize(340, 460)
+        wide = self._show_position_comments()
+        self.setMinimumSize(560 if wide else 440, 460)
+        self.resize(self.minimumSize())
         self.setAttribute(Qt.WA_DeleteOnClose, False)
 
         main_window.pos_window = self
@@ -690,11 +790,11 @@ class PositionSelectDialog(QDialog):
         self.show_comment = self._show_position_comments()
 
         widget = QTreeWidget(self)
-        widget.setColumnCount(2 if self.show_comment else 1)
+        widget.setColumnCount(3 if self.show_comment else 2)
         widget.setHeaderLabels(
-            ["Position", "Position Comment"]
+            ["Position", "Tree-IDs", "Position Comment"]
             if self.show_comment
-            else ["Position"]
+            else ["Position", "Tree-IDs"]
         )
         widget.setRootIsDecorated(False)
         widget.setSelectionMode(QAbstractItemView.SingleSelection)
@@ -729,6 +829,7 @@ class PositionSelectDialog(QDialog):
             self.main_window, "current_position_number", None
         )
         pos_comment_map = getattr(self.main_window, "position_comment_map", {})
+        counts = tree_counts(self.main_window)
 
         for pos_number, folder in parse_position_entries(
             self.main_window.folder_list
@@ -738,11 +839,20 @@ class PositionSelectDialog(QDialog):
                 if self.show_comment
                 else ""
             )
+            n_trees = "" if counts is None else str(counts.get(pos_number, 0))
             item = QTreeWidgetItem(
                 self.list_widget,
-                [folder, comment] if self.show_comment else [folder],
+                (
+                    [folder, n_trees, comment]
+                    if self.show_comment
+                    else [folder, n_trees]
+                ),
             )
             item.setData(0, Qt.UserRole, pos_number)
+            item.setTextAlignment(1, Qt.AlignCenter)
+            if counts is not None and counts.get(pos_number, 0) == 0:
+                item.setForeground(1, QColor("#e0a030"))
+                item.setToolTip(1, "No tracking data at this position")
 
             if current_pos is not None and pos_number == int(current_pos):
                 font = item.font(0)
@@ -757,6 +867,8 @@ class PositionSelectDialog(QDialog):
 
             item.setToolTip(0, f"Load position {pos_number:04d}")
 
+        self.list_widget.resizeColumnToContents(0)
+        self.list_widget.resizeColumnToContents(1)
         self.count_lbl.setText(
             f"{self.list_widget.topLevelItemCount()} position(s) available"
         )
