@@ -20,6 +20,7 @@
 
 ## Contents
 
+- [System requirements](#system-requirements)
 - [Installation](#installation)
 - [How to get started](#how-to-get-started)
 - [Load data](#load-data)
@@ -32,6 +33,12 @@
 - [Contributing](#contributing)
 - [License](#license)
 - [Issues](#issues)
+
+## System requirements
+
+- RAM: we recommend at least 16 GB for large datasets (for example, 800 time points, three channels, and three masks, which needed about 8 GB; tested with Python 3.12 on macOS, Apple M1, 16 GB RAM).
+- Disk: free space of about the size of the currently loaded position, since the images are stored in temporary files.
+- Exact tested package versions are in `requirements.txt`. To reproduce the environment, run `pip install -r requirements.txt` before `pip install .`.
 
 ## Installation
 
