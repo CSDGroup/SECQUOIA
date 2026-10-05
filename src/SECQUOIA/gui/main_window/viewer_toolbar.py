@@ -338,6 +338,7 @@ class ViewerToolbar:
 
         tool_strip._btn_brush.setToolTip(TOOLTIPSTEXT.BTN_BRUSH)
         tool_strip._btn_erase.setToolTip(TOOLTIPSTEXT.BTN_ERASE)
+        tool_strip._btn_lasso.setToolTip(TOOLTIPSTEXT.BTN_LASSO)
         tool_strip._btn_pan.setToolTip(TOOLTIPSTEXT.BTN_PAN)
 
         self._apply_default_row_selection(

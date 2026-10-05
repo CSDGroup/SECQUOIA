@@ -241,16 +241,7 @@ class KeyBindings:
 
         def _tool_hotkey(mode: str):
             """Activate a viewer interaction tool from a hotkey."""
-            v, ts = self._active_viewer_and_tools()
-            if not v or not ts:
-                return
-            if mode == "pan":
-                ts._btn_pan.setChecked(True)
-            elif mode == "erase":
-                ts._btn_erase.setChecked(True)
-            elif mode == "brush":
-                ts._btn_brush.setChecked(True)
-            self._focus_canvas(v)
+            self._activate_tool(mode)
 
         if not hasattr(self, "_tool_toggle_state"):
             self._tool_toggle_state = "erase"
@@ -266,6 +257,7 @@ class KeyBindings:
         add_hotkey("6", lambda: _tool_hotkey("pan"))
         add_hotkey("1", lambda: _tool_hotkey("erase"))
         add_hotkey("2", lambda: _tool_hotkey("brush"))
+        add_hotkey("3", lambda: _tool_hotkey("lasso"))
         add_hotkey_both(
             "P", _guard_if_typing(lambda: toggle_highlight_mode(self))
         )
@@ -353,6 +345,16 @@ class KeyBindings:
             pass
         return None, None
 
+    def _activate_tool(self, mode: str) -> None:
+        """Check the pan/erase/brush/lasso button of the focused viewer."""
+        v, ts = self._active_viewer_and_tools()
+        if not v or not ts:
+            return
+        button = getattr(ts, f"_btn_{mode}", None)
+        if button is not None:
+            button.setChecked(True)
+        self._focus_canvas(v)
+
     # napari's own 0/3/4/5/7/8/9 canvas shortcuts, suppressed so the keys can
     # be reused as SECQUOIA hotkeys.
     _BLOCKED_CANVAS_KEYS = (
@@ -426,6 +428,13 @@ class KeyBindings:
             QEvent.ShortcutOverride,
             QEvent.KeyPress,
         ) and self._is_blocked_canvas_key(obj, event):
+            # Key 3 is the lasso hotkey
+            if (
+                et == QEvent.KeyPress
+                and event.key() == Qt.Key_3
+                and not event.isAutoRepeat()
+            ):
+                self._activate_tool("lasso")
             event.accept()
             return True
 

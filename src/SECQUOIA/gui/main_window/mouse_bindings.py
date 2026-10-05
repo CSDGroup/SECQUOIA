@@ -17,11 +17,16 @@ from napari.layers.labels._labels_mouse_bindings import (
 from napari.layers.labels.labels import Labels as NapariLabels
 from qtpy.QtCore import Qt
 from qtpy.QtWidgets import QApplication
+from skimage.draw import polygon2mask
 
 from SECQUOIA.core.segmentation.mask_selection import (
+    _next_label_for_layer,
+    apply_all_mask_selections,
+    current_selection_row,
     ensure_current_df_subset,
     refresh_all_mask_selections_at_current,
 )
+from SECQUOIA.gui.cell_inspector.integration import notify_cell_inspector
 from SECQUOIA.utils.helpers import change_time_point
 from SECQUOIA.utils.plotting import (
     TIME_MODE_T,
@@ -164,6 +169,101 @@ class MouseBindings:
             yield
         self._finish_labels_edit(layer, "paint")
 
+    def _viewer_of_layer(self, layer):
+        """Return the napari viewer that holds `layer`, or None."""
+        for v in vars(self).values():
+            for cand in v if isinstance(v, (list | tuple)) else (v,):
+                if isinstance(cand, napari.Viewer) and layer in cand.layers:
+                    return cand
+        return None
+
+    def _lasso_line_for(self, viewer):
+        """Return the viewer's reusable preview line (a vispy visual, not a layer)."""
+        lines = self.__dict__.setdefault("_lasso_lines", {})
+        line = lines.get(id(viewer))
+        if line is None:
+            from vispy.scene.visuals import Line
+
+            scene = viewer.window._qt_viewer.canvas.view.scene
+            line = Line(
+                np.zeros((2, 2), np.float32),
+                color="yellow",
+                width=2,
+                parent=scene,
+            )
+            line.order = 10_000
+            line.set_gl_state("translucent", depth_test=False)
+            line.visible = False
+            lines[id(viewer)] = line
+        return line
+
+    def lasso(self, layer, event):
+        """Replace whatever is under a freehand closed shape with one new mask in the same layer (Shift erases)."""
+        if not getattr(layer, "_lasso_on", False) or event.button != 1:
+            return
+        viewer = self._viewer_of_layer(layer)
+        if viewer is None:
+            return
+        self._edit_begin(layer)
+        line = self._lasso_line_for(viewer)
+        disp = list(event.dims_displayed)
+        erase = "Shift" in event.modifiers
+        pts = [np.asarray(event.position, float)]
+        min_step = 2.0 / max(float(viewer.camera.zoom), 1e-6)
+        pan = viewer.camera.mouse_pan
+        viewer.camera.mouse_pan = False
+        try:
+            yield
+            while event.type == "mouse_move":
+                p = np.asarray(event.position, float)
+                if np.hypot(*(p[disp] - pts[-1][disp])) >= min_step:
+                    pts.append(p)
+                    xy = np.array([q[disp][::-1] for q in pts], np.float32)
+                    line.set_data(xy)
+                    line.visible = True
+                yield
+        finally:
+            viewer.camera.mouse_pan = pan
+            line.visible = False
+        if len(pts) < 3:
+            self._discard_edit_cache_entry(layer)
+            return
+        data_pts = np.array([layer.world_to_data(q) for q in pts])
+        new_label = None
+        if erase:
+            layer.paint_polygon(data_pts, 0)
+        else:
+            new_label = self._lasso_replace(layer, data_pts)
+        self._finish_labels_edit(layer, "lasso")
+        self._lasso_refresh_views()
+        if new_label is not None:
+            layer.selected_label = new_label
+
+    def _lasso_refresh_views(self) -> None:
+        """Reselect the cell's (possibly new) mask in every viewer and redraw the inspector."""
+        row = current_selection_row(self)
+        if row is not None:
+            apply_all_mask_selections(self, row, center_camera=False)
+        notify_cell_inspector(self, "_apply_label_edit")
+
+    @staticmethod
+    def _lasso_replace(layer, data_pts) -> int:
+        """Delete every mask the shape touches, then fill it with a fresh label."""
+        t = int(round(data_pts[0][0])) if layer.ndim == 3 else None
+        sl = layer.data[t] if t is not None else layer.data
+        inside = polygon2mask(sl.shape, data_pts[:, -2:].astype(int))
+        old = np.unique(sl[inside])
+        old = old[old != 0]
+        new_label = _next_label_for_layer(layer, t if t is not None else 0)
+        with layer.block_history():
+            if old.size:
+                yy, xx = np.nonzero(np.isin(sl, old))
+                idx = (yy, xx) if t is None else (np.full(yy.size, t), yy, xx)
+                layer.data_setitem(idx, 0)
+            layer.paint_polygon(data_pts, new_label)
+        layer.selected_label = int(new_label)
+        return int(new_label)
+
 
 def add_mouse_drag_to_segmentation_layer(
     main_window, base_name: str = "Segmentation"
@@ -246,6 +346,7 @@ def add_mouse_drag_to_segmentation_layer(
             ):
                 _ensure_attached_mouse_provider(layer, main_window.erase)
                 _ensure_attached_mouse_provider(layer, main_window.paint)
+                _ensure_attached_mouse_provider(layer, main_window.lasso)
                 attached_layers += 1
 
     if has_rclick:

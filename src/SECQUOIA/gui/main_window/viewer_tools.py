@@ -1,4 +1,4 @@
-"""Brush/erase/pan drawing-mode controls and new mask-ID creation."""
+"""Brush/erase/lasso/pan drawing-mode controls and new mask-ID creation."""
 
 import contextlib
 import logging
@@ -85,10 +85,14 @@ class ViewerTools:
                 "paint": LabelsMode.PAINT,
                 "erase": LabelsMode.ERASE,
                 "pan_zoom": LabelsMode.PAN_ZOOM,
+                "lasso": LabelsMode.PAN_ZOOM,
             }
             lyr.mode = mapping.get(mode_str, mode_str)
         except (RuntimeError, AttributeError, TypeError):
             lyr.mode = mode_str
+        for other in viewer.layers:
+            if isinstance(other, Labels):
+                other._lasso_on = other is lyr and mode_str == "lasso"
         self._focus_canvas(viewer)
 
     def _make_viewer_tools(self, viewer):
@@ -101,8 +105,9 @@ class ViewerTools:
         btn_brush = QPushButton()
         btn_erase = QPushButton()
         btn_pan = QPushButton()
+        btn_lasso = QPushButton()
 
-        for b in (btn_brush, btn_erase, btn_pan):
+        for b in (btn_brush, btn_erase, btn_lasso, btn_pan):
             b.setCheckable(True)
             b.setFocusPolicy(Qt.NoFocus)
             b.setMinimumWidth(26)
@@ -118,6 +123,7 @@ class ViewerTools:
                     {
                         "brush": "paintbrush",
                         "erase": "eraser",
+                        "lasso": "draw-polygon",
                         "pan": "up-down-left-right",
                     },
                 ),
@@ -126,6 +132,7 @@ class ViewerTools:
                     {
                         "brush": "paint-brush",
                         "erase": "eraser",
+                        "lasso": "draw-polygon",
                         "pan": "arrows-alt",
                     },
                 ),
@@ -134,6 +141,7 @@ class ViewerTools:
                     {
                         "brush": "paint-brush",
                         "erase": "eraser",
+                        "lasso": "object-group",
                         "pan": "arrows",
                     },
                 ),
@@ -142,6 +150,7 @@ class ViewerTools:
                     {
                         "brush": "brush",
                         "erase": "eraser",
+                        "lasso": "lasso",
                         "pan": "cursor-move",
                     },
                 ),
@@ -154,10 +163,13 @@ class ViewerTools:
                     btn_erase.setIcon(
                         qta.icon(f"{prefix}.{names['erase']}", color="white")
                     )
+                    btn_lasso.setIcon(
+                        qta.icon(f"{prefix}.{names['lasso']}", color="white")
+                    )
                     btn_pan.setIcon(
                         qta.icon(f"{prefix}.{names['pan']}", color="white")
                     )
-                    for b in (btn_brush, btn_erase, btn_pan):
+                    for b in (btn_brush, btn_erase, btn_lasso, btn_pan):
                         b.setIconSize(dpi_icon_size(b, TOOLBAR_ICON_PX))
                     used_icons = True
                     break
@@ -168,11 +180,12 @@ class ViewerTools:
         except (RuntimeError, AttributeError, TypeError):
             btn_brush.setText("B")
             btn_erase.setText("E")
+            btn_lasso.setText("L")
             btn_pan.setText("P")
 
         group = QButtonGroup(container)
         group.setExclusive(True)
-        for b in (btn_brush, btn_erase, btn_pan):
+        for b in (btn_brush, btn_erase, btn_lasso, btn_pan):
             group.addButton(b)
         btn_pan.setChecked(True)
 
@@ -183,6 +196,7 @@ class ViewerTools:
             if self._mask_selection_for_viewer(v) == 0 and mode in (
                 "paint",
                 "erase",
+                "lasso",
             ):
                 with contextlib.suppress(
                     RuntimeError, AttributeError, TypeError
@@ -196,6 +210,9 @@ class ViewerTools:
         )
         btn_erase.toggled.connect(
             lambda on, v=viewer: _guarded_mode_switch(on, v, "erase")
+        )
+        btn_lasso.toggled.connect(
+            lambda on, v=viewer: _guarded_mode_switch(on, v, "lasso")
         )
         btn_pan.toggled.connect(
             lambda on, v=viewer: _guarded_mode_switch(on, v, "pan_zoom")
@@ -241,7 +258,7 @@ class ViewerTools:
             )
             menu.exec_(btn.mapToGlobal(pos))
 
-        for b in (btn_brush, btn_erase):
+        for b in (btn_brush, btn_erase, btn_lasso):
             b.setContextMenuPolicy(Qt.CustomContextMenu)
             b.customContextMenuRequested.connect(
                 lambda pos, bb=b: _open_mask_menu(bb, pos)
@@ -249,11 +266,13 @@ class ViewerTools:
 
         box.addWidget(btn_brush)
         box.addWidget(btn_erase)
+        box.addWidget(btn_lasso)
         box.addWidget(btn_pan)
         container.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Fixed)
 
         container._btn_brush = btn_brush
         container._btn_erase = btn_erase
+        container._btn_lasso = btn_lasso
         container._btn_pan = btn_pan
         container._uses_icons = used_icons
         return container
@@ -321,6 +340,7 @@ class ViewerTools:
         try:
             tool_strip._btn_brush.setEnabled(not is_all)
             tool_strip._btn_erase.setEnabled(not is_all)
+            tool_strip._btn_lasso.setEnabled(not is_all)
             tool_strip._btn_pan.setEnabled(True)
             if is_all and not tool_strip._btn_pan.isChecked():
                 tool_strip._btn_pan.setChecked(True)

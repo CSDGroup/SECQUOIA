@@ -240,6 +240,9 @@ class TOOLTIPSTEXT:
     BTN_ERASE: str = (
         "Select a specific mask (not ALL) to enable the Erase tool (or press 1)."
     )
+    BTN_LASSO: str = (
+        "Select a specific mask (not ALL) to enable the Lasso tool (or press 3). "
+    )
     BTN_PAN: str = "Pan/Zoom (always available) or press 6."
 
     # Loading window
