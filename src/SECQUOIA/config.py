@@ -164,6 +164,7 @@ class PLOTPARAMETERS:
     RED: ClassVar[tuple[int, int, int, int]] = (230, 30, 30, 255)
     BLUE: ClassVar[tuple[int, int, int, int]] = (40, 110, 240, 255)
     YELLOW: ClassVar[tuple[int, int, int, int]] = (255, 215, 0, 255)
+    WHITE: ClassVar[tuple[int, int, int, int]] = (255, 255, 255, 255)
     OUTLIERSIZE: ClassVar[int] = 10
     DEFAULT_SYMBOL: ClassVar[str] = "o"
     DEFAULT_SYMBOL_SIZE: ClassVar[int] = 6

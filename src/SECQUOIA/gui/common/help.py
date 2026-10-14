@@ -53,7 +53,7 @@ class HelpDocs:
         "the next one\n"
         "- Purple stars mark time points with a second mask close by; the "
         "**Out** list includes those Tree-IDs\n"
-        "- On a flagged time point the assigned mask is red and the "
+        "- On a flagged time point the assigned mask is white and the "
         "candidate blue; right-click the correct mask or draw a new one to "
         "fix the assignment\n"
         "\n"

@@ -1,6 +1,6 @@
 """Show a close-mask case in napari.
 
-- the assigned mask in red and the candidate in blue, every other label
+- the assigned mask in white and the candidate in blue, every other label
   hidden.
 - a yellow line between the two centres. napari cannot draw a line without a
   layer, so each viewer gets one ``CloseMaskLink`` Shapes layer. It is created
@@ -230,7 +230,7 @@ def _recolor(layer, pair: MaskPair) -> None:
     """Colour the pair, hide every other label, and keep a brush label visible."""
     colors: dict = {None: _TRANSPARENT}
     if pair.assigned > 0:
-        colors[pair.assigned] = _rgba(PLOTPARAMETERS.RED)
+        colors[pair.assigned] = _rgba(PLOTPARAMETERS.WHITE)
     colors[pair.candidate] = _rgba(PLOTPARAMETERS.BLUE)
 
     selected = _int_label(getattr(layer, "selected_label", 0))

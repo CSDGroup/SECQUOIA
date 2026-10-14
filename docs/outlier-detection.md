@@ -72,9 +72,9 @@ The `Close masks` tab flags tracking points where a second mask lies close to th
 
 ### Reviewing Flagged Cases
 
-![Close masks viewer](images/outlier-close-masks_viewer.png)
+![Close masks viewer](images/outlier-close-masks-viewer.png)
 
-At a flagged time point, both napari viewers highlight the assigned mask in red and the candidate mask in blue, connected by a yellow line.
+At a flagged time point, both napari viewers highlight the assigned mask in white and the candidate mask in blue, connected by a yellow line.
 
 - Press `C` to mark the current case as reviewed. This clears its purple star and highlight, and jumps to the next flagged time point.
 - Editing the mask assignment at a flagged point also marks it reviewed automatically.
