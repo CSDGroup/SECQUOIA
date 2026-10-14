@@ -63,21 +63,21 @@ To configure the sliding window, specify the following:
 The `Close masks` tab flags tracking points where a second mask lies close to the one already assigned. This is useful for catching tracking points that were wrongly assigned to a mask.
 
 1. `Mask` — Select one or several masks.
-2. `Distance ≤` — Restrict the distance (px) between a tracking point and its second nearest segmentation mask. The maximum is capped by the matching distance set in the [loading window](/docs/loading-window.md)'s Segmentation tab.
+2. `Distance ≤` — Restrict the distance (pixel) between a tracking point and its second nearest segmentation mask. The maximum is capped by the matching distance set in the [loading window](/docs/loading-window.md)'s Segmentation tab.
 3. Click `Find` to flag every tracking point with a second mask within the above selected distance.
    - Flagged time points are marked with a purple star in the [dynamics plots](/docs/dynamics-plot.md).
    - All Tree-IDs with at least one flagged time point are listed in the `OUT` list.
 4. Click `Reset flags` to remove all `close mask flags`, including already reviewed ones.
 5. Click `Next →` to move to the `Run` tab.
 
-### Reviewing Flagged Cases
+### Reviewing close masks
 
 ![Close masks viewer](images/outlier-close-masks-viewer.png)
 
 At a flagged time point, both napari viewers highlight the assigned mask in white and the candidate mask in blue, connected by a yellow line.
 
-- Press `C` to mark the current case as reviewed. This clears its purple star and highlight, and jumps to the next flagged time point.
-- Editing the mask assignment at a flagged point also marks it reviewed automatically.
+- Press `C` to mark the current time point as reviewed. This clears its purple star and highlight, and jumps to the next flagged time point.
+- Editing the mask assignment at a flagged time point also marks it reviewed automatically.
 - If the current time point is both a flagged close-mask case and a plain outlier, `C` reviews the close-mask case first.
 
 ## Run Tab
