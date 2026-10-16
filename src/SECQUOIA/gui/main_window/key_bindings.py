@@ -258,6 +258,7 @@ class KeyBindings:
         add_hotkey("1", lambda: _tool_hotkey("erase"))
         add_hotkey("2", lambda: _tool_hotkey("brush"))
         add_hotkey("3", lambda: _tool_hotkey("lasso"))
+        add_hotkey("4", lambda: _tool_hotkey("click"))
         add_hotkey_both(
             "P", _guard_if_typing(lambda: toggle_highlight_mode(self))
         )
@@ -428,13 +429,14 @@ class KeyBindings:
             QEvent.ShortcutOverride,
             QEvent.KeyPress,
         ) and self._is_blocked_canvas_key(obj, event):
-            # Key 3 is the lasso hotkey
             if (
                 et == QEvent.KeyPress
-                and event.key() == Qt.Key_3
+                and event.key() in (Qt.Key_3, Qt.Key_4)
                 and not event.isAutoRepeat()
             ):
-                self._activate_tool("lasso")
+                self._activate_tool(
+                    "lasso" if event.key() == Qt.Key_3 else "click"
+                )
             event.accept()
             return True
 

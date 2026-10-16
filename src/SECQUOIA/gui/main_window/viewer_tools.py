@@ -2,6 +2,7 @@
 
 import contextlib
 import logging
+import threading
 
 import numpy as np
 import qtawesome as qta
@@ -86,6 +87,7 @@ class ViewerTools:
                 "erase": LabelsMode.ERASE,
                 "pan_zoom": LabelsMode.PAN_ZOOM,
                 "lasso": LabelsMode.PAN_ZOOM,
+                "click": LabelsMode.PAN_ZOOM,
             }
             lyr.mode = mapping.get(mode_str, mode_str)
         except (RuntimeError, AttributeError, TypeError):
@@ -93,6 +95,13 @@ class ViewerTools:
         for other in viewer.layers:
             if isinstance(other, Labels):
                 other._lasso_on = other is lyr and mode_str == "lasso"
+                other._click_on = other is lyr and mode_str == "click"
+        if mode_str == "click":
+            from SECQUOIA.core.segmentation.click_segment import (
+                preload_cellpose,
+            )
+
+            threading.Thread(target=preload_cellpose, daemon=True).start()
         self._focus_canvas(viewer)
 
     def _make_viewer_tools(self, viewer):
@@ -106,8 +115,9 @@ class ViewerTools:
         btn_erase = QPushButton()
         btn_pan = QPushButton()
         btn_lasso = QPushButton()
+        btn_click = QPushButton()
 
-        for b in (btn_brush, btn_erase, btn_lasso, btn_pan):
+        for b in (btn_brush, btn_erase, btn_lasso, btn_click, btn_pan):
             b.setCheckable(True)
             b.setFocusPolicy(Qt.NoFocus)
             b.setMinimumWidth(26)
@@ -124,6 +134,7 @@ class ViewerTools:
                         "brush": "paintbrush",
                         "erase": "eraser",
                         "lasso": "draw-polygon",
+                        "click": "wand-magic-sparkles",
                         "pan": "up-down-left-right",
                     },
                 ),
@@ -133,6 +144,7 @@ class ViewerTools:
                         "brush": "paint-brush",
                         "erase": "eraser",
                         "lasso": "draw-polygon",
+                        "click": "magic",
                         "pan": "arrows-alt",
                     },
                 ),
@@ -142,6 +154,7 @@ class ViewerTools:
                         "brush": "paint-brush",
                         "erase": "eraser",
                         "lasso": "object-group",
+                        "click": "magic",
                         "pan": "arrows",
                     },
                 ),
@@ -151,6 +164,7 @@ class ViewerTools:
                         "brush": "brush",
                         "erase": "eraser",
                         "lasso": "lasso",
+                        "click": "auto-fix",
                         "pan": "cursor-move",
                     },
                 ),
@@ -166,10 +180,19 @@ class ViewerTools:
                     btn_lasso.setIcon(
                         qta.icon(f"{prefix}.{names['lasso']}", color="white")
                     )
+                    btn_click.setIcon(
+                        qta.icon(f"{prefix}.{names['click']}", color="white")
+                    )
                     btn_pan.setIcon(
                         qta.icon(f"{prefix}.{names['pan']}", color="white")
                     )
-                    for b in (btn_brush, btn_erase, btn_lasso, btn_pan):
+                    for b in (
+                        btn_brush,
+                        btn_erase,
+                        btn_lasso,
+                        btn_click,
+                        btn_pan,
+                    ):
                         b.setIconSize(dpi_icon_size(b, TOOLBAR_ICON_PX))
                     used_icons = True
                     break
@@ -181,11 +204,12 @@ class ViewerTools:
             btn_brush.setText("B")
             btn_erase.setText("E")
             btn_lasso.setText("L")
+            btn_click.setText("C")
             btn_pan.setText("P")
 
         group = QButtonGroup(container)
         group.setExclusive(True)
-        for b in (btn_brush, btn_erase, btn_lasso, btn_pan):
+        for b in (btn_brush, btn_erase, btn_lasso, btn_click, btn_pan):
             group.addButton(b)
         btn_pan.setChecked(True)
 
@@ -197,6 +221,7 @@ class ViewerTools:
                 "paint",
                 "erase",
                 "lasso",
+                "click",
             ):
                 with contextlib.suppress(
                     RuntimeError, AttributeError, TypeError
@@ -213,6 +238,9 @@ class ViewerTools:
         )
         btn_lasso.toggled.connect(
             lambda on, v=viewer: _guarded_mode_switch(on, v, "lasso")
+        )
+        btn_click.toggled.connect(
+            lambda on, v=viewer: _guarded_mode_switch(on, v, "click")
         )
         btn_pan.toggled.connect(
             lambda on, v=viewer: _guarded_mode_switch(on, v, "pan_zoom")
@@ -264,15 +292,28 @@ class ViewerTools:
                 lambda pos, bb=b: _open_mask_menu(bb, pos)
             )
 
+        def _open_click_settings(*_):
+            """Right-click on the click-segment button opens its settings."""
+            from SECQUOIA.gui.dialogs.click_segment_dialog import (
+                open_click_segment_dialog,
+            )
+
+            open_click_segment_dialog(self)
+
+        btn_click.setContextMenuPolicy(Qt.CustomContextMenu)
+        btn_click.customContextMenuRequested.connect(_open_click_settings)
+
         box.addWidget(btn_brush)
         box.addWidget(btn_erase)
         box.addWidget(btn_lasso)
+        box.addWidget(btn_click)
         box.addWidget(btn_pan)
         container.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Fixed)
 
         container._btn_brush = btn_brush
         container._btn_erase = btn_erase
         container._btn_lasso = btn_lasso
+        container._btn_click = btn_click
         container._btn_pan = btn_pan
         container._uses_icons = used_icons
         return container
@@ -329,11 +370,7 @@ class ViewerTools:
         return 0
 
     def _enforce_tool_state_for_mask(self, viewer, tool_strip):
-        """Enable or disable Brush/Erase according to the mask selection.
-
-        With "ALL" selected (mask id 0) there is no single target layer to draw
-        into, so both are disabled and Pan is forced on.
-        """
+        """Enable or disable the editing tools according to the mask selection."""
         if viewer is None or tool_strip is None:
             return
         is_all = self._mask_selection_for_viewer(viewer) == 0
@@ -341,8 +378,19 @@ class ViewerTools:
             tool_strip._btn_brush.setEnabled(not is_all)
             tool_strip._btn_erase.setEnabled(not is_all)
             tool_strip._btn_lasso.setEnabled(not is_all)
+            tool_strip._btn_click.setEnabled(not is_all)
             tool_strip._btn_pan.setEnabled(True)
             if is_all and not tool_strip._btn_pan.isChecked():
                 tool_strip._btn_pan.setChecked(True)
+            if not is_all:
+                for mode, button in (
+                    ("paint", tool_strip._btn_brush),
+                    ("erase", tool_strip._btn_erase),
+                    ("lasso", tool_strip._btn_lasso),
+                    ("click", tool_strip._btn_click),
+                ):
+                    if button.isChecked():
+                        self._set_labels_mode(viewer, mode)
+                        break
         except (RuntimeError, AttributeError, TypeError):
             pass

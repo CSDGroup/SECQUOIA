@@ -4,6 +4,7 @@
 
 import contextlib
 import logging
+import time
 from types import MethodType
 
 import napari
@@ -19,6 +20,12 @@ from qtpy.QtCore import Qt
 from qtpy.QtWidgets import QApplication
 from skimage.draw import polygon2mask
 
+from SECQUOIA.core.quantification.remeasure_object import mask_index_for_layer
+from SECQUOIA.core.segmentation.click_segment import (
+    ClickSettings,
+    ClickSettingsSet,
+    segment_at,
+)
 from SECQUOIA.core.segmentation.mask_selection import (
     _next_label_for_layer,
     apply_all_mask_selections,
@@ -35,6 +42,25 @@ from SECQUOIA.utils.plotting import (
 )
 
 LOG = logging.getLogger(__name__)
+
+# Errors a click can raise while it is read, started or written. They are
+# logged so that they never reach napari's mouse handling.
+_CLICK_ERRORS = (
+    AttributeError,
+    IndexError,
+    KeyError,
+    RuntimeError,
+    TypeError,
+    ValueError,
+)
+
+
+def click_settings_for(main_window, layer) -> ClickSettings:
+    """The click-segment values for the mask `layer` shows (its own, else the shared default)."""
+    cfg = getattr(main_window, "click_segment_settings", None)
+    if isinstance(cfg, ClickSettingsSet):
+        return cfg.for_mask(mask_index_for_layer(main_window, layer))
+    return cfg if isinstance(cfg, ClickSettings) else ClickSettings()
 
 
 class MouseBindings:
@@ -239,6 +265,146 @@ class MouseBindings:
         if new_label is not None:
             layer.selected_label = new_label
 
+    def click_segment(self, layer, event):
+        """Segment the clicked cell into the layer: Ctrl/Cmd+click uses Cellpose, a plain click the watershed."""
+        if not getattr(layer, "_click_on", False) or event.button != 1:
+            return
+        try:
+            job = self._click_job(layer, event)
+        except _CLICK_ERRORS:
+            LOG.exception("[click-segment] could not read the click")
+            return
+        if job is None:
+            return
+        yield  # act on release so a drag still pans
+        while event.type == "mouse_move":
+            yield
+        try:
+            self._click_segment_in_background(
+                *job, click_settings_for(self, layer)
+            )
+        except _CLICK_ERRORS:
+            LOG.exception("[click-segment] could not start the segmentation")
+
+    @staticmethod
+    def _visible_image_at(viewer, t):
+        """Grey 2D copy of the topmost visible Image layer at time t (None if there is none)."""
+        for lyr in reversed(list(viewer.layers)):
+            if isinstance(lyr, napari.layers.Image) and lyr.visible:
+                image = np.array(lyr.data[t] if t is not None else lyr.data)
+                if image.ndim == 3:  # RGB or channel stack -> grey
+                    image = image.mean(
+                        axis=-1 if image.shape[-1] in (3, 4) else 0
+                    )
+                return image
+        return None
+
+    def _click_job(self, layer, event):
+        """Collect (viewer, layer, t, y, x, image, engine) for a click, or None if it cannot be used."""
+        viewer = self._viewer_of_layer(layer)
+        if viewer is None:
+            return None
+        pos = layer.world_to_data(np.asarray(event.position, float))
+        y, x = int(round(pos[-2])), int(round(pos[-1]))
+        t = int(round(pos[0])) if layer.ndim == 3 else None
+        image = self._visible_image_at(viewer, t)
+        if image is None or not (
+            0 <= y < image.shape[0] and 0 <= x < image.shape[1]
+        ):
+            return None
+        engine = (
+            "cellpose"
+            if "Control" in event.modifiers or "Meta" in event.modifiers
+            else "watershed"
+        )
+        return viewer, layer, t, y, x, image, engine
+
+    def _click_segment_in_background(
+        self, viewer, layer, t, y, x, image, engine, settings
+    ) -> None:
+        """Run `segment_at` off the UI thread, then write the mask on the UI thread."""
+        from napari.qt.threading import thread_worker
+
+        @thread_worker
+        def _work():
+            start = time.perf_counter()
+            return (
+                *segment_at(image, y, x, engine, settings),
+                time.perf_counter() - start,
+            )
+
+        def _done(result):
+            mask, used, secs = result
+            if layer not in viewer.layers or (
+                int(getattr(self, "current_time_index", 0)) != (t or 0)
+            ):
+                return  # layer removed or frame changed while segmenting
+            start = time.perf_counter()
+            try:
+                self._click_apply(layer, t, y, x, mask)
+            except _CLICK_ERRORS:
+                LOG.exception("[click-segment] could not write the mask")
+                viewer.status = "Click-segment failed (see log)"
+                return
+            apply_secs = time.perf_counter() - start
+            viewer.status = f"Segmented with {used} ({secs:.1f} s)"
+            LOG.info(
+                "[click-segment] %s segmentation %.2f s, apply %.2f s",
+                used,
+                secs,
+                apply_secs,
+            )
+
+        worker = _work()
+
+        def _failed(exc):
+            viewer.status = "Click-segment failed (see log)"
+            LOG.error("[click-segment] segmentation failed: %r", exc)
+
+        worker.returned.connect(_done)
+        worker.errored.connect(_failed)
+        self.__dict__.setdefault("_click_workers", set()).add(worker)
+        worker.finished.connect(lambda: self._click_workers.discard(worker))
+        viewer.status = f"Segmenting cell ({engine})..."
+        worker.start()
+
+    @staticmethod
+    def _masks_replaced_by(sl, mask, hit: int) -> list[int]:
+        """Labels the new shape replaces: the clicked one and any mask it mostly covers."""
+        labels, counts = np.unique(sl[mask], return_counts=True)
+        replaced = {
+            int(lab): int(n)
+            for lab, n in zip(labels, counts, strict=True)
+            if lab and (lab == hit or n >= 0.5 * np.count_nonzero(sl == lab))
+        }
+        if hit:
+            replaced.setdefault(hit, 0)
+        # Largest overlap first: that label is reused so the cell keeps its identity.
+        return sorted(replaced, key=lambda lab: (lab != hit, -replaced[lab]))
+
+    def _click_apply(self, layer, t, y, x, mask) -> None:
+        """Replace the mask(s) of the clicked cell, or add a new one on background; other masks stay intact."""
+        sl = layer.data[t] if t is not None else layer.data
+        old = self._masks_replaced_by(sl, mask, int(sl[y, x]))
+        region = mask & (np.isin(sl, [0, *old]))
+        if not region.any():
+            return
+        label = old[0] if old else _next_label_for_layer(layer, t or 0)
+
+        def _set(where, value):
+            yy, xx = np.nonzero(where)
+            idx = (yy, xx) if t is None else (np.full(yy.size, t), yy, xx)
+            layer.data_setitem(idx, value)
+
+        self._edit_begin(layer)
+        with layer.block_history():
+            if old:
+                _set(np.isin(sl, old), 0)
+            _set(region, int(label))
+        self._finish_labels_edit(layer, "click-segment")
+        self._lasso_refresh_views()
+        layer.selected_label = int(label)
+
     def _lasso_refresh_views(self) -> None:
         """Reselect the cell's (possibly new) mask in every viewer and redraw the inspector."""
         row = current_selection_row(self)
@@ -347,6 +513,9 @@ def add_mouse_drag_to_segmentation_layer(
                 _ensure_attached_mouse_provider(layer, main_window.erase)
                 _ensure_attached_mouse_provider(layer, main_window.paint)
                 _ensure_attached_mouse_provider(layer, main_window.lasso)
+                _ensure_attached_mouse_provider(
+                    layer, main_window.click_segment
+                )
                 attached_layers += 1
 
     if has_rclick:

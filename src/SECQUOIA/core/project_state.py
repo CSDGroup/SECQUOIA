@@ -11,6 +11,7 @@ from contextlib import suppress
 import pandas as pd
 from qtpy.QtWidgets import QLineEdit, QMessageBox
 
+from SECQUOIA.core.segmentation.click_segment import ClickSettingsSet
 from SECQUOIA.core.tracking.clt_io import CLTParser
 from SECQUOIA.utils.io_reload import dump_json_with_reload, to_csv_with_reload
 from SECQUOIA.utils.paths import project_analysis_dir
@@ -239,6 +240,9 @@ def save_project_state(main_window) -> None:
                 main_window, "selected_feature_by_row", {}
             ),
         },
+        "click_segment_settings": getattr(
+            main_window, "click_segment_settings", ClickSettingsSet()
+        ).to_dict(),
         "track_df_csv_path": expected_track_csv,
         "user": getattr(main_window, "user", None),
         "saved_at": _dt.datetime.now().isoformat(timespec="seconds"),
@@ -412,6 +416,10 @@ def load_project_state(main_window, json_path=None) -> bool:
     ):
         setattr(main_window, "folder" if k == "experiment_root" else k, s[k])
 
+    main_window.click_segment_settings = ClickSettingsSet.from_dict(
+        s.get("click_segment_settings")
+    )
+
     if main_window.tracking_format == "tTt":
         _restore_clt_parser(main_window)
 
@@ -440,7 +448,6 @@ def load_project_state(main_window, json_path=None) -> bool:
         int(k): v
         for k, v in metric_state.get("selected_feature_by_row", {}).items()
     }
-    # Make restored calculated features visible to dynamics plots
     main_window._feature_defs = getattr(main_window, "_feature_defs", {}) or {}
     main_window._feature_defs.update(main_window._derived_features)
     _rehydrate_after_project_load(main_window, s)

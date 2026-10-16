@@ -329,3 +329,81 @@ class TestLoadProjectState:
             target.track_df.reset_index(drop=True),
             track_frame().reset_index(drop=True),
         )
+
+
+class TestClickSegmentSettings:
+    def test_defaults_are_written_to_the_metadata(self, saved_window):
+        with open(saved_window.project_state_path) as f:
+            state = json.load(f)
+
+        assert state["click_segment_settings"] == {
+            "default": {
+                "smoothing": 1.0,
+                "edge_sensitivity": 0.5,
+                "cellprob_threshold": 0.0,
+                "diameter": None,
+                "mask_size": 0,
+            },
+            "masks": {},
+        }
+
+    def test_default_and_per_mask_settings_survive_a_save_and_load(
+        self, fake_main_window, saved_window
+    ):
+        from SECQUOIA.core.segmentation.click_segment import (
+            ClickSettings,
+            ClickSettingsSet,
+        )
+
+        saved_window.click_segment_settings = ClickSettingsSet(
+            default=ClickSettings(2.5, 0.9, -2.0, 35.0),
+            overrides={2: ClickSettings(mask_size=-2)},
+        )
+        save_project_state(saved_window)
+
+        target = fake_main_window()
+        assert load_project_state(target, saved_window.project_state_path)
+
+        assert (
+            target.click_segment_settings
+            == saved_window.click_segment_settings
+        )
+        assert target.click_segment_settings.for_mask(2).mask_size == -2
+        assert target.click_segment_settings.for_mask(1).smoothing == 2.5
+
+    def test_a_flat_block_from_before_per_mask_settings_becomes_the_default(
+        self, fake_main_window, saved_window
+    ):
+        from SECQUOIA.core.segmentation.click_segment import (
+            ClickSettings,
+            ClickSettingsSet,
+        )
+
+        with open(saved_window.project_state_path) as f:
+            state = json.load(f)
+        state["click_segment_settings"] = {"smoothing": 2.0, "mask_size": -1}
+        with open(saved_window.project_state_path, "w") as f:
+            json.dump(state, f)
+
+        target = fake_main_window()
+        assert load_project_state(target, saved_window.project_state_path)
+
+        assert target.click_segment_settings == ClickSettingsSet(
+            default=ClickSettings(smoothing=2.0, mask_size=-1)
+        )
+
+    def test_metadata_from_before_the_feature_loads_with_defaults(
+        self, fake_main_window, saved_window
+    ):
+        from SECQUOIA.core.segmentation.click_segment import ClickSettingsSet
+
+        with open(saved_window.project_state_path) as f:
+            state = json.load(f)
+        del state["click_segment_settings"]
+        with open(saved_window.project_state_path, "w") as f:
+            json.dump(state, f)
+
+        target = fake_main_window()
+        assert load_project_state(target, saved_window.project_state_path)
+
+        assert target.click_segment_settings == ClickSettingsSet()

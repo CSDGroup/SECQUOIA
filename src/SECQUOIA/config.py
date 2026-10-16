@@ -207,6 +207,9 @@ class LINKS:
         "https://github.com/CSDGroup/SECQUOIA/blob/main/docs/"
         "data-formats.md#create-additional-parsing-patterns"
     )
+    GITHUB_VIEWER: str = (
+        "https://github.com/CSDGroup/SECQUOIA/blob/main/docs/viewer.md"
+    )
     GITHUB_DYNAMICS_PLOT: str = (
         "https://github.com/CSDGroup/SECQUOIA/blob/main/docs/dynamics-plot.md"
     )
@@ -243,7 +246,33 @@ class TOOLTIPSTEXT:
     BTN_LASSO: str = (
         "Select a specific mask (not ALL) to enable the Lasso tool (or press 3). "
     )
+    BTN_CLICK: str = (
+        "Select a specific mask (not ALL) to enable the Click-segment tool "
+        "(or press 4). Ctrl+click (Cmd on Mac) uses Cellpose."
+    )
     BTN_PAN: str = "Pan/Zoom (always available) or press 6."
+    CLICK_HELP: str = "Open the viewer help page in your web browser."
+    CLICK_TARGET: str = "Choose which mask the values below apply to."
+    CLICK_INHERIT: str = "Untick to give this mask its own values."
+    CLICK_SMOOTHING: str = (
+        "Watershed: blur (px) before finding edges. Raise it for noisy, "
+        "dim cells."
+    )
+    CLICK_EDGE_SENSITIVITY: str = (
+        "Watershed: how far the mask grows over similar intensity. "
+        "Higher values give larger masks."
+    )
+    CLICK_CELLPROB: str = (
+        "Cellpose: lower values give larger masks and find fainter cells."
+    )
+    CLICK_DIAMETER: str = (
+        "Cellpose: expected cell diameter in pixels. Auto lets Cellpose "
+        "decide."
+    )
+    CLICK_MASK_SIZE: str = (
+        "Both methods, applied last: positive values grow the mask and "
+        "negative values shrink it, by this many pixels."
+    )
 
     # Loading window
     USER: str = "Enter user initials in tTt format."

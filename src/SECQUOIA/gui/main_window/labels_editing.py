@@ -433,8 +433,10 @@ class LabelsEditing:
         mode = (
             getattr(getattr(layer, "mode", None), "name", layer.mode) or ""
         ).lower()
-        return mode in ("paint", "erase") or bool(
-            getattr(layer, "_lasso_on", False)
+        return (
+            mode in ("paint", "erase")
+            or bool(getattr(layer, "_lasso_on", False))
+            or bool(getattr(layer, "_click_on", False))
         )
 
     def _nudge_target_layer(self):

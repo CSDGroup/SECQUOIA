@@ -72,6 +72,8 @@ class HelpDocs:
         "- **1** → Eraser tool\n"
         "- **2** → Paint tool\n"
         "- **3** → Lasso tool\n"
+        "- **4** → Click-segment tool: click a cell to segment it "
+        "(**Ctrl/Cmd+click** uses Cellpose instead)\n"
         "- **Space** → Toggle between Eraser & Paint\n"
         "- **6** → Pan/Zoom tool\n"
         "- **Alt + +** → Increase brush size\n"

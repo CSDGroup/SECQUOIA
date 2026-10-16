@@ -49,6 +49,10 @@ Issues = "https://github.com/CSDGroup/SECQUOIA/issues"
 
 [project.optional-dependencies]
 
+cellpose = [
+    "cellpose>=4,<5",  # optional: Ctrl+click segmentation in the viewer
+]
+
 testing = [
     "tox>=4.44,<5",
     "pre-commit>=4.0,<5",
