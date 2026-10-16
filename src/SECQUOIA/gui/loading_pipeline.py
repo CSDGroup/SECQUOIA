@@ -4,9 +4,13 @@ from __future__ import annotations
 
 import concurrent.futures
 import contextlib
+import copy
 import logging
 import os
+import shutil
+import tempfile
 import threading
+from types import SimpleNamespace
 
 from qtpy.QtCore import QObject, Qt, QTimer, Signal, Slot
 from qtpy.QtWidgets import QApplication, QLabel, QProgressBar
@@ -37,6 +41,9 @@ from SECQUOIA.utils.positions import (
 from SECQUOIA.utils.profiling import PositionRun
 from SECQUOIA.utils.timing import (
     current_t_range as _current_t_range,
+)
+from SECQUOIA.utils.timing import (
+    rebase_track_df_to_t_range,
 )
 
 LOG = logging.getLogger(__name__)
@@ -78,7 +85,7 @@ class SharedProgress(QObject):
             )
         pct = int(round(total * 100))
         pct = 0 if pct < 0 else 100 if pct > 100 else pct
-        self.progressed.emit(pct, msg or f"{part}: {int(frac*100)}%")
+        self.progressed.emit(pct, msg or f"{part}: {int(frac * 100)}%")
 
 
 class UiProgressBridge(QObject):
@@ -210,6 +217,14 @@ def run_loading(main_window) -> None:
     _load_data(main_window)
 
 
+def _rebase_to_t_range(main_window) -> None:
+    """Filter ``track_df`` to the selected t range and rebase ``t`` to 0."""
+    try:
+        rebase_track_df_to_t_range(main_window)
+    except (RuntimeError, AttributeError, TypeError, ValueError) as e:
+        LOG.warning("Could not filter/rebase CSV to t range: %s", e)
+
+
 def _load_data(main_window) -> None:
     """Load fluorescence images and masks for the current position, then
     measure it (or reuse cached measurements) and refresh the viewer."""
@@ -250,7 +265,6 @@ def _load_data(main_window) -> None:
     run = PositionRun.start(position, mode="Positions")
 
     # Load BaSiC metrics (if enabled + available)
-    _, _, t_idx_min, t_idx_max = _current_t_range(main_window)
     t_file_min, t_file_max = _prepare_basic_correction_inputs(main_window)
 
     seg_input = getattr(main_window, "segmentation_paths", None)
@@ -280,19 +294,7 @@ def _load_data(main_window) -> None:
     stack = [future_fl, future_segmentation]
 
     def _finish_loading_steps():
-        try:
-            if (
-                hasattr(main_window, "track_df")
-                and "t" in main_window.track_df.columns
-            ):
-                mwdf = main_window.track_df
-                mwdf = mwdf[
-                    (mwdf["t"] >= t_idx_min) & (mwdf["t"] <= t_idx_max)
-                ].copy()
-                mwdf["t"] = mwdf["t"] - t_idx_min
-                main_window.track_df = mwdf
-        except (RuntimeError, AttributeError, TypeError) as e:
-            LOG.warning("Could not filter/rebase CSV to t range: %s", e)
+        _rebase_to_t_range(main_window)
 
         skip_measure = False
         try:
@@ -518,6 +520,215 @@ def _set_position_name_label(main_window, pnum: int) -> None:
             name_label.setText(f"p{pnum:04d}")
 
 
+_PREFETCH_ATTRS = (
+    "n_channels",
+    "ids_channels",
+    "image_format",
+    "fl_max_workers",
+    "basic_max_workers",
+    "time_min_selected",
+    "time_max_selected",
+)
+
+_LOADED_INPUT_ATTRS = (
+    "images",
+    "image_present",
+    "_memmap_files",
+    "_memmap_dir",
+    "_memmap_lock",
+    "_export_display_range",
+    "labels",
+)
+
+_BASIC_OUTPUT_ATTRS = (
+    "corrected_images_ratioflat",
+    "corrected_images_noratioflat",
+    "_ratioflat_memmap_files",
+    "_noratioflat_memmap_files",
+    "basic_valid_frames",
+)
+
+_PREFETCH_MARGIN = 1.2
+_PREFETCH_RESERVE_BYTES = 2 * 1024**3
+
+_LOAD_ERRORS = (
+    RuntimeError,
+    AttributeError,
+    ValueError,
+    TypeError,
+    OSError,
+    KeyError,
+)
+
+
+def _nbytes(obj) -> int:
+    """Total bytes of the arrays in `obj`."""
+    if isinstance(obj, dict):
+        return sum(_nbytes(v) for v in obj.values())
+    if isinstance(obj, list | tuple):
+        return sum(_nbytes(v) for v in obj)
+    return int(getattr(obj, "nbytes", 0) or 0)
+
+
+def _prefetch_needs(main_window) -> tuple[int, int, int]:
+    """Estimated (raw disk, BaSiC disk, RAM) bytes to prefetch one position."""
+    images = getattr(main_window, "images", None) or {}
+    basic = getattr(main_window, "basic", None)
+    basic_disk = 0
+    if getattr(basic, "flag", False):
+        for channel in getattr(basic, "darkfield", None) or {}:
+            stack = images.get(channel)
+            basic_disk += 2 * 4 * int(getattr(stack, "size", 0) or 0)
+    ram = _nbytes(getattr(main_window, "labels", None))
+    return _nbytes(images), basic_disk, ram
+
+
+def _free_resources() -> tuple[int, int]:
+    """(available RAM, free scratch disk) in bytes."""
+    import psutil
+
+    ram = int(psutil.virtual_memory().available)
+    disk = int(shutil.disk_usage(tempfile.gettempdir()).free)
+    return ram, disk
+
+
+def _prefetch_plan(main_window) -> str | None:
+    """How much of the next position may be prefetched right now."""
+    raw_disk, basic_disk, ram_need = _prefetch_needs(main_window)
+    try:
+        ram_free, disk_free = _free_resources()
+    except (ImportError, OSError) as e:
+        LOG.warning("[prefetch] free RAM/disk unknown (%s); no prefetch.", e)
+        return None
+
+    def fits(need: int, free: int) -> bool:
+        return need * _PREFETCH_MARGIN + _PREFETCH_RESERVE_BYTES <= free
+
+    if not (fits(ram_need, ram_free) and fits(raw_disk, disk_free)):
+        return None
+    if basic_disk and not fits(raw_disk + basic_disk, disk_free):
+        return "images"
+    return "full"
+
+
+def _load_position_inputs(staging, segmentation_paths, tmin: int, tmax: int):
+    """Load one position's masks and FL images into `staging`, then BaSiC."""
+    try:
+        staging.labels = load_masks(
+            segmentation_paths,
+            staging.position_selection,
+            staging.image_format,
+            t_file_min=tmin,
+            t_file_max=tmax,
+        )
+        load_fl_channels(staging)
+        staging.basic_done = False
+        if getattr(staging.basic, "flag", False):
+            staging.basic.update_all(position=staging.current_position_number)
+            apply_basic_correction(staging)
+            staging.basic_done = True
+    except BaseException:
+        cleanup_memmaps(staging, remove_viewer_image_layers=False)
+        raise
+    return staging
+
+
+class _NextPositionPrefetch:
+    """Loads the next position's images, masks and BaSiC in the background."""
+
+    def __init__(self, main_window, tmin: int, tmax: int) -> None:
+        self._main_window = main_window
+        self._tmin, self._tmax = tmin, tmax
+        self._executor = concurrent.futures.ThreadPoolExecutor(
+            max_workers=1, thread_name_prefix="prefetch"
+        )
+        self._pending: tuple[int, concurrent.futures.Future] | None = None
+
+    def start(self, pnum: int, ppath: str) -> str | None:
+        """Begin loading `pnum` if resources allow; returns the plan used."""
+        self._discard()
+        mw = self._main_window
+        plan = _prefetch_plan(mw)
+        if plan is None:
+            LOG.warning(
+                "[prefetch] p%04d not prefetched: not enough free RAM or "
+                "scratch disk; it loads after the current position.",
+                pnum,
+            )
+            return None
+        if plan == "images":
+            LOG.info(
+                "[prefetch] p%04d: not enough scratch disk to prefetch BaSiC "
+                "too; it runs after the current position.",
+                pnum,
+            )
+        basic = getattr(mw, "basic", None)
+        staging = SimpleNamespace(
+            **{attr: getattr(mw, attr, None) for attr in _PREFETCH_ATTRS},
+            position_selection=ppath,
+            current_position_number=int(pnum),
+            _memmap_dir=None,
+            basic=copy.copy(basic) if plan == "full" else None,
+        )
+        for ci in range(int(mw.n_channels)):
+            name = f"FL_identifiers_{ci + 1}"
+            setattr(staging, name, getattr(mw, name, None))
+        future = self._executor.submit(
+            _load_position_inputs,
+            staging,
+            getattr(mw, "segmentation_paths", []),
+            self._tmin,
+            self._tmax,
+        )
+        self._pending = (int(pnum), future)
+        return plan
+
+    def take(self, pnum: int) -> concurrent.futures.Future | None:
+        """The prefetch for `pnum`, or None when none was started for it."""
+        if self._pending is None or self._pending[0] != int(pnum):
+            self._discard()
+            return None
+        future = self._pending[1]
+        self._pending = None
+        return future
+
+    def close(self) -> None:
+        """Drop an unused prefetch and stop the background thread."""
+        self._discard()
+        self._executor.shutdown(wait=True)
+
+    def _discard(self) -> None:
+        """Wait for an unused prefetch and delete its scratch files."""
+        if self._pending is None:
+            return
+        _pnum, future = self._pending
+        self._pending = None
+        try:
+            staging = future.result()
+        except _LOAD_ERRORS:
+            return
+        cleanup_memmaps(staging, remove_viewer_image_layers=False)
+
+
+def _adopt_prefetched_inputs(main_window, future, pnum: int):
+    """Hand a prefetched position to `main_window`."""
+    try:
+        staging = future.result()
+    except _LOAD_ERRORS as e:
+        LOG.warning(
+            "[run_all_positions] prefetch of p%04d failed (%s); loading it now.",
+            pnum,
+            e,
+        )
+        return None
+    attrs = _LOADED_INPUT_ATTRS
+    if staging.basic_done:
+        attrs += _BASIC_OUTPUT_ATTRS
+    for attr in attrs:
+        setattr(main_window, attr, getattr(staging, attr, None))
+    return staging
+
+
 def _process_one_position(
     main_window,
     pnum: int,
@@ -527,6 +738,8 @@ def _process_one_position(
     tmax: int,
     setp,
     setmsg,
+    prefetch: _NextPositionPrefetch | None = None,
+    next_item: tuple[int, str] | None = None,
 ) -> None:
     """Select, load, correct, mask, and quantify a single position."""
     main_window.position_selection = ppath
@@ -539,37 +752,68 @@ def _process_one_position(
     setp(0)
     setmsg(f"p{pnum:04d}: preparing…")
 
+    def _start_next_prefetch():
+        if prefetch is None or next_item is None:
+            return
+        if prefetch.start(*next_item) is None:
+            setmsg(f"p{next_item[0]:04d}: not prefetched (low RAM or disk)")
+
+    prefetched = prefetch.take(pnum) if prefetch is not None else None
     run = PositionRun.start(pnum, mode="All")
+    executor = concurrent.futures.ThreadPoolExecutor(
+        max_workers=1, thread_name_prefix="mask_load"
+    )
     try:
-        # FL load (shows messages like "Loading FL… 56/67")
-        with run.stage("load_channels"):
-            load_fl_channels(
-                main_window,
-                progress_cb=_phase_progress_callback("fl", setp, setmsg),
-            )
+        future_masks = None
+        staging = None
+        if prefetched is not None:
+            setmsg(f"p{pnum:04d}: waiting for prefetched images…")
+            with run.stage("load_channels"):
+                staging = _adopt_prefetched_inputs(
+                    main_window, prefetched, pnum
+                )
 
-        # BaSiC correction (if enabled; shows "BaSiC 123/456")
-        with run.stage("bg_correction"):
-            apply_basic_correction(
-                main_window,
-                progress_cb=_phase_progress_callback("basic", setp, setmsg),
-            )
-
-        # Masks + measure
-        with run.stage("load_masks"):
-            main_window.labels = load_masks(
+        if staging is None:
+            future_masks = executor.submit(
+                load_masks,
                 getattr(main_window, "segmentation_paths", []),
                 ppath,
                 main_window.image_format,
                 t_file_min=tmin,
                 t_file_max=tmax,
             )
+
+            with run.stage("load_channels"):
+                load_fl_channels(
+                    main_window,
+                    progress_cb=_phase_progress_callback("fl", setp, setmsg),
+                )
+
+        main_window.basic.update_all(position=pnum)
+        if staging is None or not staging.basic_done:
+            with run.stage("bg_correction"):
+                apply_basic_correction(
+                    main_window,
+                    progress_cb=_phase_progress_callback(
+                        "basic", setp, setmsg
+                    ),
+                )
+
+        if future_masks is not None:
+            with run.stage("load_masks"):
+                main_window.labels = future_masks.result()
+
+        _start_next_prefetch()
+
         with run.stage("quantify"):
             quantify(
                 main_window,
                 progress_cb=_phase_progress_callback("meas", setp, setmsg),
             )
+        apply_derived_features(main_window)
+        add_missing_rows(main_window)
     finally:
+        executor.shutdown(wait=True)
         run.finish(main_window, pnum)
 
 
@@ -615,6 +859,20 @@ def _close_mask_window(main_window) -> None:
         )
 
 
+def _split_untracked_positions(
+    main_window, items: list[tuple[int, str]]
+) -> tuple[list[tuple[int, str]], list[int]]:
+    """Split `items` into positions with tracking points and the numbers without."""
+    from SECQUOIA.gui.position_navigation import tree_counts
+
+    counts = tree_counts(main_window)
+    if counts is None:
+        return items, []
+    kept = [(n, p) for n, p in items if counts.get(n, 0) > 0]
+    skipped = [n for n, _p in items if counts.get(n, 0) == 0]
+    return kept, skipped
+
+
 def run_all_positions(main_window) -> None:
     """Import and measure every position in the selected range.
 
@@ -631,6 +889,24 @@ def run_all_positions(main_window) -> None:
         )
         return
 
+    _rebase_to_t_range(main_window)
+    items, skipped = _split_untracked_positions(main_window, items)
+    skipped_note = ""
+    if skipped:
+        skipped_note = (
+            f" Skipped {len(skipped)} position(s) without tracking points: "
+            + ", ".join(f"p{n:04d}" for n in skipped)
+        )
+        LOG.info("[run_all_positions]%s", skipped_note)
+        _set_loading_status(main_window, skipped_note.strip(), kind="info")
+    if not items:
+        _set_loading_status(
+            main_window,
+            "No positions with tracking points in the selected range.",
+            kind="error",
+        )
+        return
+
     run_all_mode = getattr(main_window, "loading_format", "Positions") == "All"
     gb = getattr(main_window, "global_progress_bar", None)
     if run_all_mode and gb:
@@ -641,45 +917,50 @@ def run_all_positions(main_window) -> None:
     idx_map = _build_position_index_map(main_window)
 
     total = len(items)
-    for i, (pnum, ppath) in enumerate(items, 1):
-        try:
-            _process_one_position(
-                main_window,
-                pnum,
-                ppath,
-                idx_map,
-                t_file_min,
-                t_file_max,
-                setp,
-                setmsg,
-            )
-            setp(100)
-            setmsg(f"p{pnum:04d} done  ({i}/{total})")
-        except (
-            RuntimeError,
-            AttributeError,
-            ValueError,
-            TypeError,
-            OSError,
-            KeyError,
-        ) as e:
-            LOG.error("[run_all_positions] error p%04d: %s", pnum, e)
-            setmsg(f"Error in p{pnum:04d}: {e}")
-            setp(100)
-        finally:
-            _finish_position_iteration(
-                main_window, run_all_mode, gb, i, total, setp
-            )
+    prefetch = _NextPositionPrefetch(main_window, t_file_min, t_file_max)
+    try:
+        for i, (pnum, ppath) in enumerate(items, 1):
+            try:
+                _process_one_position(
+                    main_window,
+                    pnum,
+                    ppath,
+                    idx_map,
+                    t_file_min,
+                    t_file_max,
+                    setp,
+                    setmsg,
+                    prefetch=prefetch,
+                    next_item=items[i] if i < total else None,
+                )
+                setp(100)
+                setmsg(f"p{pnum:04d} done  ({i}/{total})")
+            except _LOAD_ERRORS as e:
+                LOG.error("[run_all_positions] error p%04d: %s", pnum, e)
+                setmsg(f"Error in p{pnum:04d}: {e}")
+                setp(100)
+            finally:
+                _finish_position_iteration(
+                    main_window, run_all_mode, gb, i, total, setp
+                )
+    finally:
+        prefetch.close()
 
     if hasattr(main_window, "finish_progress"):
         main_window.finish_progress()
-    _set_loading_status(main_window, "All positions finished.", kind="info")
+    _set_loading_status(
+        main_window, "All positions finished." + skipped_note, kind="info"
+    )
 
     if run_all_mode and gb:
         _teardown_run_all_progress_bar(gb)
 
     _close_mask_window(main_window)
     _apply_import_realtime_to_track_df(main_window)
+    try:
+        save_track_df(main_window)
+    except (RuntimeError, AttributeError, TypeError, OSError) as e:
+        LOG.warning("[run_all_positions] Could not save updated CSV: %s", e)
 
     from SECQUOIA.gui.position_navigation import _switch_to_start_position
 
