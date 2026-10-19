@@ -325,7 +325,10 @@ class TestLoadProjectState:
     ):
         target = self.loaded(fake_main_window, saved_window)
 
+        assert "original_t" in target.track_df.columns
         pd.testing.assert_frame_equal(
-            target.track_df.reset_index(drop=True),
+            target.track_df.drop(columns=["original_t"]).reset_index(
+                drop=True
+            ),
             track_frame().reset_index(drop=True),
         )

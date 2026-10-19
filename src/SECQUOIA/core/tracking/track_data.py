@@ -43,7 +43,12 @@ from SECQUOIA.utils.positions import (
     current_position_number,
     position_index_from_number,
 )
-from SECQUOIA.utils.timing import apply_realtime, build_realtime_lookup
+from SECQUOIA.utils.timing import (
+    ORIGINAL_T_COLUMN,
+    apply_realtime,
+    build_realtime_lookup,
+    with_original_t,
+)
 
 LOG = logging.getLogger(__name__)
 
@@ -875,7 +880,9 @@ def _cache_position_measurements(
 
     path = _position_csv_path(main_window, position, t_file_min, t_file_max)
     try:
-        to_csv_with_reload(df_pos, path, index=False)
+        to_csv_with_reload(
+            with_original_t(main_window, df_pos), path, index=False
+        )
     except (OSError, ValueError, RuntimeError) as e:
         LOG.error(
             "[%s] Failed to save position CSV after reloading: %r",
@@ -956,6 +963,7 @@ def _load_cached_position_measurements(
 
     try:
         df_pos = read_with_reload(pd.read_csv, path)
+        df_pos = df_pos.drop(columns=[ORIGINAL_T_COLUMN], errors="ignore")
 
         required_cols: list[str] = []
         try:

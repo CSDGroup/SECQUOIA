@@ -64,6 +64,44 @@ def t_rebase_offset(main_window) -> int:
         return 0
 
 
+ORIGINAL_T_COLUMN = "original_t"
+
+
+def rebase_track_df_to_t_range(main_window) -> None:
+    """Keep the ``track_df`` rows of the selected time range and rebase ``t`` to 0."""
+    df = getattr(main_window, "track_df", None)
+    if df is None or "t" not in df.columns:
+        return
+    t_file_min, t_file_max, _, _ = current_t_range(main_window)
+
+    if ORIGINAL_T_COLUMN in df.columns:
+        original = pd.to_numeric(df[ORIGINAL_T_COLUMN], errors="coerce")
+    else:
+        original = df["t"] + 1
+    keep = (original >= t_file_min) & (original <= t_file_max)
+
+    df = df[keep].drop(columns=[ORIGINAL_T_COLUMN], errors="ignore").copy()
+    df["t"] = (original[keep] - t_file_min).astype(df["t"].dtype)
+    main_window.track_df = df
+
+
+def with_original_t(main_window, df: pd.DataFrame) -> pd.DataFrame:
+    """Copy of `df` with ``original_t`` (1-based file number) right after ``t``."""
+    if df is None or "t" not in df.columns:
+        return df
+    try:
+        t_file_min = current_t_range(main_window)[0]
+    except (TypeError, ValueError):
+        t_file_min = 1
+    out = df.drop(columns=[ORIGINAL_T_COLUMN], errors="ignore")
+    out.insert(
+        out.columns.get_loc("t") + 1,
+        ORIGINAL_T_COLUMN,
+        pd.to_numeric(out["t"], errors="coerce") + t_file_min,
+    )
+    return out
+
+
 def calculate_time(main_window) -> None:
     """Fill ``Calculated_Time`` (minutes) from the saved Δt and the ``t`` column."""
     dt_sec = float(main_window.dt_seconds)

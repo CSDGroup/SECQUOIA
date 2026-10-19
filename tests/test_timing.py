@@ -20,10 +20,75 @@ from SECQUOIA.utils.timing import (
     current_t_range,
     filename_t_file_number,
     realtime_columns,
+    rebase_track_df_to_t_range,
+    with_original_t,
 )
 
 
-# Filename parsing
+class TestRebaseAndOriginalT:
+    def _window(self, fake_main_window, t_values):
+        return fake_main_window(
+            time_min_selected=3,
+            time_max_selected=5,
+            track_df=pd.DataFrame({"t": t_values, "v": range(len(t_values))}),
+        )
+
+    def test_keeps_the_range_and_starts_t_at_zero(self, fake_main_window):
+        """Files t00003..t00005 are 0-based frames 2..4, rebased to 0..2."""
+        main_window = self._window(fake_main_window, [0, 1, 2, 3, 4, 5])
+
+        rebase_track_df_to_t_range(main_window)
+
+        df = main_window.track_df
+        assert df["t"].tolist() == [0, 1, 2]
+        assert df["v"].tolist() == [2, 3, 4]
+        assert "original_t" not in df.columns
+
+    def test_original_t_is_the_file_number(self, fake_main_window):
+        main_window = self._window(fake_main_window, [0, 1, 2, 3, 4, 5])
+        rebase_track_df_to_t_range(main_window)
+
+        out = with_original_t(main_window, main_window.track_df)
+
+        assert out["original_t"].tolist() == [3, 4, 5]
+        assert list(out.columns) == ["t", "original_t", "v"]
+        assert "original_t" not in main_window.track_df.columns
+
+    def test_a_saved_csv_is_not_shifted_twice(self, fake_main_window):
+        """Reloading a saved, already rebased CSV starts from original_t."""
+        main_window = self._window(fake_main_window, [0, 1, 2, 3, 4, 5])
+        rebase_track_df_to_t_range(main_window)
+        main_window.track_df = with_original_t(
+            main_window, main_window.track_df
+        )
+
+        rebase_track_df_to_t_range(main_window)
+
+        assert main_window.track_df["t"].tolist() == [0, 1, 2]
+        assert main_window.track_df["v"].tolist() == [2, 3, 4]
+
+    def test_a_range_from_the_first_file_keeps_t(self, fake_main_window):
+        main_window = fake_main_window(
+            time_min_selected=1,
+            time_max_selected=3,
+            track_df=pd.DataFrame({"t": [0, 1, 2]}),
+        )
+        rebase_track_df_to_t_range(main_window)
+
+        out = with_original_t(main_window, main_window.track_df)
+
+        assert out["t"].tolist() == [0, 1, 2]
+        assert out["original_t"].tolist() == [1, 2, 3]
+
+    def test_original_t_without_a_selected_range(self, fake_main_window):
+        """Before loading, time_min_selected is None; saving must not fail."""
+        main_window = fake_main_window(time_min_selected=None)
+
+        out = with_original_t(main_window, pd.DataFrame({"t": [0, 4]}))
+
+        assert out["original_t"].tolist() == [1, 5]
+
+
 class TestFilenameTFileNumber:
     @pytest.mark.parametrize(
         ("name", "expected"),

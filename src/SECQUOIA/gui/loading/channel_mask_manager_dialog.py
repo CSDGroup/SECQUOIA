@@ -131,18 +131,6 @@ def _current_position_number(main_window) -> int | None:
     return getattr(main_window, "current_position_number", None)
 
 
-def _invalidate_current_position_cache(main_window) -> None:
-    """Delete the current position's cached measurements CSV."""
-    position = _current_position_number(main_window)
-    if position is None:
-        return
-    t_file_min, t_file_max, _, _ = current_t_range(main_window)
-    path = _position_csv_path(main_window, position, t_file_min, t_file_max)
-    if os.path.isfile(path):
-        with contextlib.suppress(OSError):
-            os.remove(path)
-
-
 def _invalidate_all_position_caches(main_window) -> int:
     """Delete every cached measurements CSV of this project; return how many were removed."""
     position = _current_position_number(main_window) or 0
@@ -578,11 +566,11 @@ def open_channel_mask_manager(main_window: QWidget) -> None:
                 "Cached per position measurement CSVs will be deleted and "
                 "recomputed from the images.\n\n"
             )
-        elif masks_changed or basic_changed:
+        else:
             msg += (
-                "Warning: only the current position will be reprocessed. "
-                "Other positions keep their previous (now stale) values "
-                "until reprocessed too.\n\n"
+                "Only the current position is reprocessed now. Other "
+                "positions are remeasured automatically when you open "
+                "them.\n\n"
             )
         msg += "This can take a while. Continue?"
 
@@ -636,12 +624,11 @@ def open_channel_mask_manager(main_window: QWidget) -> None:
             main_window.update_channel_mask_dropdowns()
             main_window.add_plot_widgets()
 
+            _invalidate_all_position_caches(main_window)
             if apply_all:
-                _invalidate_all_position_caches(main_window)
                 run_all_positions(main_window)
                 _finalize()
             else:
-                _invalidate_current_position_cache(main_window)
                 _load_data(main_window)
                 QTimer.singleShot(150, _poll_until_loaded)
         except (

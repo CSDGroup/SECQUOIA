@@ -16,6 +16,7 @@ from SECQUOIA.utils.io_reload import dump_json_with_reload, to_csv_with_reload
 from SECQUOIA.utils.paths import project_analysis_dir
 from SECQUOIA.utils.positions import position_number_at_current_index
 from SECQUOIA.utils.timing import current_t_range as _current_t_range
+from SECQUOIA.utils.timing import with_original_t
 
 LOG = logging.getLogger(__name__)
 
@@ -46,7 +47,11 @@ def save_track_df(main_window, label_entries=None) -> None:
     #  Save full CSV
     full_csv_path = os.path.join(save_folder, "Updated_CSV_File.csv")
     try:
-        to_csv_with_reload(main_window.track_df, full_csv_path, index=False)
+        to_csv_with_reload(
+            with_original_t(main_window, main_window.track_df),
+            full_csv_path,
+            index=False,
+        )
     except (OSError, ValueError, RuntimeError) as e:
         LOG.error("Failed to save full track_df CSV after reloading: %r", e)
         return
@@ -101,7 +106,9 @@ def save_track_df(main_window, label_entries=None) -> None:
 
     # Save/overwrite
     try:
-        to_csv_with_reload(df_pos, out_path, index=False)
+        to_csv_with_reload(
+            with_original_t(main_window, df_pos), out_path, index=False
+        )
     except (OSError, ValueError, RuntimeError) as e:
         LOG.error("Failed to save per position CSV after reloading: %r", e)
         return
@@ -139,7 +146,9 @@ def save_position_measurements(main_window, position, n_masks: int) -> bool:
             return False
 
         out_path = _measurements_output_path(main_window, position, n_masks)
-        to_csv_with_reload(df_pos, out_path, index=False)
+        to_csv_with_reload(
+            with_original_t(main_window, df_pos), out_path, index=False
+        )
         LOG.info("Saved fluorescence measurements to %s", out_path)
         return True
     except (
