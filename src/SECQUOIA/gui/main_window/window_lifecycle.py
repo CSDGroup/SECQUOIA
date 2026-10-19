@@ -341,9 +341,9 @@ class WindowLifecycle:
         self._refresh_all_row_summaries()
 
     def closeEvent(self, event: QCloseEvent) -> None:
-        """Confirm exit with Close/Export data/Cancel.
+        """Confirm exit with Close/Save & Close/Cancel.
 
-        Close releases the session resources and quits, Export data saves
+        Close releases the session resources and quits, Save & Close saves
         first and then quits, Cancel only dismisses the popup.
         """
         dlg = QMessageBox(self)
@@ -353,7 +353,7 @@ class WindowLifecycle:
         dlg.setIcon(QMessageBox.Warning)
 
         btn_yes = dlg.addButton("Close", QMessageBox.AcceptRole)
-        btn_export = dlg.addButton("Export data", QMessageBox.ActionRole)
+        btn_export = dlg.addButton("Save && Close", QMessageBox.ActionRole)
         btn_no = dlg.addButton("Cancel", QMessageBox.RejectRole)
         dlg.setDefaultButton(btn_no)
         dlg.setEscapeButton(btn_no)
