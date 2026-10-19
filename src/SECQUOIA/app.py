@@ -167,6 +167,11 @@ def main():
     progress(100, "Ready")
     finish(main_window)
 
+    with contextlib.suppress(ImportError, RuntimeError):
+        from SECQUOIA.utils.update_check import check_for_update
+
+        check_for_update(main_window)
+
     run = getattr(app, "exec", None) or getattr(app, "exec_", None)
     sys.exit(run())
 

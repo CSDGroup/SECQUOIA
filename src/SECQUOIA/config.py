@@ -189,6 +189,9 @@ class LINKS:
     """External documentation and help links."""
 
     GITHUB_HELP: str = "https://github.com/CSDGroup/SECQUOIA"
+    GITHUB_UPDATING: str = (
+        "https://github.com/CSDGroup/SECQUOIA#update-secquoia"
+    )
     GITHUB_LOADING_WINDOW: str = (
         "https://github.com/CSDGroup/SECQUOIA/blob/main/docs/loading-window.md"
     )
@@ -228,6 +231,14 @@ class TOOLTIPSTEXT:
     OUTLIER: str = "Mark the cell at this time point as an outlier Hotkey: O."
     SIGNAL: str = (
         "Mark the cell at this time point as having low signal. Hotkey: K"
+    )
+
+    # Update notice
+    UPDATE_OPEN_GITHUB: str = (
+        "Open the update steps on GitHub in your web browser."
+    )
+    UPDATE_LATER: str = (
+        "Close this message. It appears again at the next start."
     )
 
     # menubar

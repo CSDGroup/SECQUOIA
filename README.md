@@ -112,6 +112,29 @@ SECQUOIA
 
 The first launch may take a moment while all parameters are initialized.
 
+### Update SECQUOIA
+
+1. Close SECQUOIA before updating. Activate your conda environment:
+
+```bash
+conda activate SECQUOIA
+```
+
+2. Go to your `SECQUOIA` folder:
+
+```bash
+cd /path/to/SECQUOIA
+```
+
+3. Get the newest version and install it:
+
+```bash
+git pull
+pip install .
+```
+
+For a developer (editable) install, `git pull` is enough.
+
 ## Load data
 
 To load data into SECQUOIA:
