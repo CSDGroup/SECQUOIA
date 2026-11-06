@@ -503,6 +503,8 @@ class LayerVisibility:
                 _on_time_index_changed(self, t0)
             self.current_time_index = t0
 
+        self._last_labels_layer_ref = None
+
         for lyr in list(self.viewer_1.layers):
             if isinstance(lyr, napari.layers.Labels):
                 self.viewer_1.layers.remove(lyr)

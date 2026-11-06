@@ -438,16 +438,11 @@ class LabelsEditing:
         )
 
     def _nudge_target_layer(self):
-        """The layer `[` / `]` act on: the focused viewer's, else the last one edited."""
         viewer, _tools = self._active_viewer_and_tools()
         layer = self._labels_layer_for_viewer(viewer)
-        if layer is not None and self._in_edit_tool(layer):
-            return layer
-        ref = getattr(self, "_last_labels_layer_ref", None)
-        last = ref() if callable(ref) else None
-        if last is not None and self._in_edit_tool(last):
-            return last
-        return None
+        return (
+            layer if layer is not None and self._in_edit_tool(layer) else None
+        )
 
     def _nudge_selected_mask(self, grow: bool) -> bool:
         """Grow or shrink the selected label of the focused viewer's Labels layer by 1 px."""
