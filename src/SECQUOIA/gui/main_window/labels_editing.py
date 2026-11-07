@@ -19,6 +19,7 @@ from SECQUOIA.gui.lineage_tree.lineage_zoom import (
     refresh_lineage_values,
     restore_dynamics_zoom,
 )
+from SECQUOIA.utils.helpers import update_time_marker
 
 LOG = logging.getLogger(__name__)
 
@@ -347,6 +348,7 @@ class LabelsEditing:
         saved_zoom = capture_dynamics_zoom(self)
         if not refresh_lineage_values(self):
             lineage_tree(self)
+        update_time_marker(self)
         restore_dynamics_zoom(self, saved_zoom)
 
     def _refresh_sibling_labels_layers(self, layer) -> None:
