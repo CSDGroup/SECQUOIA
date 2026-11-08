@@ -1,8 +1,10 @@
-"""Pop-up help windows providing a searchable, read-only text/Markdown window."""
+"""Popup help windows providing a searchable, read only text/Markdown window."""
 
 import textwrap
+from html import escape
 
 import markdown as md
+import qtawesome as qta
 from qtpy import QtCore, QtGui, QtWidgets
 
 from SECQUOIA.config import STYLE, TOOLTIPSTEXT
@@ -13,144 +15,300 @@ _CURRENT_BG = "#ffb02e"
 _CURRENT_FG = "#1a1a1a"
 
 
-class HelpDocs:
-    """Centralized help text for the Help Popup window."""
+_HELP_ICONS = {
+    "eraser": ("mdi.eraser", "white"),
+    "brush": ("mdi.brush", "white"),
+    "lasso": ("mdi.lasso", "white"),
+    "pan": ("mdi.cursor-move", "white"),
+    "save": ("fa5s.save", "white"),
+    "highlighter": ("fa5s.highlighter", "white"),
+    "sitemap": ("fa5s.sitemap", "white"),
+    "undo": ("fa5s.undo", "white"),
+    "metrics": ("fa5s.chart-bar", "white"),
+    "arith": ("fa5s.layer-group", "white"),
+    "todo": ("fa5s.times-circle", "#e73ce7"),
+    "maybe": ("fa5s.question-circle", "#ffbf00"),
+    "done": ("fa5s.check-circle", "#1db954"),
+}
+_ICON_PX = 18
 
-    HOTKEYS_MOUSE_MD = (
-        "# **Hotkeys & Mouse Interactions**\n\n"
-        "## **Project Management**\n"
-        "- **Ctrl+N** → Start a new project\n"
-        "- **Ctrl+O** → Open a previous project\n"
-        "- **Ctrl+S** → Save all data\n"
-        "\n"
-        "## **Analysis Tools**\n"
-        "- **Ctrl+H** → Open Outlier Detection window\n"
-        "- **Ctrl+F** → Open Cytometric Analysis window\n"
-        "- **Ctrl+E** → Open Export Single Images or Movies window\n"
-        "\n"
-        "## **Navigation (Tree-IDs & Time Points)**\n"
-        "- **Down Arrow** → Next Tree-ID\n"
-        "- **Up Arrow** → Previous Tree-ID\n"
-        "- **Right Arrow** → Next time point\n"
-        "- **Left Arrow** → Previous time point\n"
-        "- **0** → Mark current Tree-ID as checked and jump to the next one\n"
-        "\n"
-        "## **Position Navigation**\n"
-        "- **Ctrl+Shift+Left** → Previous position\n"
-        "- **Ctrl+Shift+Right** → Next position\n"
-        "- **Ctrl+Shift+O** → Open Select Position window\n"
-        "\n"
-        "## **Outlier Navigation**\n"
-        "- **Ctrl+Arrow Down** → Jump to next Tree-ID with outlier or close mask\n"
-        "- **Ctrl+Arrow Up** → Jump to previous Tree-ID with outlier or close mask\n"
-        "- **Ctrl+Arrow Right** → Next outlier or close mask in current Tree-ID\n"
-        "- **Ctrl+Arrow Left** → Previous outlier or close mask in current Tree-ID\n"
-        "- **Ctrl+Shift+H** → Show current outlier parameters\n"
-        "- **Ctrl+R** → Reset all outliers and close-mask flags\n"
-        "\n"
-        "## **Close Masks**\n"
-        "- **C** → Mark the flagged close-mask case as checked and jump to "
-        "the next one\n"
-        "- Purple stars mark time points with a second mask close by; the "
-        "**Out** list includes those Tree-IDs\n"
-        "- On a flagged time point the assigned mask is white and the "
-        "candidate blue; right-click the correct mask or draw a new one to "
-        "fix the assignment\n"
-        "\n"
-        "## **Reviewing Outliers**\n"
-        "- **C** → Also marks a plain outlier time point as reviewed and "
-        "jumps to the next one\n"
-        "\n"
-        "## **Cell Fate Labeling**\n"
-        "- **Healthy** button or H → Mark Healthy\n"
-        "- **Dead** button or D → Mark Dead\n"
-        "- **Lost** button or L → Mark Lost during tracking\n"
-        "- **Out of Focus** button or F → Mark out of focus\n"
-        "- **Signal** button or K → Mark low signal\n"
-        "\n"
-        "## **Mask Editing (Viewers)**\n"
-        "- **1** → Eraser tool\n"
-        "- **2** → Paint tool\n"
-        "- **3** → Lasso tool\n"
-        "- **Space** → Toggle between Eraser & Paint\n"
-        "- **6** → Pan/Zoom tool\n"
-        "- **Alt + +** → Increase brush size\n"
-        "- **Alt + -** → Decrease brush size\n"
-        "- **]** → Grow the selected mask by 1 px (Paint, Erase, Lasso)\n"
-        "- **[** → Shrink the selected mask by 1 px\n"
-        "- **Ctrl+M** → Show all masks\n"
-        "- **Ctrl+Shift+M** → Show only current track's mask (undo Show all masks)\n"
-        "- **M** → Create a new mask\n"
-        "- **Ctrl+Z** → Undo\n"
-        "- **Ctrl+Y** → Redo\n"
-        "- **Right-click** → Assign mask to current Tree-ID\n"
-        "\n"
-        "## **Ground Truth Annotation (developer mode)**\n"
-        "Only available when started with `SECQUOIA_GT_ANNOTATION=1` "
-        "(one bar) or `=2` (one bar per viewer).\n"
-        "- **X** → Accept all open masks of the time point as assigned "
-        "(Missed stays Missed) and jump to the next open time point\n"
-        "- **Enter** (in Notes) → Save the note only\n"
-        "- **Right-click**, paint, erase, **Ctrl+Z**, **Ctrl+Y** → Correct "
-        "the label under the tracking point and record it\n"
-        "\n"
-        "## **Lineage Tree Interactions**\n"
-        "- **Ctrl+Left-click** → Select/deselect track or generation\n"
-        "- **Shift+Left-click** → Move entire tree (pan)\n"
-        "- **Ctrl+P** → Activate painting/highlighting mode\n"
-        "- **Ctrl+Left-click** (in paint mode) → Paint/unpaint track\n"
-        "- **Ctrl+Shift+P** → Change highlight colors\n"
-        "- **Ctrl+A** → Highlight entire tree\n"
-        "- **Ctrl+Shift+A** → Clear all highlights\n"
-        "- **Drag rectangle** → Zoom into region\n"
-        "- **Ctrl+Q** or **A button** → Reset zoom\n"
-        "\n"
-        "## **Dynamics Plots**\n"
-        "- **Left-click** → Change current time point\n"
-        "- **Drag rectangle** → Zoom into region\n"
-        "- **Right-click** → Context menu (axes, time display, export)\n"
-        "- **Ctrl+Q** → Reset zoom\n"
-        "\n"
-        "## **Tracking (with Tracking Toolbar)**\n"
-        "- **New ID** button → Create new empty Tree-ID\n"
-        "- **Division** button → Record cell division\n"
-        "- **Remove Division** button → Delete division event\n"
-        "- **Split Tree** button → Split lineage at current time point\n"
-        "- **Fuse Tree** button → Merge two Tree-IDs\n"
-        "- **Ctrl+Right-click** → Add Tree-ID to Fuse dialog\n"
-        # TODO: enable once tracking undo/redo is tested and added
-        # "- **Undo** button → Undo last tracking edit (New ID/Division/Remove Division/Split/Fuse)\n"
-        # "- **Redo** button → Redo last undone tracking edit\n"
-        "\n"
-        "## **View Menu Shortcuts**\n"
-        "- **Ctrl+I** → Open the Cell Inspector\n"
-        "- **Ctrl+Shift+L** → Open Lineage Tree parameters\n"
-        "- **Ctrl+Shift+C** → Open Channels & Masks manager\n"
-        "- **Ctrl+Shift+D** → Open Plot parameters\n"
-        "- **Ctrl+Shift+=** → Add new Dynamics plot\n"
-        "- **Ctrl+Shift+-** → Remove Dynamics plot\n"
-        "- **Ctrl+Shift+T** → Toggle Show Time Marker\n"
-        "- **Ctrl+Shift+K** → Toggle Show Tracks\n"
-        "- **Ctrl+Shift+I** → Toggle Show IDs\n"
-        "- **Ctrl+Shift+B** → Toggle Tracking bar\n"
-        "\n"
-        "## **Help**\n"
-        "- **F1** → Open this Hotkeys & Mouse window\n"
-        "\n"
-        "## **Export & Mask Operations**\n"
-        "- **Export Data → Export Single Images or Movies**\n"
-        "- **Right-click on Dynamics Plot** → Click export plot\n"
-        "- **Right-click on Lineage Tree** → Click export tree\n"
-        "- **Mask arithmetic button** → Modify/create masks (dilate, erode, AND, OR, XOR)\n"
-        "- **Metric calculation button** → Channel/mask arithmetic operations\n"
-        "\n"
-        "## **Tree-ID List Symbols**\n"
-        "- **Purple X** → Not checked yet\n"
-        "- **Yellow ?** → Needs further checking\n"
-        "- **Green ✓** → Checked\n"
-        "- **Strikethrough** → Deactivated\n"
-        "\n"
-        "\n"
+
+def _visual_html(visual: str | None) -> str:
+    """Icon, app style button, or strikethrough sample for the button column."""
+    if not visual:
+        return ""
+    kind, _, value = visual.partition(":")
+    if kind == "icon":
+        return (
+            f'<img src="icon:{value}" width="{_ICON_PX}" height="{_ICON_PX}">'
+        )
+    if kind == "btn":
+        return (
+            '<span style="background-color:#3c3c3c; color:#e6e6e6;">'
+            f"&nbsp;&nbsp;{escape(value)}&nbsp;&nbsp;</span>"
+        )
+    return f"<s>{escape(value)}</s>"
+
+
+def _key_html(key: str) -> str:
+    """A key in bold text."""
+    return f"<b>{escape(key)}</b>"
+
+
+class HelpDocs:
+    """Centralized help content for the Help popup window."""
+
+    HOTKEY_SECTIONS = [
+        (
+            "Project Management",
+            "",
+            [
+                (None, ("Ctrl+N",), "Start a new project"),
+                (None, ("Ctrl+O",), "Open a previous project"),
+                ("icon:save", ("Ctrl+S",), "Save all data"),
+            ],
+        ),
+        (
+            "View Menu Shortcuts",
+            "",
+            [
+                (None, ("Ctrl+I",), "Open the Cell Inspector"),
+                (None, ("Ctrl+Shift+L",), "Open Lineage Tree parameters"),
+                (None, ("Ctrl+Shift+C",), "Open Channels & Masks manager"),
+                (None, ("Ctrl+Shift+D",), "Open Plot parameters"),
+                (None, ("Ctrl+Shift+=",), "Add new Dynamics plot"),
+                (None, ("Ctrl+Shift+-",), "Remove Dynamics plot"),
+                (None, ("Ctrl+Shift+T",), "Toggle Show Time Marker"),
+                (None, ("Ctrl+Shift+K",), "Toggle Show Tracks"),
+                (None, ("Ctrl+Shift+I",), "Toggle Show IDs"),
+                (None, ("Ctrl+Shift+B",), "Toggle Tracking bar"),
+            ],
+        ),
+        (
+            "Position Navigation",
+            "",
+            [
+                (None, ("Ctrl+Shift+Left",), "Previous position"),
+                (None, ("Ctrl+Shift+Right",), "Next position"),
+                (None, ("Ctrl+Shift+O",), "Open Select Position window"),
+            ],
+        ),
+        (
+            "Tree-IDs & Time Points Navigation",
+            "",
+            [
+                (None, ("Down Arrow",), "Next Tree-ID"),
+                (None, ("Up Arrow",), "Previous Tree-ID"),
+                (None, ("Right Arrow",), "Next time point"),
+                (None, ("Left Arrow",), "Previous time point"),
+                (
+                    None,
+                    ("0",),
+                    "Mark current Tree-ID as checked and jump to the next one",
+                ),
+            ],
+        ),
+        (
+            "Tree-ID List Symbols",
+            "",
+            [
+                ("icon:todo", (), "Not checked yet"),
+                ("icon:maybe", (), "Needs further checking"),
+                ("icon:done", (), "Checked"),
+                ("strike:001", (), "Deactivated"),
+            ],
+        ),
+        (
+            "Dynamics Plots",
+            "",
+            [
+                (None, ("Left-click",), "Change current time point"),
+                (None, ("Drag rectangle",), "Zoom into region"),
+                (
+                    None,
+                    ("Right-click",),
+                    "Context menu (axes, time display, export)",
+                ),
+                (None, ("Ctrl+Q",), "Reset zoom"),
+                (
+                    "icon:arith",
+                    (),
+                    "Mask arithmetic: modify/create masks (dilate, erode, AND, OR, XOR)",
+                ),
+                (
+                    "icon:metrics",
+                    (),
+                    "Metric calculation: channel/mask arithmetic operations",
+                ),
+            ],
+        ),
+        (
+            "Lineage Tree Interactions",
+            "",
+            [
+                (
+                    None,
+                    ("Ctrl+Left-click",),
+                    "Select/deselect track or generation",
+                ),
+                (None, ("Shift+Left-click",), "Move entire tree (pan)"),
+                (
+                    "icon:highlighter",
+                    ("Ctrl+P",),
+                    "Activate painting/highlighting mode",
+                ),
+                (
+                    None,
+                    ("Ctrl+Left-click",),
+                    "In paint mode: paint/unpaint track",
+                ),
+                (None, ("Ctrl+Shift+P",), "Change highlight colors"),
+                ("icon:sitemap", ("Ctrl+A",), "Highlight entire tree"),
+                ("icon:undo", ("Ctrl+Shift+A",), "Clear all highlights"),
+                (None, ("Drag rectangle",), "Zoom into region"),
+                (None, ("Ctrl+Q",), "Reset zoom (also the A button)"),
+            ],
+        ),
+        (
+            "Mask Editing (Viewers)",
+            "",
+            [
+                ("icon:eraser", ("1",), "Eraser tool"),
+                ("icon:brush", ("2",), "Paint tool"),
+                ("icon:lasso", ("3",), "Lasso tool"),
+                (None, ("Space",), "Toggle between Eraser & Paint"),
+                ("icon:pan", ("6",), "Pan/Zoom tool"),
+                (None, ("Alt + +",), "Increase brush size"),
+                (None, ("Alt + -",), "Decrease brush size"),
+                (
+                    None,
+                    ("]",),
+                    "Grow the selected mask by 1 px (Paint, Erase, Lasso)",
+                ),
+                (None, ("[",), "Shrink the selected mask by 1 px"),
+                (None, ("Ctrl+M",), "Show all masks"),
+                (
+                    None,
+                    ("Ctrl+Shift+M",),
+                    "Show only current track's mask (undo Show all masks)",
+                ),
+                (None, ("M",), "Create a new mask"),
+                (None, ("Ctrl+Z",), "Undo"),
+                (None, ("Ctrl+Y",), "Redo"),
+                (None, ("Right-click",), "Assign mask to current Tree-ID"),
+            ],
+        ),
+        (
+            "Cell Fate Labeling",
+            "",
+            [
+                ("btn:Healthy", ("H",), "Mark Healthy"),
+                ("btn:Dead", ("D",), "Mark Dead"),
+                ("btn:Lost", ("L",), "Mark Lost during tracking"),
+                ("btn:Focus", ("F",), "Mark out of focus"),
+                ("btn:Signal", ("K",), "Mark low signal"),
+            ],
+        ),
+        (
+            "Tracking Toolbar",
+            "",
+            [
+                ("btn:New ID", (), "Create new empty Tree-ID"),
+                ("btn:Division", (), "Record cell division"),
+                ("btn:Remove Division", (), "Delete division event"),
+                ("btn:Split Tree", (), "Split lineage at current time point"),
+                ("btn:Fuse Tree", (), "Merge two Tree-IDs"),
+                # TODO: enable once tracking undo/redo is tested and added
+                # ("btn:Undo", (), "Undo last tracking edit (New ID/Division/Remove Division/Split/Fuse)"),
+                # ("btn:Redo", (), "Redo last undone tracking edit"),
+            ],
+        ),
+        (
+            "Outlier Navigation",
+            "",
+            [
+                (
+                    None,
+                    ("Ctrl+Arrow Down",),
+                    "Jump to next Tree-ID with outlier or close mask",
+                ),
+                (
+                    None,
+                    ("Ctrl+Arrow Up",),
+                    "Jump to previous Tree-ID with outlier or close mask",
+                ),
+                (
+                    None,
+                    ("Ctrl+Arrow Right",),
+                    "Next outlier or close mask in current Tree-ID",
+                ),
+                (
+                    None,
+                    ("Ctrl+Arrow Left",),
+                    "Previous outlier or close mask in current Tree-ID",
+                ),
+                (None, ("Ctrl+Shift+H",), "Show current outlier parameters"),
+                (None, ("Ctrl+R",), "Reset all outliers and close-mask flags"),
+                (
+                    None,
+                    ("C",),
+                    "Mark the flagged outlier or close mask as reviewed and jump to the next one",
+                ),
+            ],
+        ),
+        (
+            "Analysis and Export Tools",
+            "",
+            [
+                (None, ("Ctrl+H",), "Open Outlier Detection window"),
+                (None, ("Ctrl+F",), "Open Cytometric Analysis window"),
+                (
+                    None,
+                    ("Ctrl+E",),
+                    "Open Export Single Images or Movies window",
+                ),
+                (
+                    None,
+                    ("Right-click",),
+                    "On a Dynamics Plot: click export plot",
+                ),
+                (
+                    None,
+                    ("Right-click",),
+                    "On the Lineage Tree: click export tree",
+                ),
+            ],
+        ),
+        (
+            "Help",
+            "",
+            [
+                (None, ("F1",), "Open this Hotkeys & Mouse window"),
+            ],
+        ),
+        (
+            "Ground Truth Annotation (developer mode)",
+            (
+                "Only available when started with SECQUOIA_GT_ANNOTATION=1 "
+                "(one bar) or =2 (one bar per viewer)."
+            ),
+            [
+                (
+                    None,
+                    ("X",),
+                    "Accept all open masks of the time point as assigned (Missed stays Missed) and jump to the next open time point",
+                ),
+                (None, ("Enter",), "In Notes: save the note only"),
+                (
+                    None,
+                    ("Right-click", "Ctrl+Z", "Ctrl+Y"),
+                    "Paint, erase, right-click, undo or redo to correct the label under the tracking point and record it",
+                ),
+            ],
+        ),
+    ]
+
+    WORKFLOWS_MD = (
         "# **Common Workflows**\n\n"
         "## **Start New Analysis**\n"
         "1. **Ctrl+N** → Create project\n"
@@ -185,6 +343,44 @@ class HelpDocs:
         "3. Optionally enable BaSiC background correction\n"
         "4. Click Run → CSV files generated per position\n"
     )
+
+    @classmethod
+    def hotkeys_html(cls) -> str:
+        parts = ["<h2>Hotkeys &amp; Mouse Interactions</h2>"]
+        for title, note, rows in cls.HOTKEY_SECTIONS:
+            parts.append(f'<h3 style="color:#ffb02e;">{escape(title)}</h3>')
+            if note:
+                parts.append(f"<p>{escape(note)}</p>")
+            parts.append(
+                '<table width="100%" cellspacing="0" cellpadding="5" '
+                'border="1" style="border-collapse:collapse; '
+                'border-color:#444;"><tr style="background-color:#3a3a3a;">'
+                '<th width="110" align="left">Button</th>'
+                '<th width="190" align="left">Shortcut</th>'
+                '<th align="left">Action</th></tr>'
+            )
+            for i, (visual, keys, action) in enumerate(rows):
+                bg = "#2f2f2f" if i % 2 else "#2b2b2b"
+                parts.append(
+                    f'<tr style="background-color:{bg};">'
+                    f'<td align="center">{_visual_html(visual)}</td>'
+                    f'<td>{", ".join(_key_html(k) for k in keys)}</td>'
+                    f"<td>{escape(action)}</td></tr>"
+                )
+            parts.append("</table>")
+        parts.append(md.markdown(cls.WORKFLOWS_MD))
+        return "".join(parts)
+
+    @staticmethod
+    def add_icons(doc: QtGui.QTextDocument) -> None:
+        """Register the app icons the hotkey tables refer to."""
+        for name, (icon, color) in _HELP_ICONS.items():
+            pixmap = qta.icon(icon, color=color).pixmap(2 * _ICON_PX)
+            doc.addResource(
+                QtGui.QTextDocument.ImageResource,
+                QtCore.QUrl(f"icon:{name}"),
+                pixmap,
+            )
 
 
 class HelpPopup(QtWidgets.QDialog):
@@ -443,14 +639,8 @@ class HelpPopup(QtWidgets.QDialog):
         self._update_status()
 
     def _update_status(self) -> None:
-        """Update the status line with the current line."""
-        cur = self.text.textCursor()
-        line = cur.blockNumber() + 1
-        col = cur.positionInBlock() + 1
-        extra = f"  |  {self._match_info}" if self._match_info else ""
-        self.status.setText(f"Ln {line}, Col {col}{extra}")
+        self.status.setText(self._match_info)
 
     def _flash_status(self, msg: str, ms: int = 900) -> None:
-        """Show a status message, then restore the position display."""
         self.status.setText(msg)
         QtCore.QTimer.singleShot(ms, self._update_status)

@@ -5,7 +5,6 @@ sizing, the window title, and the Tree-ID filter checkbox.
 
 import contextlib
 import logging
-from textwrap import dedent
 
 import pyqtgraph as pg
 import qtawesome as qta
@@ -111,9 +110,8 @@ class WindowLifecycle:
             self.help_popup = HelpPopup(
                 parent=self, title="Hotkeys & Mouse — Help"
             )
-            self.help_popup.load_text(
-                dedent(HelpDocs.HOTKEYS_MOUSE_MD).strip(), as_markdown=True
-            )
+            self.help_popup.load_text(HelpDocs.hotkeys_html(), rich=True)
+            HelpDocs.add_icons(self.help_popup.text.document())
 
             with contextlib.suppress(RuntimeError, AttributeError, TypeError):
                 self.help_popup.destroyed.connect(
