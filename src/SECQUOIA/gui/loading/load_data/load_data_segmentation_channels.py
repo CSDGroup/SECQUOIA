@@ -5,8 +5,9 @@ from __future__ import annotations
 import contextlib
 
 from qtpy.QtCore import Qt
-from qtpy.QtWidgets import QLineEdit, QTreeWidgetItem
+from qtpy.QtWidgets import QAbstractItemView, QLineEdit, QTreeWidgetItem
 
+from SECQUOIA.config import TOOLTIPSTEXT
 from SECQUOIA.gui.loading.experiment_paths import (
     _add_seg_tree_item,
     _find_analysis_dir,
@@ -63,11 +64,15 @@ def _populate_channels_ui(main_window, channel_names):
 
     comment_map = getattr(main_window, "channel_comment_map", None)
     tree.setColumnCount(2)
-    tree.setHeaderLabels(["Select channels to quantify", "Comment"])
+    tree.setHeaderLabels(["Select channels to quantify", "Comment (optional)"])
+    tree.headerItem().setToolTip(1, TOOLTIPSTEXT.CH_COMMENT)
+    tree.setEditTriggers(QAbstractItemView.NoEditTriggers)
 
     for ch in channel_names:
         item = QTreeWidgetItem([ch, ""])
-        item.setFlags(item.flags() | Qt.ItemIsUserCheckable)
+        item.setFlags(
+            item.flags() | Qt.ItemIsUserCheckable | Qt.ItemIsEditable
+        )
         item.setCheckState(0, Qt.Checked)  # default select all
 
         # Column 1: optional comment (if any)
@@ -86,9 +91,24 @@ def _populate_channels_ui(main_window, channel_names):
     reconnect(
         tree,
         "itemChanged",
-        lambda _i, _c: _sync_channels_selected(main_window),
+        lambda item, column: _on_channel_item_changed(
+            main_window, item, column
+        ),
+    )
+    reconnect(
+        tree,
+        "itemClicked",
+        lambda item, column: column == 1 and tree.editItem(item, 1),
     )
     _sync_channels_selected(main_window)
+
+
+def _on_channel_item_changed(main_window, item, column):
+    """Store an edited channel comment, or sync a changed channel checkbox."""
+    if column == 1:
+        main_window.channel_comment_map[item.text(0)] = item.text(1).strip()
+    else:
+        _sync_channels_selected(main_window)
 
 
 def _sync_channels_selected(main_window):

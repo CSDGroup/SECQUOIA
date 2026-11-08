@@ -307,6 +307,7 @@ class TOOLTIPSTEXT:
     )
     CH_TREE_INFO: str = "Tick the channels to quantify."
     CH_TREE: str = "Select channels to include in analysis."
+    CH_COMMENT: str = "Optional. Click a channel to add or change a comment."
     LOAD_DATA_BTN: str = (
         "Scan folder for channels/segmentation; enable other tabs."
     )

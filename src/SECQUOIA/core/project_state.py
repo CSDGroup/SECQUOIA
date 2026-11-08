@@ -235,6 +235,7 @@ def save_project_state(main_window) -> None:
             getattr(main_window, "available_channels", []) or []
         ),
         "ids_channels": ids_channels,
+        "channel_comment_map": getattr(main_window, "channel_comment_map", {}),
         "jump_channel": getattr(main_window, "jump_channel", None),
         "n_channels": int(
             getattr(main_window, "n_channels", len(ids_channels) or 0) or 0
@@ -428,6 +429,8 @@ def load_project_state(main_window, json_path=None) -> bool:
     main_window.channel_comment_map = {}
     if main_window.tracking_format == "tTt":
         _restore_clt_parser(main_window)
+    if "channel_comment_map" in s:
+        main_window.channel_comment_map = s["channel_comment_map"]
 
     basic_flag = bool(s.get("basic_flag", False))
 
