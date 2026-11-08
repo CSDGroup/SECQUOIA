@@ -129,7 +129,11 @@ class _Sidebar:
             main_window.adv_time_font_spin,
             main_window.adv_time_bar_chk,
             main_window.adv_indicator_px_spin,
+            main_window.adv_scale_bar_chk,
         ):
+            main_window.adv_scale_bar_chk.setChecked(
+                bool(p.get("scale_bar_chk", False))
+            )
             main_window.adv_show_ch_lbl_chk.setChecked(
                 bool(p.get("show_ch_lbl_chk", False))
             )
@@ -285,6 +289,25 @@ class _Sidebar:
         bind_spin(main_window.adv_time_font_spin, "time_font_size")
         bind_chk(main_window.adv_time_bar_chk, "time_bar_chk")
         bind_spin(main_window.adv_indicator_px_spin, "indicator_px")
+        bind_chk(main_window.adv_scale_bar_chk, "scale_bar_chk")
+        main_window.adv_scale_bar_btn.clicked.connect(
+            lambda *_: self._open_scale_bar_dialog(main_window)
+        )
+
+    def _reset_advanced_settings(self, main_window, panel):
+        """Put this image's Advanced settings back to defaults."""
+        keep = {"ident", "chan_abs_idx", "chan_label_text", "lineage_path"}
+        keep |= {"black_point", "white_point", "_buf"}
+        fresh = self._panel_dict(
+            panel["container"],
+            panel["obj_name"],
+            panel["label"],
+            panel["proxy"],
+        )
+        panel.update({k: v for k, v in fresh.items() if k not in keep})
+        if panel is getattr(main_window, "active_panel", None):
+            self._load_active_into_sidebar(main_window)
+        self._update_single_panel_preview(main_window, panel)
 
     def _sidebar_apply_bool(self, main_window, key, val):
         """Apply a boolean sidebar value to the active panel and refresh."""

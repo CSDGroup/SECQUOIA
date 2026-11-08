@@ -7,10 +7,14 @@ import os
 from contextlib import suppress
 
 from SECQUOIA.config import EXPORT
+from SECQUOIA.gui.exporter.overlay_drag import OVERLAY_DEFAULTS
+from SECQUOIA.gui.exporter.scale_bar import SCALE_BAR_DEFAULTS
 from SECQUOIA.utils.paths import project_analysis_dir
 from SECQUOIA.utils.timing import current_t_range as _current_t_range
 
 LOG = logging.getLogger(__name__)
+
+_PANEL_EXTRAS = {**SCALE_BAR_DEFAULTS, **OVERLAY_DEFAULTS}
 
 
 class _Presets:
@@ -62,6 +66,7 @@ class _Presets:
                 "crop_full_y": int(main_window.crop_full_y_input.value()),
                 "tile_w": int(EXPORT.PREVIEW_W),
                 "tile_h": int(EXPORT.PREVIEW_H),
+                "um_per_px": self._um_per_px(main_window),
             },
             "panels": [],
         }
@@ -108,6 +113,9 @@ class _Presets:
                     p.get("indicator_color_rgb", (255, 255, 255))
                 ),
             }
+            for key, default in _PANEL_EXTRAS.items():
+                val = p.get(key, default)
+                entry[key] = list(val) if isinstance(val, tuple) else val
             state["panels"].append(entry)
         return state
 
@@ -147,7 +155,6 @@ class _Presets:
         if p:
             p.update(
                 {
-                    "chan_label_text": "CH",
                     "black_point": EXPORT.BW_DEFAULT_BLACK,
                     "white_point": EXPORT.BW_DEFAULT_WHITE,
                     "show_ch_lbl_chk": False,
@@ -224,6 +231,9 @@ class _Presets:
         panel_dict["indicator_color_rgb"] = tuple(
             data.get("indicator_color_rgb", [255, 255, 255])
         )
+        for key, default in _PANEL_EXTRAS.items():
+            val = data.get(key, default)
+            panel_dict[key] = type(default)(val)
 
     def _apply_state(self, main_window, state: dict):
         """Apply a saved preset state to rebuild panels."""
@@ -254,6 +264,12 @@ class _Presets:
             )
             main_window.tile_h_input.setValue(
                 int(g.get("tile_h", EXPORT.PREVIEW_H))
+            )
+
+        if "um_per_px" in g:
+            main_window.export_um_per_px = (
+                getattr(main_window, "xml_path", None),
+                float(g["um_per_px"]),
             )
 
         self._clear_all_panels(main_window)

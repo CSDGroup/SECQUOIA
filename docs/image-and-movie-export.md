@@ -8,7 +8,7 @@ The Image and Movie Exporter GUI is divided into two main parts:
 - On the right: the `Image preview` showing the current layout.
 
 ## Image preview
-By default, a single image is loaded into the layout. Additional images can be added by `right-clicking` next to the current image in the preview and selecting `Add image`. This allows to design the layout as needed (e.g. multiple images). `Right-clicking` on an image opens a menu with either `Remove` (removes the selected image) or `Reset` (returns to the default single-image layout).
+By default, a single image is loaded into the layout. Additional images can be added by `right-clicking` next to the current image in the preview and selecting `Add image`. This allows to design the layout as needed (e.g. multiple images). `Right-clicking` on an image opens a menu with either `Remove` (removes the selected image), `Reset` (returns to the default single-image layout) or `Reset advanced settings` (resets the advanced settings of the selected image).
 
 ## Control panel
 
@@ -49,7 +49,7 @@ The crop size section defines the dimensions and area of each image displayed.
 
 ## Advanced Settings
 
-The Advanced Settings section allows you to overlay masks and additional labels on the images.
+The Advanced Settings section allows you to overlay masks and additional labels on the images. The time text, the channel label, and the scale bar can be moved freely within an image using the left mouse button.
 
 ### Mask Overlay
 
@@ -72,6 +72,16 @@ The Advanced Settings section allows you to overlay masks and additional labels 
 
 By default, the channel label displays the original channel name (for example, `w02` from the image metadata). You can enter a custom label into the `CH label text` field.
 
+### Scale Bar
+
+- Enable by checking `Scale bar`.
+- Click `Settings` to open the scale bar options:
+  - Define `µm / px`
+  - Change `Length` and `Unit` (`nm`, `µm`, `mm`)
+  - Click on `Show text` to display the length text.
+  - `Font`, `Text size`, `Thickness`, and `Color` adjust the look of the bar and its text.
+
+
 ## Export Data
 
 Export layouts as:
@@ -92,6 +102,5 @@ Click `Export` to export the selected format(s). The files are saved in the expe
 
 - Clicking `Save` stores the current layout and all associated parameters as a `.json` file.
 - To reload a layout, select a layout from the dropdown and click `Load` to restore the layout and all its saved settings.
-
 
 ![Image and movie export window](images/image-movie-export.png)

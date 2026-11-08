@@ -359,16 +359,16 @@ class _Window:
         la2.addWidget(QLabel("CH label text:"), r, 0, alignment=Qt.AlignLeft)
         main_window.adv_ch_label_edit = QLineEdit()
         main_window.adv_ch_label_edit.setPlaceholderText("e.g. GFP")
-        main_window.adv_ch_label_edit.setFixedWidth(220)
+        main_window.adv_ch_label_edit.setFixedWidth(130)  # = combo width
         main_window.adv_ch_label_edit.setToolTip(
             TOOLTIPSTEXT.ADV_CH_LABEL_EDIT
         )
         la2.addWidget(
-            main_window.adv_ch_label_edit, r, 1, 1, 3, alignment=Qt.AlignLeft
+            main_window.adv_ch_label_edit, r, 1, alignment=Qt.AlignLeft
         )
 
         # Font label
-        la2.addWidget(QLabel("Font:"), r, 4, alignment=Qt.AlignLeft)
+        la2.addWidget(QLabel("Font:"), r, 2, alignment=Qt.AlignLeft)
         main_window.adv_font_combo = QComboBox()
         fonts = list(getattr(EXPORT, "FONT_NAMES", ()))
         if not fonts:
@@ -380,9 +380,29 @@ class _Window:
         if idx >= 0:
             main_window.adv_font_combo.setCurrentIndex(idx)
 
-        self._compact_combo(main_window.adv_font_combo)
+        main_window.adv_font_combo.setSizeAdjustPolicy(
+            QComboBox.AdjustToContents
+        )
         main_window.adv_font_combo.setToolTip(TOOLTIPSTEXT.ADV_FONT_COMBO)
-        la2.addWidget(main_window.adv_font_combo, r, 5, alignment=Qt.AlignLeft)
+        la2.addWidget(
+            main_window.adv_font_combo, r, 3, 1, 3, alignment=Qt.AlignLeft
+        )
+        r += 1
+        la2.addWidget(QLabel("Scale bar:"), r, 0, alignment=Qt.AlignLeft)
+        main_window.adv_scale_bar_chk = QCheckBox()
+        main_window.adv_scale_bar_chk.setToolTip(
+            TOOLTIPSTEXT.ADV_SCALE_BAR_CHK
+        )
+        la2.addWidget(
+            main_window.adv_scale_bar_chk, r, 1, alignment=Qt.AlignLeft
+        )
+        main_window.adv_scale_bar_btn = QPushButton("Settings")
+        main_window.adv_scale_bar_btn.setToolTip(
+            TOOLTIPSTEXT.ADV_SCALE_BAR_BTN
+        )
+        la2.addWidget(
+            main_window.adv_scale_bar_btn, r, 2, 1, 2, alignment=Qt.AlignLeft
+        )
         sidebar.addWidget(grp_adv)
 
         # Export row

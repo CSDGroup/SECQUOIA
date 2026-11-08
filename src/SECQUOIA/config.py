@@ -666,6 +666,22 @@ class TOOLTIPSTEXT:
     ADV_FONT_COMBO: str = (
         "Font family used for the time stamp and channel label of this tile."
     )
+    ADV_SCALE_BAR_CHK: str = (
+        "Burn a scale bar into the bottom right of this tile."
+    )
+    ADV_SCALE_BAR_BTN: str = (
+        "Set µm/px, bar length, unit, text, font, size and color."
+    )
+    SCALE_BAR_UM_PER_PX: str = (
+        "Pixel size, used for all images. Read from the TATexp file, 1.0 if missing."
+    )
+    SCALE_BAR_LENGTH: str = "Physical length of the bar."
+    SCALE_BAR_UNIT: str = "Unit of the length and of its text."
+    SCALE_BAR_SHOW_TEXT: str = "Show the length text above the bar."
+    SCALE_BAR_FONT: str = "Font of the length text."
+    SCALE_BAR_TEXT_SIZE: str = "Font size of the length text."
+    SCALE_BAR_THICKNESS: str = "Thickness of the bar."
+    SCALE_BAR_COLOR: str = "Pick the color of the bar and its text."
 
     EXPORT_GROUP: str = (
         "Choose export kind and format, define spacing, then click Export."

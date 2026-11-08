@@ -6,10 +6,12 @@ from SECQUOIA.gui.exporter.bw_inspector import _BWInspector
 from SECQUOIA.gui.exporter.common import _Common
 from SECQUOIA.gui.exporter.export_jobs import _ExportJobs
 from SECQUOIA.gui.exporter.lineage import _Lineage
+from SECQUOIA.gui.exporter.overlay_drag import _OverlayDrag
 from SECQUOIA.gui.exporter.panels import _Panels
 from SECQUOIA.gui.exporter.playback import _Playback
 from SECQUOIA.gui.exporter.presets import _Presets
 from SECQUOIA.gui.exporter.rendering import _Rendering
+from SECQUOIA.gui.exporter.scale_bar import _ScaleBar
 from SECQUOIA.gui.exporter.sidebar import _Sidebar
 from SECQUOIA.gui.exporter.window import _Window
 
@@ -24,6 +26,8 @@ class ImageMovieExporter(
     _Window,
     _Playback,
     _Rendering,
+    _ScaleBar,
+    _OverlayDrag,
     _ExportJobs,
     _Lineage,
     _BWInspector,

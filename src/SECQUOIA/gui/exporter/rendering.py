@@ -336,8 +336,11 @@ class _Rendering:
         font_t = self._get_font(st["time_font_size"], st.get("font_name"))
         text = self._fmt_hhmmss(max(0.0, t_index * sec_per_frame))
         with suppress(Exception):
+            _, _, w, h = draw.textbbox((0, 0), text, font_t, stroke_width=1)
             draw.text(
-                (EXPORT.TEXT_PAD_L, line_y),
+                self._place(
+                    st, "off_time_text", EXPORT.TEXT_PAD_L, line_y, w, h
+                ),
                 text,
                 fill=st["time_color"],
                 font=font_t,
@@ -351,13 +354,11 @@ class _Rendering:
             return
         font_ch = self._get_font(st["ch_font_size"], st.get("font_name"))
         txt = st.get("chan_label_text", "CH")
-        tw = 60
         with suppress(Exception):
-            tw = draw.textbbox((0, 0), txt, font=font_ch)[2]
-        x_text = EXPORT.PREVIEW_W - tw - EXPORT.TEXT_PAD_R
-        with suppress(Exception):
+            _, _, w, h = draw.textbbox((0, 0), txt, font_ch, stroke_width=1)
+            x_text = EXPORT.PREVIEW_W - w - EXPORT.TEXT_PAD_R
             draw.text(
-                (x_text, line_y),
+                self._place(st, "off_ch_label", x_text, line_y, w, h),
                 txt,
                 fill=st["ch_color"],
                 font=font_ch,
@@ -372,6 +373,7 @@ class _Rendering:
         sec_per_frame = self._resolve_sec_per_frame(main_window)
 
         st = self._get_panel_state_for_render(panel)
+        st["_hit"] = panel["_hit"] = {}  # overlay boxes for mouse dragging
         if not st.get("ident", ""):
             raise ValueError("Identification is missing.")
 
@@ -413,6 +415,7 @@ class _Rendering:
         )
         self._draw_time_text(draw, st, t_index, sec_per_frame, line_y)
         self._draw_channel_label(draw, st, line_y)
+        self._draw_scale_bar(draw, main_window, st, box)
 
         return cropped
 

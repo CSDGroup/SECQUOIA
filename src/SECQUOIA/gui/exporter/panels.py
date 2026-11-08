@@ -27,6 +27,8 @@ from qtpy.QtWidgets import (
 )
 
 from SECQUOIA.config import EXPORT, TOOLTIPSTEXT
+from SECQUOIA.gui.exporter.overlay_drag import OVERLAY_DEFAULTS
+from SECQUOIA.gui.exporter.scale_bar import SCALE_BAR_DEFAULTS
 
 LOG = logging.getLogger(__name__)
 
@@ -267,6 +269,8 @@ class _Panels:
             "indicator_px": 10,
             "indicator_color_rgb": (255, 255, 255),
             "lineage_path": [],
+            **SCALE_BAR_DEFAULTS,
+            **OVERLAY_DEFAULTS,
             "_buf": None,
         }
 
@@ -361,6 +365,7 @@ class _Panels:
                 act_remove = menu.addAction("Remove")
                 act_remove.setToolTip(TOOLTIPSTEXT.CONTEXT_REMOVE_TILE)
                 act_reset = menu.addAction("Reset")
+                act_adv = menu.addAction("Reset advanced settings")
                 act = menu.exec_(panel_dict["container"].mapToGlobal(e.pos()))
                 if act is act_add:
                     pos = self._nearest_free_point(
@@ -372,12 +377,23 @@ class _Panels:
                     self._remove_panel(main_window, panel_dict)
                 elif act is act_reset:
                     self._reset_layout_to_defaults(main_window)
+                elif act is act_adv:
+                    self._reset_advanced_settings(main_window, panel_dict)
                 return
             self._set_active_panel(main_window, panel_dict)
+            if self._overlay_press(panel_dict, e.pos()):
+                e.accept()  # keep the mouse on this tile while dragging
+                return
             with suppress(Exception):
                 base_frame_press(e)
 
         panel_dict["container"].mousePressEvent = _on_frame_press
+        panel_dict["container"].mouseMoveEvent = lambda e: (
+            self._overlay_move(main_window, panel_dict, e.pos())
+        )
+        panel_dict["container"].mouseReleaseEvent = lambda e: (
+            panel_dict.update(_drag=None)
+        )
 
     def _create_tile_widget(self):
         """Create a fixed size panel widget and preview label."""
