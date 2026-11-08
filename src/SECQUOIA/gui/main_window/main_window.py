@@ -1,4 +1,4 @@
-"""MainWindow: the top-level widget, its instance state, menus, and layout."""
+"""MainWindow: the top level widget, its instance state, menus, and layout."""
 
 import logging
 import webbrowser
@@ -68,10 +68,7 @@ from SECQUOIA.gui.main_window.key_bindings import KeyBindings, cell_fate
 from SECQUOIA.gui.main_window.labels_editing import LabelsEditing
 from SECQUOIA.gui.main_window.layer_visibility import LayerVisibility
 from SECQUOIA.gui.main_window.measurement_picking import MeasurementPicking
-from SECQUOIA.gui.main_window.mouse_bindings import (
-    MouseBindings,
-    on_plot_single_click,
-)
+from SECQUOIA.gui.main_window.mouse_bindings import MouseBindings
 from SECQUOIA.gui.main_window.tracks_layer import TracksLayer
 from SECQUOIA.gui.main_window.viewer_contrast import ViewerContrast
 from SECQUOIA.gui.main_window.viewer_setup import ViewerSetup
@@ -466,6 +463,7 @@ class MainWindow(
         plot_widget_1.hideAxis("top")
         plot_widget_1.setBackground("black")
         plot_widget_1.setMouseEnabled(x=False, y=False)
+        plot_widget_1.setMenuEnabled(False)
 
         # Lineage panel: container plus the black placeholder plot
         self.graph3_layout = QVBoxLayout()
@@ -597,9 +595,6 @@ class MainWindow(
         font.setBold(True)
         header.setFont(0, font)
         self.tree_widget.itemClicked.connect(partial(handle_item_click, self))
-        plot_widget_1.scene().sigMouseClicked.connect(
-            partial(on_plot_single_click, self)
-        )
         # Context menu on tree items
         self.tree_widget.setContextMenuPolicy(Qt.CustomContextMenu)
         self.tree_widget.customContextMenuRequested.connect(
