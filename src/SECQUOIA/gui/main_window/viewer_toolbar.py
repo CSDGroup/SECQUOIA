@@ -18,6 +18,7 @@ from SECQUOIA.config import TOOLTIPSTEXT
 from SECQUOIA.gui.cell_inspector.integration import notify_cell_inspector
 from SECQUOIA.gui.common.ui_utils import (
     TOOLBAR_ICON_PX,
+    ChannelCommentTooltip,
     dpi_icon_size,
     use_fusion_widget_style,
 )
@@ -59,6 +60,7 @@ class ViewerToolbar:
         ch_combo.setMinimumContentsLength(6)
         ch_combo.setSizeAdjustPolicy(QComboBox.AdjustToContents)
         ch_combo.setToolTip(TOOLTIPSTEXT.CH_VIEWER)
+        ChannelCommentTooltip(ch_combo, self)
         for channel in self.ids_channels:
             ch_combo.addItem(channel[1:], channel[1:])
         ch_box.addWidget(ch_combo)

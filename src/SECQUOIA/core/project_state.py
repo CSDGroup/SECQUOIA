@@ -11,6 +11,7 @@ from contextlib import suppress
 import pandas as pd
 from qtpy.QtWidgets import QLineEdit, QMessageBox
 
+from SECQUOIA.core.tatexp_xml import extract_channel_comments_from_xml
 from SECQUOIA.core.tracking.clt_io import CLTParser
 from SECQUOIA.utils.io_reload import dump_json_with_reload, to_csv_with_reload
 from SECQUOIA.utils.paths import project_analysis_dir
@@ -338,6 +339,9 @@ def _restore_clt_parser(main_window) -> None:
         )
         xml_path = candidates[0] if candidates else None
     main_window.xml_path = xml_path
+    main_window.channel_comment_map = extract_channel_comments_from_xml(
+        xml_path
+    )
     main_window.clt_parser = CLTParser(xml_path)
     main_window.clt_parser.folder_exp = getattr(
         main_window, "tracking_path", None
@@ -421,6 +425,7 @@ def load_project_state(main_window, json_path=None) -> bool:
     ):
         setattr(main_window, "folder" if k == "experiment_root" else k, s[k])
 
+    main_window.channel_comment_map = {}
     if main_window.tracking_format == "tTt":
         _restore_clt_parser(main_window)
 

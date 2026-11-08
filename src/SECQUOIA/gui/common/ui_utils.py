@@ -7,7 +7,7 @@ import sys
 from pathlib import Path
 
 import qtawesome as qta
-from qtpy.QtCore import QEventLoop, QPoint, QSize, Qt, QUrl
+from qtpy.QtCore import QEvent, QEventLoop, QObject, QPoint, QSize, Qt, QUrl
 from qtpy.QtGui import QColor, QDesktopServices, QPainter, QPixmap, QPolygon
 from qtpy.QtWidgets import (
     QApplication,
@@ -22,12 +22,14 @@ from qtpy.QtWidgets import (
     QSizePolicy,
     QStyleFactory,
     QToolButton,
+    QToolTip,
     QTreeWidget,
     QVBoxLayout,
     QWidget,
 )
 
 __all__ = [
+    "ChannelCommentTooltip",
     "ContentWidthScrollArea",
     "TOOLBAR_ICON_PX",
     "add_progress_bar",
@@ -105,6 +107,35 @@ def use_fusion_widget_style(widget: QWidget) -> None:
     if not is_widget_alive(_fusion_style):
         _fusion_style = QStyleFactory.create("Fusion")
     widget.setStyle(_fusion_style)
+
+
+class ChannelCommentTooltip(QObject):
+    """Show TAT channel comments on a combo and on its open list's items."""
+
+    def __init__(self, combo: QComboBox, source) -> None:
+        super().__init__(combo)
+        self._combo = combo
+        self._source = source
+        combo.installEventFilter(self)
+        combo.view().viewport().installEventFilter(self)
+
+    def eventFilter(self, watched, event) -> bool:
+        if event.type() != QEvent.ToolTip:
+            return False
+        combo = self._combo
+        in_list = watched is not combo
+        channel = (
+            combo.view().indexAt(event.pos()).data()
+            if in_list
+            else combo.currentText()
+        )
+        comments = getattr(self._source, "channel_comment_map", {})
+        comment = comments.get(f"w{channel}")
+        if not comment:
+            return False
+        text = comment if in_list else f"{combo.toolTip()}\n\n{comment}"
+        QToolTip.showText(event.globalPos(), text, watched)
+        return True
 
 
 def use_fusion_combos(root: QWidget) -> None:

@@ -18,6 +18,7 @@ from qtpy.QtWidgets import (
 from SECQUOIA.config import TOOLTIPSTEXT, ColorStyle
 from SECQUOIA.gui.common.ui_utils import (
     TOOLBAR_ICON_PX,
+    ChannelCommentTooltip,
     dpi_icon_size,
     use_fusion_widget_style,
 )
@@ -83,6 +84,7 @@ class DynamicsPlotRowWidgets:
         ch_label.setSizePolicy(QSizePolicy.Maximum, QSizePolicy.Fixed)
         ch_combo = QComboBox()
         ch_combo.setToolTip(TOOLTIPSTEXT.CPLOT)
+        ChannelCommentTooltip(ch_combo, self)
         ch_combo.setSizePolicy(QSizePolicy.Minimum, QSizePolicy.Fixed)
         ch_combo.setMinimumContentsLength(4)
         ch_combo.setSizeAdjustPolicy(QComboBox.AdjustToContents)
