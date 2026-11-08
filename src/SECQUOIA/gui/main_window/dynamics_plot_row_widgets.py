@@ -9,9 +9,7 @@ from qtpy.QtWidgets import (
     QComboBox,
     QHBoxLayout,
     QLabel,
-    QPushButton,
     QSizePolicy,
-    QStyle,
     QToolButton,
     QVBoxLayout,
     QWidget,
@@ -106,30 +104,21 @@ class DynamicsPlotRowWidgets:
 
         return ch_label, ch_combo
 
-    def _build_row_metric_buttons(self) -> tuple[QPushButton, QPushButton]:
-        """Build the metrics and arithmetic buttons for a plot row, sized to their icons."""
-        btn_r = QPushButton()
-        use_fusion_widget_style(btn_r)
+    def _build_row_metric_buttons(self) -> tuple[QToolButton, QToolButton]:
+        """Build the flat metrics and arithmetic buttons for a plot row."""
+        btn_r = QToolButton()
+        btn_r.setAutoRaise(True)
         btn_r.setToolTip(TOOLTIPSTEXT.BTN_R)
         btn_r.setCursor(Qt.PointingHandCursor)
         btn_r.setIcon(qta.icon("fa5s.chart-bar", color="white"))
         btn_r.setIconSize(dpi_icon_size(btn_r, TOOLBAR_ICON_PX))
 
-        btn_arith = QPushButton()
-        use_fusion_widget_style(btn_arith)
+        btn_arith = QToolButton()
+        btn_arith.setAutoRaise(True)
         btn_arith.setToolTip(TOOLTIPSTEXT.BTN_ARITH)
         btn_arith.setCursor(Qt.PointingHandCursor)
         btn_arith.setIcon(qta.icon("fa5s.layer-group", color="white"))
         btn_arith.setIconSize(dpi_icon_size(btn_arith, TOOLBAR_ICON_PX))
-
-        for b in (btn_r, btn_arith):
-            fm = b.fontMetrics()
-            text_w = fm.horizontalAdvance(b.text())
-            pad = 2 * b.style().pixelMetric(
-                QStyle.PM_ButtonMargin
-            ) + 2 * b.style().pixelMetric(QStyle.PM_DefaultFrameWidth)
-            icon_pad = b.iconSize().width() + 8
-            b.setMinimumWidth(text_w + pad + icon_pad)
 
         return btn_r, btn_arith
 
@@ -187,8 +176,8 @@ class DynamicsPlotRowWidgets:
         feat_combo: QComboBox,
         m_combo: QComboBox,
         ch_combo: QComboBox,
-        btn_r: QPushButton,
-        btn_arith: QPushButton,
+        btn_r: QToolButton,
+        btn_arith: QToolButton,
         eye_btn: QToolButton,
         plot_widget: pg.PlotWidget,
     ) -> None:
