@@ -24,6 +24,7 @@
 - [Installation](#installation)
 - [How to get started](#how-to-get-started)
 - [Load data](#load-data)
+- [Quantify without the GUI](#quantify-without-the-gui)
 - [Navigate SECQUOIA's main window](#navigate-secquoias-main-window)
 - [Switch to a different position](#switch-to-a-different-position)
 - [Save and export data](#save-and-export-data)
@@ -144,6 +145,16 @@ To load data into SECQUOIA:
 3. Follow the steps in the [loading-window documentation](docs/loading-window.md) to load an experiment.
 
 Experiment data must be arranged according to the [tTt folder structure](docs/data-formats.md). A demo dataset is available in [`examples/`](examples/README.md).
+
+## Quantify without the GUI
+
+To quantify tracked data without opening SECQUOIA or curating, for example for many positions or experiments, or on a server, use the `SECQUOIA-batch` command. It does the same as the loading window's `All` run, with one argument for each field of the loading window:
+
+```bash
+SECQUOIA-batch /path/to/experiment --tracking-folder Analysis/Tracking_tTt/<experiment>
+```
+
+See [batch mode](docs/batch-mode.md) for all arguments and how they map to the loading window.
 
 ## Navigate SECQUOIA's main window
 

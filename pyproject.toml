@@ -63,6 +63,7 @@ testing = [
 
 [project.scripts]
 SECQUOIA = "SECQUOIA.cli.run_app:main"
+SECQUOIA-batch = "SECQUOIA.cli.batch:main"
 
 [build-system]
 requires = ["setuptools>=77", "wheel", "setuptools_scm"]

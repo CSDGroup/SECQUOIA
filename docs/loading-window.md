@@ -50,6 +50,8 @@ A summary of all selected parameters for the experiment to be quantified and cur
 3. The progress bar indicates when the loading and quantification are finished. Once processing is complete, the `Start Curation` button is enabled.
 4. During loading, a project folder is created in the Analysis directory. The loading parameters are saved in `project_metadata.json`, allowing the project to be easily reloaded later.
 
+**Note:** The same `All` run can be started from the command line without opening SECQUOIA. See [batch mode](batch-mode.md).
+
 # Channel/Segmentation manager
 
 Add or remove channels and segmentation masks after a project has already been loaded, without restarting the experiment. Channel and segmentation detection reuse the same logic as the initial loading window, so your original parameters carry over automatically. Open it via `View → Channel/Segmentation manager` or `Ctrl+Shift+C`.
