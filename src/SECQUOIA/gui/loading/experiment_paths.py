@@ -1,4 +1,4 @@
-"""Shared helpers for the experiment-loading dialogs."""
+"""Shared helpers for the experiment loading dialogs."""
 
 from __future__ import annotations
 
@@ -132,10 +132,29 @@ def _find_example_position_folder(main_window):
 
 
 def _detect_unique_w_channels(main_window):
-    """Return the 'wNN' channel identifiers found in one sample position folder."""
-    return detect_unique_w_channels(
+    """Return the 'wNN' channel identifiers found in the first, middle and last position folders."""
+    pf = list(getattr(main_window, "position_folders", None) or [])
+    folders = {
         _find_example_position_folder(main_window),
-        getattr(main_window, "n_channels", 1),
+        *pf[:1],
+        *pf[len(pf) // 2 :][:1],
+        *pf[-1:],
+    }
+    found = {c for f in folders if f for c in detect_unique_w_channels(f, 0)}
+    xml_chans = set(getattr(main_window, "channel_comment_map", None) or {})
+    if getattr(main_window, "tracking_format", "") == "tTt" and xml_chans:
+        if found <= xml_chans:
+            found |= xml_chans
+        else:
+            LOG.warning(
+                "TAT XML channels %s do not match files %s; using files only.",
+                sorted(xml_chans),
+                sorted(found),
+            )
+    if found:
+        return sorted(found, key=lambda s: int(s[1:]))
+    return detect_unique_w_channels(
+        None, getattr(main_window, "n_channels", 1)
     )
 
 
@@ -568,8 +587,7 @@ def _install_tracking_mount_menu(button, main_window):
         elif chosen == clear_action:
             _clear_saved_dir(key)
             button.setToolTip(
-                f"Select {fmt} folder\n\n"
-                "Right-click to mount tracking path."
+                f"Select {fmt} folder\n\nRight-click to mount tracking path."
             )
 
     button.customContextMenuRequested.connect(_show_menu)

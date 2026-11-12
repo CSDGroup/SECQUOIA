@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 import os
 import re
 import xml.etree.ElementTree as ET
@@ -14,6 +15,7 @@ __all__ = [
     "extract_position_comments_from_xml",
 ]
 
+LOG = logging.getLogger(__name__)
 _WAVELENGTH_PATH = ".//WavelengthData/WavelengthInformation"
 _POSITION_PATH = ".//PositionData/PositionInformation"
 
@@ -43,6 +45,16 @@ def extract_channel_comments_from_xml(xml_path: str | None) -> dict[str, str]:
             if not name_attr:
                 continue
             mapping[_channel_key(name_attr)] = info.get("Comment", "") or ""
+        count = getattr(root.find(".//WavelengthCount"), "attrib", {}).get(
+            "count", ""
+        )
+        if count.isdigit() and int(count) != len(mapping):
+            LOG.warning(
+                "TAT XML WavelengthCount=%s but %d channels listed: %s",
+                count,
+                len(mapping),
+                sorted(mapping),
+            )
     except (ET.ParseError, OSError):
         pass
     return mapping
