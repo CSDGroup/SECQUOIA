@@ -375,7 +375,7 @@ class TestUnreadableFrames:
             staging, str(tmp_path / "Segmentation"), 1, 1
         )
         yield staging
-        loading_pipeline._cleanup_staging(staging)
+        cleanup_memmaps(staging, remove_viewer_image_layers=False)
 
     def test_reports_its_progress_and_failures(self, preloaded):
         assert preloaded._load_cancel.progress == 1.0
@@ -384,27 +384,19 @@ class TestUnreadableFrames:
 
     def test_masks_wait_on_the_scratch_disk(self, preloaded):
         assert isinstance(preloaded.labels, np.memmap)
-        assert any("masks_" in p for p in preloaded._memmap_files)
+        assert len(preloaded._mask_memmap_files) == 1
 
-    def test_on_switch_the_masks_move_into_ram(self, preloaded):
+    def test_on_switch_the_masks_stay_on_disk(self, preloaded):
+        """No copy into RAM: the window takes over the mask files."""
         future = concurrent.futures.Future()
         future.set_result(preloaded)
         window = SimpleNamespace()
 
         loading_pipeline._adopt_prefetched_inputs(window, future, 1)
 
-        assert type(window.labels) is np.ndarray
+        assert isinstance(window.labels, np.memmap)
         assert window.labels[0].tolist() == [[0, 1], [2, 0]]
-
-    def test_masks_in_lists_and_dicts_move_into_ram(self, tmp_path):
-        disk = np.memmap(
-            tmp_path / "m.dat", dtype=np.uint16, mode="w+", shape=(2,)
-        )
-
-        moved = loading_pipeline._masks_to_ram({"a": [disk], "b": None})
-
-        assert type(moved["a"][0]) is np.ndarray
-        assert moved["b"] is None
+        assert window._mask_memmap_files == preloaded._mask_memmap_files
 
 
 class TestSavedMeasurements:

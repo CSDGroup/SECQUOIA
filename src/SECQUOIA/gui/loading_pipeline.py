@@ -14,7 +14,6 @@ import threading
 import time
 from types import SimpleNamespace
 
-import numpy as np
 import pandas as pd
 from qtpy.QtCore import QObject, Qt, QTimer, Signal, Slot
 from qtpy.QtWidgets import QApplication, QLabel, QProgressBar
@@ -25,7 +24,7 @@ from SECQUOIA.core.basic_correction import (
 )
 from SECQUOIA.core.fluorescence_loading import load_fl_channels
 from SECQUOIA.core.gap_filling import add_missing_rows
-from SECQUOIA.core.memmap_store import cleanup_memmaps
+from SECQUOIA.core.memmap_store import cleanup_memmaps, mask_file_allocator
 from SECQUOIA.core.project_state import save_track_df
 from SECQUOIA.core.quantification import quantify
 from SECQUOIA.core.segmentation.mask_io import load_masks
@@ -315,6 +314,7 @@ def _load_data(main_window) -> None:
         main_window.image_format,
         t_file_min=t_file_min,
         t_file_max=t_file_max,
+        alloc=mask_file_allocator(main_window),
     )
 
     stack = [future_fl, future_segmentation]
@@ -569,6 +569,7 @@ _LOADED_INPUT_ATTRS = (
     "_memmap_lock",
     "_export_display_range",
     "labels",
+    "_mask_memmap_files",
 )
 
 _BASIC_OUTPUT_ATTRS = (
@@ -690,13 +691,6 @@ def _load_position_inputs(staging, segmentation_paths, tmin: int, tmax: int):
             gate, "progress", start + span * frac
         )
 
-    def on_disk(shape, dtype):
-        path = os.path.join(
-            staging._memmap_dir, f"masks_{len(staging._memmap_files)}.dat"
-        )
-        staging._memmap_files.append(path)
-        return np.memmap(path, dtype=dtype, mode="w+", shape=shape)
-
     try:
         load_fl_channels(staging, stage(0.0, 0.5))
         failed_masks: list = []
@@ -709,7 +703,7 @@ def _load_position_inputs(staging, segmentation_paths, tmin: int, tmax: int):
             max_workers=getattr(staging, "fl_max_workers", None),
             cancel=gate,
             failed=failed_masks,
-            alloc=on_disk,
+            alloc=mask_file_allocator(staging),
         )
         staging.mask_failed_frames = len(failed_masks)
         gate.progress = 0.6
@@ -723,7 +717,7 @@ def _load_position_inputs(staging, segmentation_paths, tmin: int, tmax: int):
         )
         gate.progress = 1.0
     except BaseException:
-        _cleanup_staging(staging)
+        cleanup_memmaps(staging, remove_viewer_image_layers=False)
         raise
     return staging
 
@@ -744,26 +738,11 @@ def _read_saved_measurements(staging, tmin: int, tmax: int):
         return None
 
 
-def _cleanup_staging(staging) -> None:
-    """Delete a preload's scratch files."""
-    staging.labels = None
-    cleanup_memmaps(staging, remove_viewer_image_layers=False)
-
-
-def _masks_to_ram(labels):
-    """Copy masks preloaded to disk into RAM, as a normal load holds them."""
-    if isinstance(labels, dict):
-        return {key: _masks_to_ram(value) for key, value in labels.items()}
-    if isinstance(labels, list):
-        return [_masks_to_ram(value) for value in labels]
-    return np.array(labels) if isinstance(labels, np.memmap) else labels
-
-
 def _cleanup_unused(future: concurrent.futures.Future) -> None:
     """Delete the scratch files of a finished prefetch nobody took."""
     if future.cancelled() or future.exception() is not None:
         return
-    _cleanup_staging(future.result())
+    cleanup_memmaps(future.result(), remove_viewer_image_layers=False)
 
 
 class _NextPositionPrefetch:
@@ -885,14 +864,13 @@ def _adopt_prefetched_inputs(main_window, future, pnum: int):
             pnum,
             unreadable,
         )
-        _cleanup_staging(staging)
+        cleanup_memmaps(staging, remove_viewer_image_layers=False)
         return None
     attrs = _LOADED_INPUT_ATTRS
     if staging.basic_done:
         attrs += _BASIC_OUTPUT_ATTRS
     for attr in attrs:
         setattr(main_window, attr, getattr(staging, attr, None))
-    main_window.labels = staging.labels = _masks_to_ram(staging.labels)
     return staging
 
 
@@ -948,6 +926,7 @@ def _process_one_position(
                 main_window.image_format,
                 t_file_min=tmin,
                 t_file_max=tmax,
+                alloc=mask_file_allocator(main_window),
             )
 
             with run.stage("load_channels"):
@@ -1217,6 +1196,7 @@ def _load_images_and_masks(
             main_window.image_format,
             t_file_min=t_file_min,
             t_file_max=t_file_max,
+            alloc=mask_file_allocator(main_window),
         )
         _wait_while_pumping({future_fl, future_seg})
 

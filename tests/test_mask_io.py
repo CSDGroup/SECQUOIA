@@ -8,10 +8,13 @@ holding only one is read as binary and relabelled from 1.
 
 from __future__ import annotations
 
+from types import SimpleNamespace
+
 import numpy as np
 import pytest
 import tifffile
 
+from SECQUOIA.core.memmap_store import mask_file_allocator
 from SECQUOIA.core.segmentation.mask_io import (
     _mask_to_2d,
     _mask_worker_count,
@@ -155,44 +158,78 @@ def position(tmp_path):
     return str(tmp_path / "images" / "exp_p0001")
 
 
+@pytest.fixture(params=["ram", "disk"])
+def mask_alloc(request, tmp_path):
+    if request.param == "ram":
+        return np.zeros
+    scratch = tmp_path / "scratch"
+    scratch.mkdir()
+    return mask_file_allocator(SimpleNamespace(_memmap_dir=str(scratch)))
+
+
 class TestLoadMasks:
     def test_loads_every_frame_in_the_folder(self, seg_folder, position):
         stack = load_masks(str(seg_folder), position, "tif")
 
         assert stack.shape == (3, 6, 6)
 
-    def test_a_t_range_allocates_the_whole_range(self, seg_folder, position):
+    def test_a_t_range_allocates_the_whole_range(
+        self, seg_folder, position, mask_alloc
+    ):
         """Four frames requested, three on disk: the stack still has four."""
         stack = load_masks(
-            str(seg_folder), position, "tif", t_file_min=1, t_file_max=4
+            str(seg_folder),
+            position,
+            "tif",
+            t_file_min=1,
+            t_file_max=4,
+            alloc=mask_alloc,
         )
 
         assert stack.shape == (4, 6, 6)
 
     def test_a_missing_frame_leaves_a_gap_rather_than_shifting(
-        self, seg_folder, position
+        self, seg_folder, position, mask_alloc
     ):
-        """This is the convention that matters: row index follows the filename."""
         stack = load_masks(
-            str(seg_folder), position, "tif", t_file_min=1, t_file_max=4
+            str(seg_folder),
+            position,
+            "tif",
+            t_file_min=1,
+            t_file_max=4,
+            alloc=mask_alloc,
         )
 
         assert stack[0].max() == 2
         assert stack[1].max() == 3
-        assert stack[2].max() == 0  # frame 3 was never acquired
+        assert stack[2].max() == 0
         assert stack[3].max() == 5
 
-    def test_the_range_is_rebased_to_zero(self, seg_folder, position):
+    def test_the_range_is_rebased_to_zero(
+        self, seg_folder, position, mask_alloc
+    ):
         stack = load_masks(
-            str(seg_folder), position, "tif", t_file_min=2, t_file_max=4
+            str(seg_folder),
+            position,
+            "tif",
+            t_file_min=2,
+            t_file_max=4,
+            alloc=mask_alloc,
         )
 
         assert stack.shape == (3, 6, 6)
-        assert stack[0].max() == 3  # t-file 2 becomes row 0
+        assert stack[0].max() == 3
 
-    def test_files_outside_the_range_are_ignored(self, seg_folder, position):
+    def test_files_outside_the_range_are_ignored(
+        self, seg_folder, position, mask_alloc
+    ):
         stack = load_masks(
-            str(seg_folder), position, "tif", t_file_min=1, t_file_max=2
+            str(seg_folder),
+            position,
+            "tif",
+            t_file_min=1,
+            t_file_max=2,
+            alloc=mask_alloc,
         )
 
         assert stack.shape == (2, 6, 6)
@@ -200,7 +237,6 @@ class TestLoadMasks:
     def test_a_binary_mask_is_relabelled_into_objects(
         self, tmp_path, position
     ):
-        """A two-value image is a binary mask; each blob needs its own label."""
         seg = tmp_path / "Segmentation1"
         binary = np.zeros((8, 8), dtype=np.uint8)
         binary[1:3, 1:3] = 255
@@ -397,10 +433,19 @@ class TestTFileFromIdx:
 class TestSaveMasksIncremental:
     """Edits made on a loaded interval must be written back to the same files."""
 
+    @pytest.fixture(autouse=True)
+    def _storage(self, mask_alloc):
+        self.alloc = mask_alloc
+
     def edit_and_save(self, seg_folder, position, fake_main_window, rows):
         """Load t-files 2..4, overwrite ``rows`` with a marker, save, return the folder."""
         stack = load_masks(
-            str(seg_folder), position, "tif", t_file_min=2, t_file_max=4
+            str(seg_folder),
+            position,
+            "tif",
+            t_file_min=2,
+            t_file_max=4,
+            alloc=self.alloc,
         )
         for row in rows:
             stack[row] = labelled_plane(9)

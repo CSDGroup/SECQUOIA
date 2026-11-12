@@ -28,6 +28,8 @@ LOG = logging.getLogger(__name__)
 
 __all__ = [
     "cleanup_memmaps",
+    "ensure_memmap_dir",
+    "mask_file_allocator",
     "acquire_dir_lock",
     "release_dir_lock",
     "reap_stale_memmap_dirs",
@@ -35,6 +37,27 @@ __all__ = [
 
 _LOCK_FILENAME = ".owner.lock"
 _MEMMAP_DIR_GLOB = "SECQUOIA_memmaps_*"
+
+
+def ensure_memmap_dir(owner) -> str:
+    if not getattr(owner, "_memmap_dir", None):
+        owner._memmap_dir = tempfile.mkdtemp(prefix="SECQUOIA_memmaps_")
+        owner._memmap_lock = acquire_dir_lock(owner._memmap_dir)
+    return owner._memmap_dir
+
+
+def mask_file_allocator(owner):
+    folder = ensure_memmap_dir(owner)
+    if getattr(owner, "_mask_memmap_files", None) is None:
+        owner._mask_memmap_files = []
+
+    def alloc(shape, dtype):
+        fd, path = tempfile.mkstemp(prefix="masks_", suffix=".dat", dir=folder)
+        os.close(fd)
+        owner._mask_memmap_files.append(path)
+        return np.memmap(path, dtype=dtype, mode="w+", shape=shape)
+
+    return alloc
 
 
 def acquire_dir_lock(dir_path: str):
@@ -96,16 +119,18 @@ def reap_stale_memmap_dirs() -> None:
 
 
 def _detach_viewer_images(viewer) -> None:
-    """Drop napari image layer data and remove those layers from a viewer."""
+    """Remove napari image and mask layers, which may show memmap files."""
     if viewer is None:
         return
     with contextlib.suppress(AttributeError, RuntimeError, TypeError):
         for lyr in list(viewer.layers):
-            if getattr(lyr, "__class__", None).__name__ == "Image":
+            kind = getattr(lyr, "__class__", None).__name__
+            if kind == "Image":
                 with contextlib.suppress(
                     AttributeError, RuntimeError, TypeError
                 ):
                     lyr.data = None
+            if kind in ("Image", "Labels"):
                 with contextlib.suppress(
                     AttributeError, RuntimeError, TypeError
                 ):
@@ -224,6 +249,8 @@ def cleanup_memmaps(
     _flush_close_attr(main_window, "corrected_images")
     _flush_close_attr(main_window, "corrected_images_ratioflat")
     _flush_close_attr(main_window, "corrected_images_noratioflat")
+    if getattr(main_window, "_mask_memmap_files", None):
+        main_window.labels = []
 
     # Force ref drop
     gc.collect()
@@ -233,6 +260,7 @@ def cleanup_memmaps(
     _delete_file_list(
         main_window, "_noratioflat_memmap_files", retries, sleep_s
     )
+    _delete_file_list(main_window, "_mask_memmap_files", retries, sleep_s)
 
     release_dir_lock(getattr(main_window, "_memmap_lock", None))
     main_window._memmap_lock = None

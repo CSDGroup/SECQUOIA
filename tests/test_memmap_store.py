@@ -23,6 +23,8 @@ from SECQUOIA.core.memmap_store import (
     _rmtree_retry,
     acquire_dir_lock,
     cleanup_memmaps,
+    ensure_memmap_dir,
+    mask_file_allocator,
     reap_stale_memmap_dirs,
     release_dir_lock,
 )
@@ -47,7 +49,6 @@ class RecordingViewer:
         return self._layers
 
 
-# Directory ownership lock
 class TestDirLock:
     def test_taking_a_lock_creates_the_lock_file(self, tmp_path):
         lock = acquire_dir_lock(str(tmp_path))
@@ -250,28 +251,24 @@ class TestRmtreeRetry:
 
 
 class TestDetachViewerImages:
-    def test_removes_image_layers_and_keeps_the_rest(self):
-        """Layer type is matched by class name, so plain fakes are enough."""
+    def test_removes_image_and_mask_layers_and_keeps_the_rest(self):
 
         class Image:
             def __init__(self):
                 self.data = np.zeros((2, 2))
 
-        class Labels:
-            def __init__(self):
-                self.data = np.zeros((2, 2))
-
-        class LayerList(list):
+        class Labels(Image):
             pass
 
-        image, labels = Image(), Labels()
-        layers = LayerList([image, labels])
-        viewer = SimpleNamespace(layers=layers)
+        class Points(Image):
+            pass
 
-        _detach_viewer_images(viewer)
+        image, labels, points = Image(), Labels(), Points()
+        layers = [image, labels, points]
 
-        assert image not in layers
-        assert labels in layers
+        _detach_viewer_images(SimpleNamespace(layers=layers))
+
+        assert layers == [points]
         assert image.data is None
 
     def test_no_viewer_is_not_an_error(self):
@@ -372,3 +369,61 @@ class TestCleanupMemmaps:
         cleanup_memmaps(loaded_session, retries=2, sleep_s=0)
 
         assert touched
+
+
+class TestMaskFiles:
+    @pytest.fixture
+    def owner(self, monkeypatch, tmp_path):
+        monkeypatch.setattr(tempfile, "tempdir", str(tmp_path))
+        owner = SimpleNamespace(_memmap_dir="")
+        yield owner
+        release_dir_lock(getattr(owner, "_memmap_lock", None))
+
+    def test_the_scratch_folder_is_made_once(self, owner):
+        folder = ensure_memmap_dir(owner)
+
+        assert ensure_memmap_dir(owner) == folder
+        assert os.path.basename(folder).startswith("SECQUOIA_memmaps_")
+        assert owner._memmap_lock is not None
+
+    def test_each_mask_stack_gets_its_own_tracked_file(self, owner):
+        alloc = mask_file_allocator(owner)
+
+        first = alloc((2, 3, 3), np.uint16)
+        second = alloc((2, 3, 3), np.uint16)
+
+        assert isinstance(first, np.memmap) and not first.any()
+        assert len(set(owner._mask_memmap_files)) == 2
+        for path in owner._mask_memmap_files:
+            assert os.path.dirname(path) == owner._memmap_dir
+        second[1, 0, 0] = 7  # edits land in the file
+        second.flush()
+        assert np.fromfile(owner._mask_memmap_files[1], np.uint16)[9] == 7
+
+    def test_cleanup_releases_and_deletes_disk_masks(
+        self, owner, fake_main_window
+    ):
+        alloc = mask_file_allocator(owner)
+        window = fake_main_window(
+            labels=[alloc((2, 3, 3), np.uint16)],
+            _memmap_dir=owner._memmap_dir,
+            _memmap_lock=owner._memmap_lock,
+            _mask_memmap_files=owner._mask_memmap_files,
+            viewer_1=None,
+            viewer_2=None,
+        )
+        files = list(owner._mask_memmap_files)
+
+        cleanup_memmaps(window, retries=2, sleep_s=0)
+
+        assert window.labels == []
+        assert window._mask_memmap_files == []
+        assert not any(os.path.exists(path) for path in files)
+
+    def test_cleanup_leaves_masks_in_ram_alone(self, fake_main_window):
+        masks = [np.zeros((2, 3, 3), np.uint16)]
+        window = fake_main_window(labels=masks, _memmap_dir="")
+
+        cleanup_memmaps(window, retries=2, sleep_s=0)
+
+        assert window.labels is masks

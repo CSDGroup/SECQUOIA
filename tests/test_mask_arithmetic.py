@@ -364,3 +364,39 @@ def test_mask_arithmetic_imports():
     assert callable(compute_bitwise_mask)
     assert callable(connected_components_stack)
     assert callable(relabel_separated)
+
+
+@pytest.mark.parametrize(
+    ("op", "not_a", "not_b", "dil1", "dil2", "keep_separate"),
+    [
+        ("INT", False, False, 0, 0, False),
+        ("UNI", False, False, 1, 0, False),
+        ("ME", False, False, 0, 0, False),
+        ("NONE", True, False, 0, 0, False),
+        ("INT", False, True, 0, -1, False),
+        ("UNI", False, False, 0, 0, True),
+        ("NONE", False, False, 1, 0, True),
+    ],
+)
+def test_masks_kept_on_disk_give_the_same_result(
+    tmp_path, op, not_a, not_b, dil1, dil2, keep_separate
+):
+    """The open position's masks are scratch-disk files; results must match."""
+    from types import SimpleNamespace
+
+    from SECQUOIA.core.memmap_store import mask_file_allocator
+
+    alloc = mask_file_allocator(SimpleNamespace(_memmap_dir=str(tmp_path)))
+    in_ram = [big_mask(), small_mask()]
+    on_disk = []
+    for stack in in_ram:
+        disk = alloc(stack.shape, stack.dtype)
+        disk[:] = stack
+        on_disk.append(disk)
+    args = (op, not_a, not_b, dil1, dil2)
+
+    expected = compute_bitwise_mask(*in_ram, *args, keep_separate)
+    result = compute_bitwise_mask(*on_disk, *args, keep_separate)
+
+    np.testing.assert_array_equal(result, expected)
+    assert np.array_equal(on_disk[0], in_ram[0])

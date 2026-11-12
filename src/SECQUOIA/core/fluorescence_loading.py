@@ -5,7 +5,6 @@ from __future__ import annotations
 import concurrent.futures
 import logging
 import os
-import tempfile
 import threading
 from glob import glob as _glob
 from typing import NamedTuple
@@ -13,7 +12,7 @@ from typing import NamedTuple
 import imageio.v2 as imageio
 import numpy as np
 
-from SECQUOIA.core.memmap_store import acquire_dir_lock
+from SECQUOIA.core.memmap_store import ensure_memmap_dir
 from SECQUOIA.utils.io_reload import raise_if_cancelled, read_with_reload
 from SECQUOIA.utils.timing import current_t_range as _current_t_range
 from SECQUOIA.utils.timing import (
@@ -122,9 +121,7 @@ def _reset_load_state(main_window) -> None:
     else:
         main_window.image_present.clear()
 
-    if not hasattr(main_window, "_memmap_dir") or not main_window._memmap_dir:
-        main_window._memmap_dir = tempfile.mkdtemp(prefix="SECQUOIA_memmaps_")
-        main_window._memmap_lock = acquire_dir_lock(main_window._memmap_dir)
+    ensure_memmap_dir(main_window)
 
     if (not hasattr(main_window, "_memmap_files")) or (
         main_window._memmap_files is None
