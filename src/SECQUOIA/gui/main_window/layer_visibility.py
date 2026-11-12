@@ -412,6 +412,9 @@ class LayerVisibility:
         def _apply_drag_helper_to(viewer, lyr, desired_name):
             """Make the layer active, call the mouse drag helper, then restore name."""
             with contextlib.suppress(RuntimeError, AttributeError, TypeError):
+                lyr.brush_size = getattr(
+                    self, "_last_brush_size", lyr.brush_size
+                )
                 viewer.layers.selection.select_only(lyr)
             with contextlib.suppress(RuntimeError, AttributeError, TypeError):
                 viewer.layers.active = lyr

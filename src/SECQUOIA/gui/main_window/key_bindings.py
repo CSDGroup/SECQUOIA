@@ -365,6 +365,9 @@ class KeyBindings:
         Qt.Key_7,
         Qt.Key_8,
         Qt.Key_9,
+        Qt.Key_V,
+        Qt.Key_Minus,
+        Qt.Key_Equal,
     )
 
     def _is_blocked_canvas_key(self, obj: QObject, event: QEvent) -> bool:
@@ -373,7 +376,7 @@ class KeyBindings:
             obj in getattr(self, "_canvas_native_to_viewer", {})
             and isinstance(event, QKeyEvent)
             and event.key() in self._BLOCKED_CANVAS_KEYS
-            and not (event.modifiers() & Qt.ControlModifier)
+            and not (event.modifiers() & (Qt.ControlModifier | Qt.AltModifier))
         )
 
     def _is_brush_resize_wheel(self, obj: QObject, event: QEvent) -> bool:
@@ -640,6 +643,7 @@ def install_alt_plus_minus_brush_resize(
         if new_size != cur:
             with contextlib.suppress(RuntimeError, AttributeError, TypeError):
                 layer.brush_size = int(new_size)
+            main_window._last_brush_size = int(new_size)
             _set_status(v, f"Brush size: {new_size}")
         return True
 
