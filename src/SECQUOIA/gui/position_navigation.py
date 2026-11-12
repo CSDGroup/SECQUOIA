@@ -3,20 +3,31 @@
 from __future__ import annotations
 
 import contextlib
+import functools
 import logging
 import os
 import re
 
 import qtawesome as qta
 from qtpy.QtCore import Qt, QTimer
-from qtpy.QtGui import QColor, QPalette
+from qtpy.QtGui import (
+    QColor,
+    QFontMetrics,
+    QIcon,
+    QPainter,
+    QPalette,
+    QPixmap,
+)
 from qtpy.QtWidgets import (
     QAbstractItemView,
     QApplication,
+    QCheckBox,
     QDialog,
     QHBoxLayout,
+    QHeaderView,
     QLabel,
     QLineEdit,
+    QMenu,
     QMessageBox,
     QPushButton,
     QTreeWidget,
@@ -44,7 +55,12 @@ from SECQUOIA.core.tracking.clt_io import CLTParser
 from SECQUOIA.core.tracking.track_data import update_track_df
 from SECQUOIA.gui.common.messages import show_folder_warning
 from SECQUOIA.gui.common.ui_utils import add_progress_bar, widen_to_hint
-from SECQUOIA.gui.loading_pipeline import UiProgressBridge, update_images
+from SECQUOIA.gui.loading_pipeline import (
+    _PREFETCH_RAM_RESERVE_BYTES,
+    UiProgressBridge,
+    _free_resources,
+    update_images,
+)
 from SECQUOIA.gui.outlier.markers import update_outlier_marker
 from SECQUOIA.gui.outlier.outlier_list import (
     _outliers_is_empty,
@@ -703,6 +719,20 @@ def parse_position_entries(folder_list) -> list[tuple[int, str]]:
     return entries
 
 
+@functools.cache
+def _dot_icon(colour: str) -> QIcon:
+    """A small filled circle."""
+    pixmap = QPixmap(12, 12)
+    pixmap.fill(Qt.transparent)
+    painter = QPainter(pixmap)
+    painter.setRenderHint(QPainter.Antialiasing)
+    painter.setPen(Qt.NoPen)
+    painter.setBrush(QColor(colour))
+    painter.drawEllipse(1, 1, 10, 10)
+    painter.end()
+    return QIcon(pixmap)
+
+
 class PositionSelectDialog(QDialog):
     """Filterable list of positions, with a button to load the selected one."""
 
@@ -713,7 +743,7 @@ class PositionSelectDialog(QDialog):
 
         self.setWindowTitle("Selection of a specific position")
         wide = self._show_position_comments()
-        self.setMinimumSize(560 if wide else 440, 460)
+        self.setMinimumSize(640 if wide else 520, 500)
         self.resize(self.minimumSize())
         self.setAttribute(Qt.WA_DeleteOnClose, False)
 
@@ -741,12 +771,24 @@ class PositionSelectDialog(QDialog):
 
         layout.addWidget(self._build_title())
         subtitle = QLabel(
-            "Select a position, then press <b>Load this Position</b>."
+            "Select a position to load it, or right-click it for preload "
+            "options."
         )
         subtitle.setStyleSheet("color: #ffffff;")
         layout.addWidget(subtitle)
 
         layout.addWidget(self._build_search_edit())
+
+        self.tracked_only_cb = QCheckBox("Only positions with tracking")
+        self.tracked_only_cb.setChecked(True)
+        self.preload_cb = QCheckBox("Preload positions")
+        checks = QHBoxLayout()
+        checks.setSpacing(24)
+        for box in (self.tracked_only_cb, self.preload_cb):
+            widen_to_hint(box)
+            checks.addWidget(box)
+        checks.addStretch(1)
+        layout.addLayout(checks)
 
         self.list_widget = self._build_list_widget()
         layout.addWidget(self.list_widget, 1)
@@ -754,8 +796,14 @@ class PositionSelectDialog(QDialog):
         self.count_lbl = QLabel()
         self.count_lbl.setStyleSheet("color: #ffffff;")
         layout.addWidget(self.count_lbl)
+        self.resources_lbl = QLabel()
+        self.resources_lbl.setStyleSheet("color: #ffffff;")
+        layout.addWidget(self.resources_lbl)
 
         layout.addLayout(self._build_button_row())
+
+        self._refresh_timer = QTimer(self)
+        self._refresh_timer.setInterval(1000)
 
     def _build_title(self) -> QLabel:
         """Build the bold heading above the list."""
@@ -770,7 +818,7 @@ class PositionSelectDialog(QDialog):
     def _build_search_edit(self) -> QLineEdit:
         """Build the filter box, with a readable placeholder on the dark theme."""
         self.search_edit = QLineEdit()
-        self.search_edit.setPlaceholderText("Filter positions… (e.g. 0008)")
+        self.search_edit.setPlaceholderText("Filter positions or comments")
         self.search_edit.setClearButtonEnabled(True)
         self.search_edit.setToolTip(TOOLTIPSTEXT.EDIT_POS)
 
@@ -790,12 +838,12 @@ class PositionSelectDialog(QDialog):
         self.show_comment = self._show_position_comments()
 
         widget = QTreeWidget(self)
-        widget.setColumnCount(3 if self.show_comment else 2)
-        widget.setHeaderLabels(
-            ["Position", "Tree-IDs", "Position Comment"]
-            if self.show_comment
-            else ["Position", "Tree-IDs"]
-        )
+        headers = ["Position", "Tree-IDs", "Preload"]
+        if self.show_comment:
+            headers.append("Position Comment")
+        widget.setColumnCount(len(headers))
+        widget.setHeaderLabels(headers)
+        widget.setContextMenuPolicy(Qt.CustomContextMenu)
         widget.setRootIsDecorated(False)
         widget.setSelectionMode(QAbstractItemView.SingleSelection)
         widget.setSelectionBehavior(QAbstractItemView.SelectRows)
@@ -804,8 +852,14 @@ class PositionSelectDialog(QDialog):
         widget.setUniformRowHeights(True)
         widget.setToolTip(TOOLTIPSTEXT.SELECT_POS)
         widget.setStyleSheet(_LIST_STYLESHEET)
+        bold = widget.header().font()
+        bold.setBold(True)
+        for col in (1, 2):
+            width = QFontMetrics(bold).horizontalAdvance(headers[col]) + 28
+            widget.setColumnWidth(col, width)
         if self.show_comment:
-            widget.header().setStretchLastSection(True)
+            widget.header().setStretchLastSection(False)
+            widget.header().setSectionResizeMode(3, QHeaderView.Stretch)
         return widget
 
     def _build_button_row(self) -> QHBoxLayout:
@@ -830,24 +884,17 @@ class PositionSelectDialog(QDialog):
         )
         pos_comment_map = getattr(self.main_window, "position_comment_map", {})
         counts = tree_counts(self.main_window)
+        self._counts = counts
+        self.tracked_only_cb.setVisible(counts is not None)
 
         for pos_number, folder in parse_position_entries(
             self.main_window.folder_list
         ):
-            comment = (
-                pos_comment_map.get(pos_number, "")
-                if self.show_comment
-                else ""
-            )
             n_trees = "" if counts is None else str(counts.get(pos_number, 0))
-            item = QTreeWidgetItem(
-                self.list_widget,
-                (
-                    [folder, n_trees, comment]
-                    if self.show_comment
-                    else [folder, n_trees]
-                ),
-            )
+            texts = [folder, n_trees, ""]
+            if self.show_comment:
+                texts.append(pos_comment_map.get(pos_number, ""))
+            item = QTreeWidgetItem(self.list_widget, texts)
             item.setData(0, Qt.UserRole, pos_number)
             item.setTextAlignment(1, Qt.AlignCenter)
             if counts is not None and counts.get(pos_number, 0) == 0:
@@ -867,21 +914,123 @@ class PositionSelectDialog(QDialog):
 
             item.setToolTip(0, f"Load position {pos_number:04d}")
 
+        self._refresh_preload()
+        self._apply_filter()
         self.list_widget.resizeColumnToContents(0)
-        self.list_widget.resizeColumnToContents(1)
-        self.count_lbl.setText(
-            f"{self.list_widget.topLevelItemCount()} position(s) available"
-        )
 
     def _connect_signals(self) -> None:
-        """Wire the filter box, the list and the two buttons."""
-        self.search_edit.textChanged.connect(self._on_filter)
+        """Wire the filters, the list, the preload controls and the buttons."""
+        self.search_edit.textChanged.connect(self._apply_filter)
+        self.tracked_only_cb.toggled.connect(self._apply_filter)
+        self.preload_cb.toggled.connect(self._on_preload_toggled)
         self.list_widget.itemSelectionChanged.connect(self._sync_button_state)
         self.list_widget.itemDoubleClicked.connect(
             lambda _item: self._on_load_clicked()
         )
+        self.list_widget.customContextMenuRequested.connect(self._show_menu)
         self.load_btn.clicked.connect(self._on_load_clicked)
         self.exit_btn.clicked.connect(self.close)
+        self._refresh_timer.timeout.connect(self._refresh_preload)
+        self._refresh_timer.start()
+
+    @property
+    def _preloader(self):
+        return getattr(self.main_window, "position_preloader", None)
+
+    def _preload_mark(self, pnum: int) -> tuple[str | None, str]:
+        preloader = self._preloader
+        if preloader is None or not preloader.enabled:
+            return None, ""
+        if pnum == preloader.target:
+            return {
+                "ready": ("#30d158", "Ready"),
+                "paused": ("#0a84ff", "Preloading, paused: low RAM"),
+            }.get(preloader.state(), ("#0a84ff", "Preloading"))
+        if pnum in preloader.queue:
+            place = preloader.queue.index(pnum) + 1
+            return "#8e8e93", f"Waiting, {place} in preload list"
+        return None, ""
+
+    def _refresh_preload(self) -> None:
+        """Update the Preload column, the switch and the free RAM/disk line."""
+        preloader = self._preloader
+        self.preload_cb.setEnabled(preloader is not None)
+        self.preload_cb.blockSignals(True)
+        self.preload_cb.setChecked(bool(preloader and preloader.enabled))
+        self.preload_cb.blockSignals(False)
+
+        for i in range(self.list_widget.topLevelItemCount()):
+            item = self.list_widget.topLevelItem(i)
+            pnum = item.data(0, Qt.UserRole)
+            colour, tip = self._preload_mark(pnum)
+            item.setIcon(2, _dot_icon(colour) if colour else QIcon())
+            item.setToolTip(2, tip)
+
+        try:
+            ram, disk = _free_resources()
+        except (ImportError, OSError):
+            self.resources_lbl.clear()
+            return
+        reserve = _PREFETCH_RAM_RESERVE_BYTES / 1024**3
+        self.resources_lbl.setText(
+            f"Free RAM {ram / 1024**3:.1f} GB (keeps {reserve:.0f} GB)   "
+            f"Free scratch disk {disk / 1024**3:.0f} GB"
+        )
+
+    def _on_preload_toggled(self, checked: bool) -> None:
+        if self._preloader is not None:
+            self._preloader.set_enabled(checked)
+        self._refresh_preload()
+
+    def _show_menu(self, pos) -> None:
+        """Right-click menu with the load and preload options."""
+        item = self.list_widget.itemAt(pos)
+        if item is None:
+            return
+        pnum = item.data(0, Qt.UserRole)
+        preloader = self._preloader
+        listed = preloader is not None and pnum in preloader.queue
+        reason = None
+        if pnum == getattr(self.main_window, "current_position_number", None):
+            reason = "Current position"
+        elif self._counts is not None and self._counts.get(pnum, 0) == 0:
+            reason = "No tracking data"
+        allowed = preloader is not None and reason is None
+
+        menu = QMenu(self)
+
+        def add(text, slot, enabled=True):
+            action = menu.addAction(text)
+            action.setEnabled(enabled)
+            action.triggered.connect(slot)
+
+        def load_now():
+            self.list_widget.setCurrentItem(item)
+            self._on_load_clicked()
+
+        add("Load this position now", load_now)
+        menu.addSeparator()
+        if reason is not None:
+            menu.addAction(reason).setEnabled(False)
+        add(
+            "Preload next",
+            lambda: preloader.preload_next(pnum),
+            allowed,
+        )
+        add(
+            "Add to preload list",
+            lambda: preloader.add(pnum),
+            allowed and not listed,
+        )
+        add("Remove from list", lambda: preloader.remove(pnum), listed)
+        menu.addSeparator()
+        add(
+            "Clear preload list",
+            lambda: preloader.clear(),
+            bool(preloader and preloader.queue),
+        )
+        menu.exec_(self.list_widget.viewport().mapToGlobal(pos))
+        self._refresh_preload()
 
     def _selected_item(self) -> QTreeWidgetItem | None:
         """Return the highlighted item, ignoring ones hidden by the filter."""
@@ -898,14 +1047,23 @@ class PositionSelectDialog(QDialog):
             item is not None and item.data(0, Qt.UserRole) is not None
         )
 
-    def _on_filter(self, text: str) -> None:
-        """Hide items whose position name does not match the filter text."""
-        needle = text.strip().lower()
+    def _apply_filter(self, *_args) -> None:
+        needle = self.search_edit.text().strip().lower()
+        hide_untracked = (
+            self.tracked_only_cb.isChecked() and self._counts is not None
+        )
+        current = getattr(self.main_window, "current_position_number", None)
         visible = 0
         total = self.list_widget.topLevelItemCount()
         for i in range(total):
             item = self.list_widget.topLevelItem(i)
-            match = needle in item.text(0).lower()
+            pnum = item.data(0, Qt.UserRole)
+            text = item.text(0).lower()
+            if self.show_comment:
+                text += " " + item.text(3).lower()
+            match = needle in text
+            if hide_untracked and pnum != current:
+                match = match and self._counts.get(pnum, 0) > 0
             item.setHidden(not match)
             visible += int(match)
 

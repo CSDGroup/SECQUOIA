@@ -31,6 +31,7 @@ from SECQUOIA.gui.loading.load_data.load_data_tabs import (
     build_tracking_tab,
 )
 from SECQUOIA.gui.loading.load_data.load_data_theme import Theme, UiSize
+from SECQUOIA.gui.loading_pipeline import stop_position_preloader
 
 __all__ = ["load_data_window"]
 
@@ -39,6 +40,7 @@ def load_data_window(main_window: QWidget) -> None:
     """Open the Load Data window: four tabs, with only Tracking enabled at first."""
 
     drop_dead_widget_attrs(main_window)
+    stop_position_preloader(main_window)
 
     prev = getattr(main_window, "mask_no_window", None)
     if prev is not None:

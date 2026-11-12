@@ -14,7 +14,7 @@ import imageio.v2 as imageio
 import numpy as np
 
 from SECQUOIA.core.memmap_store import acquire_dir_lock
-from SECQUOIA.utils.io_reload import read_with_reload
+from SECQUOIA.utils.io_reload import raise_if_cancelled, read_with_reload
 from SECQUOIA.utils.timing import current_t_range as _current_t_range
 from SECQUOIA.utils.timing import (
     filename_t_file_number as _filename_t_file_number,
@@ -66,7 +66,14 @@ def load_fl_channels(main_window, progress_cb=None) -> None:
 
     total_frames = len(tasks)
     max_workers = _worker_count(main_window)
-    done_frames = _decode_frames(tasks, read_fn, is_bgr, max_workers, progress)
+    done_frames, main_window.fl_failed_frames = _decode_frames(
+        tasks,
+        read_fn,
+        is_bgr,
+        max_workers,
+        progress,
+        getattr(main_window, "_load_cancel", None),
+    )
 
     for entry in opened:
         entry.out.flush()
@@ -202,7 +209,14 @@ def _prepare_channel(
     # Read one image to get (H, W) and dtype (8-bit)
     first_fp = next(iter(file_by_t.values()))
     try:
-        first_arr = _to_2d(read_with_reload(read_fn, first_fp), is_bgr)
+        first_arr = _to_2d(
+            read_with_reload(
+                read_fn,
+                first_fp,
+                cancel=getattr(main_window, "_load_cancel", None),
+            ),
+            is_bgr,
+        )
     except (OSError, ValueError, RuntimeError) as e:
         LOG.error(
             "FL channel %d (%s): giving up reading %s after reloading (%r); "
@@ -239,16 +253,19 @@ def _prepare_channel(
     )
 
 
-def _decode_frames(tasks, read_fn, is_bgr, max_workers, progress) -> int:
-    """Decode all queued frames in parallel, each writing into its own memmap row."""
+def _decode_frames(
+    tasks, read_fn, is_bgr, max_workers, progress, cancel=None
+) -> tuple[int, int]:
+    """Decode frames in parallel into their memmap rows."""
     total_frames = len(tasks)
     if not total_frames:
-        return 0
+        return 0, 0
 
-    def _load_one(task):
+    def _load_one(task) -> bool:
         out, row, fp, dtype, present = task
+        raise_if_cancelled(cancel)
         try:
-            arr = _to_2d(read_with_reload(read_fn, fp), is_bgr)
+            arr = _to_2d(read_with_reload(read_fn, fp, cancel=cancel), is_bgr)
         except (OSError, ValueError, RuntimeError) as e:
             LOG.error(
                 "Giving up on FL frame after reloading: %s (%r). Leaving "
@@ -257,19 +274,22 @@ def _decode_frames(tasks, read_fn, is_bgr, max_workers, progress) -> int:
                 e,
             )
             present[row] = False
-            return
+            return False
         if arr.dtype != dtype:
             arr = arr.astype(dtype, copy=False)
         out[row] = arr
+        return True
 
     progress_lock = threading.Lock()
     progress_step = max(1, total_frames // 100)
     done_frames = 0
+    failed_frames = 0
 
     with concurrent.futures.ThreadPoolExecutor(
         max_workers=max_workers, thread_name_prefix="fl_load"
     ) as executor:
-        for _ in executor.map(_load_one, tasks):
+        for ok in executor.map(_load_one, tasks):
+            failed_frames += not ok
             with progress_lock:
                 done_frames += 1
                 n_done = done_frames
@@ -284,7 +304,7 @@ def _decode_frames(tasks, read_fn, is_bgr, max_workers, progress) -> int:
                     f"Loading FL… {n_done}/{total_frames}",
                 )
 
-    return done_frames
+    return done_frames, failed_frames
 
 
 def _reader_for_format(image_format: str):
@@ -303,7 +323,7 @@ def _reader_for_format(image_format: str):
 
 
 def _to_2d(arr, is_bgr: bool):
-    """Collapse a possibly multichannel image to a single 2-D plane."""
+    """Collapse a possibly multichannel image to a single 2D plane."""
     if arr.ndim <= 2:
         return arr
     if is_bgr and arr.shape[-1] >= 3:

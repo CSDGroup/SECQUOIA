@@ -26,11 +26,14 @@ through ``conftest.py``:
 
 from __future__ import annotations
 
+from pathlib import Path
+
 import numpy as np
 import pytest
 import tifffile
 from conftest import assert_column_values, make_fake_main_window
 
+from SECQUOIA.core import basic_correction as basic_correction_module
 from SECQUOIA.core.basic_correction import (
     DataSetBaSiC,
     _prepare_basic_correction_inputs,
@@ -281,6 +284,67 @@ class TestDataSetBaSiCLoading:
 
         assert list(basic.darkfield) == ["w01"]
         assert basic.flatfield == {}
+
+    def test_a_field_read_that_fails_once_is_retried(
+        self, basic_folder, monkeypatch
+    ):
+        """A server or cloud folder that briefly drops out must not end loading."""
+        monkeypatch.setattr("SECQUOIA.utils.io_reload.time.sleep", lambda _: 0)
+        real_imread = basic_correction_module.imageio.imread
+        failed = []
+
+        def flaky_imread(path):
+            if not failed:
+                failed.append(path)
+                raise OSError("network share not ready")
+            return real_imread(path)
+
+        monkeypatch.setattr(
+            basic_correction_module.imageio, "imread", flaky_imread
+        )
+
+        basic = self.loaded(basic_folder(dark=3.0))
+
+        assert failed
+        assert basic.darkfield["w01"][0, 0] == 3.0
+
+    def test_a_series_read_that_fails_once_is_retried(
+        self, basic_folder, monkeypatch
+    ):
+        monkeypatch.setattr("SECQUOIA.utils.io_reload.time.sleep", lambda _: 0)
+        failed = []
+
+        def flaky_open(path, *args, **kwargs):
+            if not failed:
+                failed.append(path)
+                raise OSError("network share not ready")
+            return open(path, *args, **kwargs)
+
+        monkeypatch.setattr(
+            "SECQUOIA.utils.io_reload.open", flaky_open, raising=False
+        )
+
+        basic = self.loaded(basic_folder(amp=(0.5, 0.75)))
+
+        assert failed
+        assert basic.amp["w01"]["values"].tolist() == [0.5, 0.75]
+
+    def test_a_malformed_series_file_fails_at_once(
+        self, basic_folder, monkeypatch
+    ):
+        """Only reading is retried; a broken file is an error, not a wait."""
+        sleeps = []
+        monkeypatch.setattr(
+            "SECQUOIA.utils.io_reload.time.sleep", sleeps.append
+        )
+        folder = basic_folder()
+        bad = next(Path(folder).rglob("ratioflat_w01.txt"))
+        bad.write_text("time:value\nnot-a-time:oops\n")
+
+        with pytest.raises(ValueError):
+            self.loaded(folder)
+
+        assert sleeps == []
 
 
 class TestDataSetBaSiCConfig:

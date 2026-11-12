@@ -86,6 +86,7 @@ from SECQUOIA.gui.position_navigation import (
     load_position,
     open_position_window,
 )
+from SECQUOIA.gui.position_preload import PreloadStatusBar
 from SECQUOIA.gui.track_selection import handle_item_click
 
 LOG = logging.getLogger(__name__)
@@ -695,6 +696,9 @@ class MainWindow(
         f = menu_bar.font()
         f.setPixelSize(STYLE.FONT_SIZE)
         menu_bar.setFont(f)
+        menu_bar.setStyleSheet("QMenuBar { padding: 0px; }")
+        self.preload_status_bar = PreloadStatusBar(self)
+        menu_bar.setCornerWidget(self.preload_status_bar, Qt.TopRightCorner)
         self.main_layout.setMenuBar(menu_bar)
 
         self.splitter = QSplitter(Qt.Horizontal)

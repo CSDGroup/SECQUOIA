@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import concurrent.futures
 import contextlib
+import io
 import logging
 import os
 import re
@@ -21,6 +22,11 @@ from SECQUOIA.core.experiment_layout import (
 from SECQUOIA.core.fluorescence_loading import (
     _worker_count as _fl_worker_count,
 )
+from SECQUOIA.utils.io_reload import (
+    raise_if_cancelled,
+    read_text_with_reload,
+    read_with_reload,
+)
 from SECQUOIA.utils.timing import current_t_range as _current_t_range
 
 LOG = logging.getLogger(__name__)
@@ -34,6 +40,8 @@ class DataSetBaSiC:
     The class loads darkfield, flatfield, ratio-flat, and baseline fluorescence
     files for the selected experiment, time range, position, and channel list.
     """
+
+    _load_cancel: threading.Event | None = None
 
     def __init__(
         self,
@@ -134,7 +142,9 @@ class DataSetBaSiC:
         vals = {}
         for f in files:
             channel = self._get_channel(f.name)
-            vals[channel] = imageio.imread(str(f))
+            vals[channel] = read_with_reload(
+                imageio.imread, str(f), cancel=self._load_cancel
+            )
 
         return vals
 
@@ -146,7 +156,7 @@ class DataSetBaSiC:
             """Read ``t<NNNNN>: <value>`` text series, clipped to ``[t_min, t_max]``."""
             channel = self._get_channel(f.name)
             times, vs = np.loadtxt(
-                f,
+                io.StringIO(read_text_with_reload(str(f), self._load_cancel)),
                 skiprows=1,
                 delimiter=":",
                 usecols=(0, 1),
@@ -445,6 +455,7 @@ def apply_basic_correction(main_window, progress_cb=None) -> None:
     total = len(tasks)
 
     local = threading.local()
+    cancel = getattr(main_window, "_load_cancel", None)
 
     def _buffers(shape):
         bufs = getattr(local, "bufs", None)
@@ -460,6 +471,7 @@ def apply_basic_correction(main_window, progress_cb=None) -> None:
 
     def _correct_one(task):
         plan, t = task
+        raise_if_cancelled(cancel)
         work, norf, denom, ratio = _buffers(plan.dark2d.shape)
 
         base_t = np.float32(plan.base_1d[t])

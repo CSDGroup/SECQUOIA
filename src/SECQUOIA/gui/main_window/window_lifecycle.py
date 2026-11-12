@@ -34,6 +34,7 @@ from SECQUOIA.gui.lineage_tree.lineage_tree import lineage_tree
 from SECQUOIA.gui.loading.experiment_loader_dialog import (
     open_experiment_loader_window,
 )
+from SECQUOIA.gui.loading_pipeline import stop_position_preloader
 from SECQUOIA.gui.outlier.outlier_list import _update_outlier_list
 from SECQUOIA.gui.ttt_data_format_transformer import TttDataFormatTransformer
 from SECQUOIA.utils.helpers import update_time_marker
@@ -293,6 +294,7 @@ class WindowLifecycle:
                 )
                 return
 
+        stop_position_preloader(self)
         self.track_df = None
         self.filtered_df = None
         self.df_subset = None
@@ -392,6 +394,7 @@ class WindowLifecycle:
 
         try:
             detach_cell_inspector(self)
+            stop_position_preloader(self)
             cleanup_memmaps(self)
         except (RuntimeError, AttributeError, TypeError) as e:
             LOG.warning("[close] cleanup warning: %s", e)

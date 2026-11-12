@@ -10,7 +10,7 @@ import imageio.v2 as imageio
 import numpy as np
 from skimage.measure import label
 
-from SECQUOIA.utils.io_reload import read_with_reload
+from SECQUOIA.utils.io_reload import raise_if_cancelled, read_with_reload
 from SECQUOIA.utils.timing import current_t_range as _current_t_range
 from SECQUOIA.utils.timing import (
     filename_t_file_number as _filename_t_file_number,
@@ -103,6 +103,8 @@ def _plan_single_mask_stack(
     t_file_max: int | None,
     read_fn,
     is_bgr: bool,
+    cancel=None,
+    alloc=np.zeros,
 ) -> tuple[np.ndarray | None, list]:
     """Allocate the output stack and build the per frame read tasks."""
     if not path_seg:
@@ -137,7 +139,9 @@ def _plan_single_mask_stack(
         return None, []
 
     try:
-        probe = _mask_to_2d(read_with_reload(read_fn, image_files[0]), is_bgr)
+        probe = _mask_to_2d(
+            read_with_reload(read_fn, image_files[0], cancel=cancel), is_bgr
+        )
     except (OSError, ValueError, RuntimeError) as e:
         LOG.error(
             "[%s] Giving up reading %s after reloading (%r); skipping this "
@@ -151,7 +155,7 @@ def _plan_single_mask_stack(
 
     if use_range:
         T = max(0, t_file_max - t_file_min + 1)
-        stack = np.zeros((T, H, W), dtype=dtype)
+        stack = alloc((T, H, W), dtype=dtype)
         tasks = []
         for n in sorted(file_by_t):
             idx = n - t_file_min
@@ -164,18 +168,21 @@ def _plan_single_mask_stack(
         )
     else:
         T = len(image_files)
-        stack = np.zeros((T, H, W), dtype=dtype)
+        stack = alloc((T, H, W), dtype=dtype)
         tasks = [(stack, i, fp) for i, fp in enumerate(image_files)]
         LOG.info("[%s] Segmentation masks loaded: %d images.", path_seg, T)
 
     return stack, tasks
 
 
-def _read_mask_into(task, read_fn, is_bgr: bool, dtype: np.dtype) -> None:
-    """Decode one mask frame and write it into its own row of the stack."""
+def _read_mask_into(
+    task, read_fn, is_bgr: bool, dtype: np.dtype, cancel=None
+) -> bool:
+    """Decode one mask frame into its row of the stack."""
     stack, row, fp = task
+    raise_if_cancelled(cancel)
     try:
-        img = _mask_to_2d(read_with_reload(read_fn, fp), is_bgr)
+        img = _mask_to_2d(read_with_reload(read_fn, fp, cancel=cancel), is_bgr)
     except (OSError, ValueError, RuntimeError) as e:
         LOG.error(
             "Giving up on mask frame after reloading: %s (%r). Leaving this "
@@ -183,7 +190,7 @@ def _read_mask_into(task, read_fn, is_bgr: bool, dtype: np.dtype) -> None:
             fp,
             e,
         )
-        return
+        return False
 
     if _n_distinct_values(img) == 2:
         img = label(img > 0).astype(dtype, copy=False)
@@ -191,6 +198,7 @@ def _read_mask_into(task, read_fn, is_bgr: bool, dtype: np.dtype) -> None:
         img = img.astype(dtype, copy=False)
 
     stack[row] = img
+    return True
 
 
 def load_masks(
@@ -202,6 +210,9 @@ def load_masks(
     t_file_min: int | None = None,
     t_file_max: int | None = None,
     max_workers: int | None = None,
+    cancel=None,
+    failed: list | None = None,
+    alloc=np.zeros,
 ) -> np.ndarray | list | dict | None:
     """Load segmentation masks for a position, optionally over a t-file range.
 
@@ -237,6 +248,8 @@ def load_masks(
             t_file_max=t_file_max,
             read_fn=read_fn,
             is_bgr=is_bgr,
+            cancel=cancel,
+            alloc=alloc,
         )
         stacks.append(stack)
         all_tasks.extend(tasks)
@@ -246,12 +259,17 @@ def load_masks(
         with concurrent.futures.ThreadPoolExecutor(
             max_workers=workers, thread_name_prefix="mask_load"
         ) as ex:
-            list(
-                ex.map(
-                    lambda t: _read_mask_into(t, read_fn, is_bgr, dtype),
-                    all_tasks,
-                )
+            read_ok = ex.map(
+                lambda t: _read_mask_into(t, read_fn, is_bgr, dtype, cancel),
+                all_tasks,
             )
+            bad = [
+                t[2]
+                for t, ok in zip(all_tasks, read_ok, strict=True)
+                if not ok
+            ]
+        if failed is not None:
+            failed.extend(bad)
 
     if kind == "single":
         return stacks[0]

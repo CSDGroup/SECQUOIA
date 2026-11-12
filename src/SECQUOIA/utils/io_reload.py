@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import json
 import logging
+import threading
 import time
 from collections.abc import Callable
 from typing import Any
@@ -15,6 +16,21 @@ from typing import Any
 from SECQUOIA.config import IORELOAD
 
 LOG = logging.getLogger(__name__)
+
+
+class LoadCancelled(Exception):
+    """A background load was asked to stop."""
+
+
+def raise_if_cancelled(cancel: threading.Event | None) -> None:
+    """Raise LoadCancelled if `cancel` is set, after its checkpoint() if any."""
+    if cancel is None:
+        return
+    checkpoint = getattr(cancel, "checkpoint", None)
+    if checkpoint is not None:
+        checkpoint()
+    if cancel.is_set():
+        raise LoadCancelled
 
 
 def _default_on_reload(fp: str, attempt: int, exc: Exception) -> None:
@@ -33,8 +49,8 @@ def read_with_reload(
     on_reload: (
         Callable[[str, int, Exception], None] | None
     ) = _default_on_reload,
+    cancel: threading.Event | None = None,
 ) -> Any:
-    """Reloading with capped exponential backoff on failure."""
     start = time.monotonic()
     delay = base_delay_s
     attempt = 0
@@ -48,23 +64,29 @@ def read_with_reload(
                 raise
             if on_reload is not None:
                 on_reload(fp, attempt, exc)
-            time.sleep(min(delay, remaining))
+            if cancel is None:
+                time.sleep(min(delay, remaining))
+            else:
+                cancel.last_retry = time.monotonic()
+                if cancel.wait(min(delay, remaining)):
+                    raise LoadCancelled from exc
             delay = min(delay * 2, max_delay_s)
 
 
 def to_csv_with_reload(df: Any, path: str, **to_csv_kwargs: Any) -> None:
-    """Write a DataFrame to CSV, reloading with backoff on transient I/O errors."""
     read_with_reload(lambda p: df.to_csv(p, **to_csv_kwargs), path)
 
 
-def read_text_with_reload(path: str) -> str:
+def read_text_with_reload(
+    path: str, cancel: threading.Event | None = None
+) -> str:
     """Read a text file, reloading with backoff if the read fails transiently."""
 
     def _read(p: str) -> str:
         with open(p, encoding="utf-8", errors="replace") as f:
             return f.read()
 
-    return read_with_reload(_read, path)
+    return read_with_reload(_read, path, cancel=cancel)
 
 
 def write_text_with_reload(path: str, text: str) -> None:

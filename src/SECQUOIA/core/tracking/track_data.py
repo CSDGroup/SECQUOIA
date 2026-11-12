@@ -950,6 +950,7 @@ def _load_cached_position_measurements(
     *,
     ensure_columns: bool = False,
     log_prefix: str = "csv-cache",
+    preloaded: pd.DataFrame | None = None,
 ) -> pd.DataFrame | None:
     """Load a cached measurements CSV for one position, if present, merging it into ``track_df``.
 
@@ -958,11 +959,15 @@ def _load_cached_position_measurements(
     per position DataFrame, or ``None`` if no cache existed or the load failed.
     """
     path = _position_csv_path(main_window, position, t_file_min, t_file_max)
-    if not os.path.isfile(path):
+    if preloaded is None and not os.path.isfile(path):
         return None
 
     try:
-        df_pos = read_with_reload(pd.read_csv, path)
+        df_pos = (
+            preloaded
+            if preloaded is not None
+            else read_with_reload(pd.read_csv, path)
+        )
         df_pos = df_pos.drop(columns=[ORIGINAL_T_COLUMN], errors="ignore")
 
         required_cols: list[str] = []
