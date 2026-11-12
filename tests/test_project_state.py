@@ -208,6 +208,29 @@ class TestLoadProjectState:
         )
         return target
 
+    def test_logs_into_the_experiments_log_file(
+        self, fake_main_window, saved_window
+    ):
+        """Opening a project (Ctrl+O) must log like loading an experiment."""
+        import logging
+
+        from SECQUOIA.core.logging_setup import (
+            LOGGER_NAME,
+            attach_experiment_log,
+        )
+
+        self.loaded(fake_main_window, saved_window)
+        try:
+            logging.getLogger(LOGGER_NAME).warning("project-open marker")
+        finally:
+            attach_experiment_log(None)
+
+        log_file = os.path.join(
+            saved_window.folder, "Analysis", "SECQUOIA.log"
+        )
+        with open(log_file, encoding="utf-8") as fh:
+            assert "project-open marker" in fh.read()
+
     def test_restores_the_experiment_root_under_its_own_name(
         self, fake_main_window, saved_window
     ):

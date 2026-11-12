@@ -11,6 +11,7 @@ from contextlib import suppress
 import pandas as pd
 from qtpy.QtWidgets import QLineEdit, QMessageBox
 
+from SECQUOIA.core.logging_setup import attach_experiment_log
 from SECQUOIA.core.tatexp_xml import extract_channel_comments_from_xml
 from SECQUOIA.core.tracking.clt_io import CLTParser
 from SECQUOIA.utils.io_reload import dump_json_with_reload, to_csv_with_reload
@@ -463,4 +464,5 @@ def load_project_state(main_window, json_path=None) -> bool:
     _rehydrate_after_project_load(main_window, s)
 
     main_window.project_state_path = p
+    attach_experiment_log(getattr(main_window, "folder", None))
     return True
