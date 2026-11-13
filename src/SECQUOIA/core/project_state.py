@@ -6,6 +6,7 @@ import json
 import logging
 import os
 import re
+import time
 from contextlib import suppress
 
 import pandas as pd
@@ -43,6 +44,7 @@ def save_track_df(main_window, label_entries=None) -> None:
         LOG.warning("Invalid experiment root; aborting save.")
         return
 
+    started = time.perf_counter()
     save_folder = project_analysis_dir(main_window, experiment_root)
     os.makedirs(save_folder, exist_ok=True)
 
@@ -79,32 +81,12 @@ def save_track_df(main_window, label_entries=None) -> None:
         )
         return
 
-    pattern = os.path.join(
-        save_folder, f"SECQUOIA_p{position:04d}_t*-*_m*_ch*.csv"
+    num_masks = (
+        len(label_entries)
+        if label_entries is not None
+        else getattr(main_window, "n_masks", "NA")
     )
-    matches = glob.glob(pattern)
-
-    if matches:
-        out_path = max(matches, key=os.path.getmtime)
-    else:
-        try:
-            t_file_min, t_file_max, _, _ = _current_t_range(main_window)
-        except (RuntimeError, AttributeError, TypeError):
-            t_file_min, t_file_max = 0, 0
-
-        num_masks = (
-            len(label_entries)
-            if label_entries is not None
-            else getattr(main_window, "n_masks", "NA")
-        )
-        num_channels = getattr(main_window, "n_channels", "NA")
-
-        filename = (
-            f"SECQUOIA_p{position:04d}"
-            f"_t{t_file_min:05d}-{t_file_max:05d}"
-            f"_m{num_masks}_ch{num_channels}.csv"
-        )
-        out_path = os.path.join(save_folder, filename)
+    out_path = _measurements_output_path(main_window, position, num_masks)
 
     # Save/overwrite
     try:
@@ -114,7 +96,12 @@ def save_track_df(main_window, label_entries=None) -> None:
     except (OSError, ValueError, RuntimeError) as e:
         LOG.error("Failed to save per position CSV after reloading: %r", e)
         return
-    LOG.info("Saved per position (p%04d) CSV to: %s", position, out_path)
+    LOG.info(
+        "Saved per position (p%04d) CSV to: %s (both CSVs in %.1f s)",
+        position,
+        out_path,
+        time.perf_counter() - started,
+    )
 
 
 def _measurements_output_path(main_window, position, n_masks: int) -> str:
@@ -226,8 +213,9 @@ def save_project_state(main_window) -> None:
         "position_min": getattr(main_window, "position_min_selected", None),
         "position_max": getattr(main_window, "position_max_selected", None),
         "position_selection": getattr(
-            main_window, "position_start_selected", None
-        ),
+            main_window, "current_position_number", None
+        )
+        or getattr(main_window, "position_start_selected", None),
         # Thresholds
         "threshold": getattr(main_window, "threshold", None),
         "min_mask_size": getattr(main_window, "min_mask_size", None),

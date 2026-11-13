@@ -2,12 +2,18 @@
 
 from __future__ import annotations
 
+import json
 import logging
+import os
+from types import SimpleNamespace
 
+import pandas as pd
+import qtawesome as qta
 from qtpy.QtCore import QCoreApplication, Qt, QTimer
 from qtpy.QtGui import QGuiApplication
 from qtpy.QtWidgets import (
     QApplication,
+    QComboBox,
     QDialog,
     QFileDialog,
     QHBoxLayout,
@@ -23,14 +29,21 @@ from qtpy.QtWidgets import (
 )
 
 from SECQUOIA.config import LINKS, TOOLTIPSTEXT
-from SECQUOIA.core.project_state import load_project_state
+from SECQUOIA.core.project_state import (
+    _measurements_output_path,
+    load_project_state,
+)
 from SECQUOIA.gui.common.ui_utils import (
     add_progress_bar,
     drop_dead_widget_attrs,
     make_help_button,
 )
 from SECQUOIA.gui.loading_pipeline import run_loading
-from SECQUOIA.gui.position_navigation import resolve_position_index
+from SECQUOIA.gui.position_navigation import (
+    parse_position_entries,
+    resolve_position_index,
+    tree_counts,
+)
 from SECQUOIA.resources import splash_pixmap
 
 LOG = logging.getLogger(__name__)
@@ -116,6 +129,54 @@ def show_splash_with_bar(app):
     return splash, progress_fn, finish_fn
 
 
+_POSITION_MARKS = {
+    "measured": ("fa5s.check", "#2ecc71"),
+    "not measured yet": ("fa5s.times", "#b36bff"),
+    "no tracking": ("fa5s.minus", "#8a8a8a"),
+}
+
+
+def _fill_project_positions(combo: QComboBox, json_path: str) -> None:
+    """List a saved project's positions, marked by whether they are measured."""
+    combo.clear()
+    try:
+        with open(json_path, encoding="utf-8") as f:
+            s = SimpleNamespace(**json.load(f))
+        s.folder = s.experiment_root
+        entries = parse_position_entries(os.listdir(s.folder))
+        tracks = pd.read_csv(
+            s.track_df_csv_path,
+            usecols=lambda c: c in ("Position", "Identification", "track_id"),
+        )
+    except (OSError, ValueError, TypeError, AttributeError):
+        return
+    counts = tree_counts(SimpleNamespace(track_df=tracks))
+    for pnum, name in entries:
+        state = "not measured yet"
+        if counts is not None and not counts.get(pnum):
+            state = "no tracking"
+        elif os.path.isfile(_measurements_output_path(s, pnum, s.n_masks)):
+            state = "measured"
+        last = "  ·  last opened" if pnum == s.position_selection else ""
+        icon, colour = _POSITION_MARKS[state]
+        combo.addItem(
+            qta.icon(icon, color=colour), f"{name}   –   {state}{last}", pnum
+        )
+        combo.model().item(combo.count() - 1).setEnabled(
+            state != "no tracking"
+        )
+    combo.setCurrentIndex(max(0, combo.findData(s.position_selection)))
+    view = combo.view()
+    view.setVerticalScrollBarPolicy(
+        Qt.ScrollBarAlwaysOn
+        if combo.count() > combo.maxVisibleItems()
+        else Qt.ScrollBarAlwaysOff
+    )
+    view.setMinimumWidth(
+        view.sizeHintForColumn(0) + view.verticalScrollBar().sizeHint().width()
+    )
+
+
 def open_load_previous_project_gui(main_window: QWidget) -> None:
     """Open a dialog for selecting and loading a saved project metadata file."""
     d = QDialog(main_window)
@@ -158,6 +219,20 @@ def open_load_previous_project_gui(main_window: QWidget) -> None:
     row.addWidget(le, 1)
     row.addWidget(bsel)
 
+    pos_combo = QComboBox()
+    pos_combo.setSizeAdjustPolicy(QComboBox.AdjustToContents)
+    pos_combo.setStyleSheet("combobox-popup: 0;")
+    pos_combo.setMaxVisibleItems(15)
+    pos_row = QHBoxLayout()
+    pos_row.addWidget(QLabel("Open at position:"))
+    pos_row.addWidget(pos_combo, 1)
+    le.textChanged.connect(
+        lambda p: (
+            _fill_project_positions(pos_combo, p),
+            QTimer.singleShot(0, d.adjustSize),
+        )
+    )
+
     le.setToolTip(TOOLTIPSTEXT.PROJECT_PATH)
     bsel.setToolTip(TOOLTIPSTEXT.SELECT_PROJECT_PATH)
     brun.setToolTip(TOOLTIPSTEXT.LOAD_PROJECT)
@@ -187,7 +262,7 @@ def open_load_previous_project_gui(main_window: QWidget) -> None:
             if not load_project_state(main_window, le.text().strip()):
                 return
             QApplication.setOverrideCursor(Qt.WaitCursor)
-            resolve_position_index(main_window)
+            resolve_position_index(main_window, pos_combo.currentData())
             main_window.create_napari_viewers()
             main_window.add_viewers_to_layout2()
             main_window.update_channel_mask_dropdowns()
@@ -216,6 +291,7 @@ def open_load_previous_project_gui(main_window: QWidget) -> None:
     panel_lay.setSpacing(8)
 
     panel_lay.addLayout(row)
+    panel_lay.addLayout(pos_row)
     panel_lay.addWidget(pbar)
     panel_lay.addWidget(msg)
     btn_row = QHBoxLayout()
