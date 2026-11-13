@@ -290,7 +290,19 @@ class _Rendering:
                 (EXPORT.PREVIEW_W, EXPORT.PREVIEW_H), Image.NEAREST
             )
         )
-        mask_bool = mask_arr > 0
+        df = main_window.track_df
+        row = self._row_at_time(
+            df[df["Identification"] == st["ident"]],
+            self._track_number_column(main_window),
+            st.get("lineage_path", []),
+            t_index,
+        )
+        label = None if row is None else row.get(f"label_id_m{mask_idx + 1}")
+        with suppress(TypeError, ValueError):
+            label = int(label)
+        if not isinstance(label, int) or label <= 0:
+            return cropped
+        mask_bool = mask_arr == label
         if st.get("mask_mode", "Full") == "Contour":
             mask_bool = self._compute_contour(mask_bool, st["contour_px"])
         if not mask_bool.any():
