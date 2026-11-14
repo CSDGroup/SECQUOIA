@@ -28,6 +28,7 @@ from qtpy.QtWidgets import (
 
 from SECQUOIA.config import EXPORT, TOOLTIPSTEXT
 from SECQUOIA.gui.exporter.overlay_drag import OVERLAY_DEFAULTS
+from SECQUOIA.gui.exporter.rendering import MASK_VIEW_DEFAULTS
 from SECQUOIA.gui.exporter.scale_bar import SCALE_BAR_DEFAULTS
 
 LOG = logging.getLogger(__name__)
@@ -271,6 +272,7 @@ class _Panels:
             "lineage_path": [],
             **SCALE_BAR_DEFAULTS,
             **OVERLAY_DEFAULTS,
+            **MASK_VIEW_DEFAULTS,
             "_buf": None,
         }
 

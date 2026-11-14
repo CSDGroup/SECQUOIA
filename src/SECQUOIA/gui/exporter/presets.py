@@ -8,13 +8,18 @@ from contextlib import suppress
 
 from SECQUOIA.config import EXPORT
 from SECQUOIA.gui.exporter.overlay_drag import OVERLAY_DEFAULTS
+from SECQUOIA.gui.exporter.rendering import MASK_VIEW_DEFAULTS
 from SECQUOIA.gui.exporter.scale_bar import SCALE_BAR_DEFAULTS
 from SECQUOIA.utils.paths import project_analysis_dir
 from SECQUOIA.utils.timing import current_t_range as _current_t_range
 
 LOG = logging.getLogger(__name__)
 
-_PANEL_EXTRAS = {**SCALE_BAR_DEFAULTS, **OVERLAY_DEFAULTS}
+_PANEL_EXTRAS = {
+    **SCALE_BAR_DEFAULTS,
+    **OVERLAY_DEFAULTS,
+    **MASK_VIEW_DEFAULTS,
+}
 
 
 class _Presets:
@@ -234,6 +239,8 @@ class _Presets:
         for key, default in _PANEL_EXTRAS.items():
             val = data.get(key, default)
             panel_dict[key] = type(default)(val)
+        if "shown_masks" not in data and panel_dict["mask_idx"] is not None:
+            panel_dict["shown_masks"] = [panel_dict["mask_idx"]]  # old preset
 
     def _apply_state(self, main_window, state: dict):
         """Apply a saved preset state to rebuild panels."""

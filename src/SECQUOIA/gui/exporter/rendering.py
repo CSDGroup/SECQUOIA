@@ -15,9 +15,86 @@ from SECQUOIA.config import EXPORT
 
 LOG = logging.getLogger(__name__)
 
+MASK_STYLE_DEFAULTS = {
+    "mask_color_rgb": (255, 255, 255),
+    "mask_alpha": 0.35,
+    "mask_mode": "Full",
+    "contour_px": 1,
+}
+
+MASK_VIEW_DEFAULTS = {
+    "show_sisters": False,
+    "shown_masks": [],
+    "mask_styles": {},
+    "show_cell_labels": False,
+    "cell_label_size": 12,
+}
+
 
 class _Rendering:
     """Per frame image composition: crop, levels, overlays, text."""
+
+    @staticmethod
+    def _mask_style(panel, mask_idx, cell=None) -> dict:
+        """Style of one mask of one cell: panel, then mask, then cell overrides."""
+        styles = panel.get("mask_styles") or {}
+        return {
+            **{k: panel.get(k, v) for k, v in MASK_STYLE_DEFAULTS.items()},
+            **styles.get(str(mask_idx), {}),
+            **styles.get(f"{mask_idx}:{cell}", {}),
+        }
+
+    def _label_color(self, panel, cell=None) -> tuple:
+        """A cell's label colour, else the colour of its first shown mask."""
+        own = self._mask_style(panel, "label", cell).get("label_color_rgb")
+        mask_idx = (panel.get("shown_masks") or [None])[0]
+        return tuple(
+            own or self._mask_style(panel, mask_idx, cell)["mask_color_rgb"]
+        )
+
+    def _draw_cell_labels(self, draw, main_window, st, box, t_index) -> None:
+        """Write 'Cell <track number>' just above each drawn cell's masks."""
+        col = self._track_number_column(main_window)
+        if not st.get("show_cell_labels") or not col:
+            return
+        left, top, right, bottom = box
+        size = int(st.get("cell_label_size", 12))
+        font = self._get_font(size, st.get("font_name"))
+        for row in self._cells_at(main_window, st, t_index):
+            with suppress(ValueError):
+                x, y = self._extract_centroid(row)
+                text = f"Cell {int(row[col])}"
+                xy = (
+                    (x - left) * EXPORT.PREVIEW_W / max(1, right - left),
+                    (y - top) * EXPORT.PREVIEW_H / max(1, bottom - top)
+                    - 2 * size,
+                )
+                anchor = "mb"
+                masks = [
+                    self._mask_in_tile(
+                        main_window,
+                        m,
+                        row.get(f"label_id_m{m + 1}"),
+                        box,
+                        t_index,
+                    )
+                    for m in st.get("shown_masks", [])
+                ]
+                masks = [m for m in masks if m is not None]
+                ys = np.nonzero(np.any(masks, axis=0))[0] if masks else []
+                if len(ys):
+                    text_h = draw.textbbox((0, 0), text, font=font)[3]
+                    above = ys.min() - 3
+                    flip = above - text_h < 0  # no room above: go below
+                    xy = (xy[0], ys.max() + 3 if flip else above)
+                    anchor = "mt" if flip else "mb"
+                draw.text(
+                    xy,
+                    text,
+                    fill=self._label_color(st, int(row[col])),
+                    font=font,
+                    anchor=anchor,
+                )
 
     def _compute_contour(
         self, mask_bool: np.ndarray, thickness: int
@@ -115,12 +192,9 @@ class _Rendering:
         """Return a copy of `panel` with render fields coerced and clamped."""
         st = dict(panel)
         st["chan_abs_idx"] = int(panel.get("chan_abs_idx", 0))
-        st["contour_px"] = max(1, int(panel.get("contour_px", 1)))
         st["indicator_px"] = max(4, int(panel.get("indicator_px", 10)))
         st["time_font_size"] = int(panel.get("time_font_size", 14))
         st["ch_font_size"] = int(panel.get("ch_font_size", 14))
-        st["mask_alpha"] = float(panel.get("mask_alpha", 0.35))
-        st["mask_color"] = tuple(panel.get("mask_color_rgb", (255, 255, 255)))
         st["time_color"] = tuple(panel.get("time_color_rgb", (255, 255, 255)))
         st["ch_color"] = tuple(panel.get("ch_color_rgb", (255, 255, 255)))
         st["indicator_color"] = tuple(
@@ -273,16 +347,33 @@ class _Rendering:
         box: tuple[int, int, int, int],
         t_index: int,
     ) -> Image.Image:
-        """Blend the selected mask (full fill or contour) onto the cropped tile."""
-        mask_idx = st.get("mask_idx")
-        if mask_idx is None:
-            return cropped
+        """Blend each shown mask of each drawn cell, in its own style."""
+        col = self._track_number_column(main_window)
+        for row in self._cells_at(main_window, st, t_index):
+            cell = int(row[col]) if col else None
+            for mask_idx in st.get("shown_masks", []):
+                cropped = self._blend_mask(
+                    main_window,
+                    cropped,
+                    self._mask_style(st, mask_idx, cell),
+                    mask_idx,
+                    row.get(f"label_id_m{mask_idx + 1}"),
+                    box,
+                    t_index,
+                )
+        return cropped
+
+    def _mask_in_tile(self, main_window, mask_idx, label, box, t_index):
+        """Pixels of mask label `label` in the tile, or None if unavailable."""
+        with suppress(TypeError, ValueError):
+            label = int(label)
+        if not isinstance(label, int) or label <= 0:
+            return None
         mask_stack = self._get_mask_stack(main_window, int(mask_idx))
         if not isinstance(mask_stack, np.ndarray) or t_index >= len(
             mask_stack
         ):
-            return cropped
-
+            return None
         left, top, right, bottom = box
         mask_crop = mask_stack[t_index][top:bottom, left:right]
         mask_arr = np.asarray(
@@ -290,27 +381,26 @@ class _Rendering:
                 (EXPORT.PREVIEW_W, EXPORT.PREVIEW_H), Image.NEAREST
             )
         )
-        df = main_window.track_df
-        row = self._row_at_time(
-            df[df["Identification"] == st["ident"]],
-            self._track_number_column(main_window),
-            st.get("lineage_path", []),
-            t_index,
+        return mask_arr == label
+
+    def _blend_mask(
+        self, main_window, cropped, style, mask_idx, label, box, t_index
+    ) -> Image.Image:
+        """Blend one assigned mask label (full fill or contour) onto the tile."""
+        mask_bool = self._mask_in_tile(
+            main_window, mask_idx, label, box, t_index
         )
-        label = None if row is None else row.get(f"label_id_m{mask_idx + 1}")
-        with suppress(TypeError, ValueError):
-            label = int(label)
-        if not isinstance(label, int) or label <= 0:
+        if mask_bool is None:
             return cropped
-        mask_bool = mask_arr == label
-        if st.get("mask_mode", "Full") == "Contour":
-            mask_bool = self._compute_contour(mask_bool, st["contour_px"])
+        if style["mask_mode"] == "Contour":
+            thickness = max(1, int(style["contour_px"]))
+            mask_bool = self._compute_contour(mask_bool, thickness)
         if not mask_bool.any():
             return cropped
 
         base = np.asarray(cropped, dtype=np.uint8).astype(np.float32)
-        overlay_color = np.array(list(st["mask_color"]), dtype=np.float32)
-        alpha = float(np.clip(st["mask_alpha"], 0.0, 1.0))
+        overlay_color = np.array(list(style["mask_color_rgb"]), np.float32)
+        alpha = float(np.clip(float(style["mask_alpha"]), 0.0, 1.0))
         base[mask_bool] = (1 - alpha) * base[mask_bool] + alpha * overlay_color
         return Image.fromarray(np.clip(base, 0, 255).astype(np.uint8))
 
@@ -407,6 +497,10 @@ class _Rendering:
             st.get("lineage_path", []),
             policy,
         )
+        with suppress(ValueError):  # centre between the sisters if shown
+            sisters = self._cells_at(main_window, st, t_index)[1:]
+            pts = [(x, y), *map(self._extract_centroid, sisters)]
+            x, y = (float(v) for v in np.mean(pts, axis=0))
 
         crop_w = int(main_window.crop_full_x_input.value())
         crop_h = int(main_window.crop_full_y_input.value())
@@ -417,6 +511,7 @@ class _Rendering:
         cropped = self._overlay_mask(main_window, cropped, st, box, t_index)
 
         draw = ImageDraw.Draw(cropped)
+        self._draw_cell_labels(draw, main_window, st, box, t_index)
         y_ind = self._draw_time_indicator(
             draw, main_window, st, t_index, sec_per_frame
         )

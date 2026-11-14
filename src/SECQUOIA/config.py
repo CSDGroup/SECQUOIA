@@ -622,6 +622,9 @@ class TOOLTIPSTEXT:
     GEN_BUTTON: str = (
         "Pick a lineage path (track numbers) to follow over time."
     )
+    SISTERS_CHK: str = (
+        "Draw the sister of the followed cell after each division."
+    )
     BLACK_SPIN: str = "Black point (0–255)."
     WHITE_SPIN: str = "White point (0–255)."
     BW_INSPECTOR_BUTTON: str = (
@@ -633,9 +636,9 @@ class TOOLTIPSTEXT:
         "Advanced overlay options for the active tile: mask overlay, time indicator, "
         "time stamp and channel label."
     )
-    ADV_MASK_COMBO: str = (
-        "Choose which segmentation mask is overlaid on the active tile. Applies to preview and export."
-    )
+    ADV_MASK_COMBO: str = "Pick the mask to edit."
+    ADV_CELL_LABEL: str = "Write 'Cell <track number>' above each drawn cell."
+    ADV_CELL_COMBO: str = "Pick the cell (track number)."
     ADV_MASK_ALPHA: str = (
         "Transparency of the mask overlay (0.0 = invisible, 1.0 = fully opaque). Default 0.35."
     )

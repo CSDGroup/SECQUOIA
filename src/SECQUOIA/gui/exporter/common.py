@@ -11,7 +11,10 @@ import qtawesome as qta
 from matplotlib import font_manager
 from PIL import ImageFont
 from qtpy.QtCore import (
+    QEvent,
+    Qt,
     QUrl,
+    Signal,
 )
 from qtpy.QtGui import (
     QDesktopServices,
@@ -25,6 +28,7 @@ from qtpy.QtWidgets import (
     QMessageBox,
     QPushButton,
     QSpinBox,
+    QStyledItemDelegate,
     QVBoxLayout,
     QWidget,
 )
@@ -33,6 +37,57 @@ from SECQUOIA.config import EXPORT
 from SECQUOIA.gui.common.ui_utils import is_widget_alive
 
 LOG = logging.getLogger(__name__)
+
+
+class CheckCombo(QComboBox):
+    """Combo box whose items also carry a tick box."""
+
+    toggled = Signal()
+
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setItemDelegate(QStyledItemDelegate(self))
+        self.view().viewport().installEventFilter(self)
+
+    def set_checked(self, values) -> None:
+        """Tick the items whose data is in `values`, untick the rest."""
+        for i in range(self.count()):
+            if self.itemData(i) is not None:
+                state = (
+                    Qt.Checked if self.itemData(i) in values else Qt.Unchecked
+                )
+                self.setItemData(i, state, Qt.CheckStateRole)
+
+    def checked(self) -> list:
+        """Data of the ticked items, in list order."""
+        return [
+            self.itemData(i)
+            for i in range(self.count())
+            if self.itemData(i, Qt.CheckStateRole) == Qt.Checked
+        ]
+
+    def eventFilter(self, obj, event):
+        """A click on an item's tick box toggles it; the list stays open."""
+        if (
+            obj is self.view().viewport()
+            and event.type() == QEvent.MouseButtonRelease
+        ):
+            index = self.view().indexAt(event.pos())
+            rect = self.view().visualRect(index)
+            state = index.data(Qt.CheckStateRole)
+            if (
+                state is not None
+                and event.pos().x() < rect.left() + rect.height()
+            ):
+                on = state != Qt.Checked
+                self.model().setData(
+                    index,
+                    Qt.Checked if on else Qt.Unchecked,
+                    Qt.CheckStateRole,
+                )
+                self.toggled.emit()
+                return True
+        return super().eventFilter(obj, event)
 
 
 class _Common:

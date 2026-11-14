@@ -33,6 +33,7 @@ from qtpy.QtWidgets import (
 
 from SECQUOIA.config import EXPORT, LINKS, TOOLTIPSTEXT
 from SECQUOIA.gui.common.ui_utils import make_help_button, use_fusion_combos
+from SECQUOIA.gui.exporter.common import CheckCombo
 from SECQUOIA.utils.timing import current_t_range as _current_t_range
 
 LOG = logging.getLogger(__name__)
@@ -210,6 +211,12 @@ class _Window:
             TOOLTIPSTEXT.BW_INSPECTOR_BUTTON
         )
         ls.addWidget(main_window.bw_inspector_btn, 1, 4)
+        main_window.sel_sisters_chk = QCheckBox()
+        for col, w in enumerate(
+            (QLabel("Show sisters:"), main_window.sel_sisters_chk)
+        ):
+            w.setToolTip(TOOLTIPSTEXT.SISTERS_CHK)
+            ls.addWidget(w, 2, col)
         sidebar.addWidget(grp_sel)
 
         # Advanced
@@ -224,7 +231,7 @@ class _Window:
             la2.setColumnStretch(c, 0)
         r = 0
         la2.addWidget(QLabel("M:"), r, 0, alignment=Qt.AlignLeft)
-        main_window.adv_mask_combo = QComboBox()
+        main_window.adv_mask_combo = CheckCombo()
         self._populate_mask_combo_for_panel(
             main_window, main_window.adv_mask_combo
         )
@@ -242,6 +249,11 @@ class _Window:
         la2.addWidget(
             main_window.adv_mask_alpha_spin, r, 3, alignment=Qt.AlignLeft
         )
+        la2.addWidget(QLabel("Cell:"), r, 4, alignment=Qt.AlignLeft)
+        main_window.adv_cell_combo = QComboBox()
+        self._compact_combo(main_window.adv_cell_combo, fixed_w=90)
+        main_window.adv_cell_combo.setToolTip(TOOLTIPSTEXT.ADV_CELL_COMBO)
+        la2.addWidget(main_window.adv_cell_combo, r, 5, alignment=Qt.AlignLeft)
         r += 1
         la2.addWidget(QLabel("Select M-Mode:"), r, 0, alignment=Qt.AlignLeft)
         main_window.adv_mask_mode_combo = QComboBox()
@@ -270,6 +282,23 @@ class _Window:
         la2.addWidget(
             main_window.adv_mask_color_btn, r, 5, alignment=Qt.AlignLeft
         )
+        r += 1
+        la2.addWidget(QLabel("Show cell label:"), r, 0, alignment=Qt.AlignLeft)
+        main_window.adv_cell_label_chk = QCheckBox()
+        main_window.adv_cell_label_spin = QSpinBox()
+        main_window.adv_cell_label_spin.setRange(8, 72)
+        self._compact_spin(main_window.adv_cell_label_spin)
+        main_window.adv_cell_label_color_btn = QPushButton()
+        main_window.adv_cell_label_color_btn.setFixedWidth(24)
+        for col, w in (
+            (1, main_window.adv_cell_label_chk),
+            (3, main_window.adv_cell_label_spin),
+            (5, main_window.adv_cell_label_color_btn),
+        ):
+            w.setToolTip(TOOLTIPSTEXT.ADV_CELL_LABEL)
+            la2.addWidget(w, r, col, alignment=Qt.AlignLeft)
+        la2.addWidget(QLabel("Size:"), r, 2, alignment=Qt.AlignLeft)
+        la2.addWidget(QLabel("Color:"), r, 4, alignment=Qt.AlignLeft)
         r += 1
         la2.addWidget(
             QLabel("Show Time Indicator:"), r, 0, alignment=Qt.AlignLeft

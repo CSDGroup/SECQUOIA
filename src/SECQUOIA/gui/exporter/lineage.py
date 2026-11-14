@@ -86,6 +86,21 @@ class _Lineage:
         col = self._track_number_column(main_window)
         return self._row_at_time(sub, col, lineage_path, t_index)
 
+    def _cells_at(self, main_window, st, t_index) -> list:
+        row = self._get_track_row_for_time(
+            main_window, st.get("ident"), t_index, st.get("lineage_path", [])
+        )
+        col = self._track_number_column(main_window)
+        if row is None or not (st.get("show_sisters") and col):
+            return [] if row is None else [row]
+        df = main_window.track_df
+        sister = df[
+            (df["Identification"] == st["ident"])
+            & (df["t"] == t_index)
+            & (df[col] == int(row[col]) ^ 1)
+        ]
+        return [row, *(r for _, r in sister.head(1).iterrows())]
+
     def _centroid_at_time(self, sub, col, lineage_path, t_index):
         """Return the (x, y) centroid at exactly `t_index`, or None if no row exists there or its centroid is unusable."""
         row = self._row_at_time(sub, col, lineage_path, t_index)
