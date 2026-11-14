@@ -30,7 +30,6 @@ from SECQUOIA.core.quantification import quantify
 from SECQUOIA.core.segmentation.mask_io import load_masks
 from SECQUOIA.core.tracking.track_data import (
     _apply_import_realtime_to_track_df,
-    _cache_position_measurements,
     _load_cached_position_measurements,
     _position_csv_path,
     _refresh_filtered_df,
@@ -1115,32 +1114,6 @@ def run_all_positions(main_window) -> None:
     _start_position_preloader(main_window)
 
 
-def _save_previous_position_state(main_window) -> None:
-    """Persist the previous position's measurements to its cached CSV before switching away."""
-    try:
-        prev_sel = getattr(main_window, "position_selection", None)
-        if not prev_sel or not hasattr(main_window, "track_df"):
-            return
-
-        try:
-            prev_pos = int(os.path.basename(prev_sel).split("_p")[-1])
-        except (RuntimeError, AttributeError, TypeError):
-            return
-
-        t_file_min, t_file_max, _, _ = _current_t_range(main_window)
-        _cache_position_measurements(
-            main_window,
-            prev_pos,
-            t_file_min,
-            t_file_max,
-            log_prefix="update_images",
-        )
-    except (RuntimeError, AttributeError, TypeError) as e:
-        LOG.warning(
-            "[update_images] Warning while saving previous position CSV: %s", e
-        )
-
-
 def _resolve_target_position(main_window) -> int | None:
     """Select the folder at current_position_index and record its number.
 
@@ -1282,7 +1255,6 @@ def update_images(main_window, progress_cb=None) -> None:
     main_window._update_images_requested = False
     try:
         cleanup_memmaps(main_window)
-        _save_previous_position_state(main_window)
 
         position = _resolve_target_position(main_window)
         seg_input = getattr(main_window, "segmentation_paths", None)

@@ -38,7 +38,7 @@ from SECQUOIA.core.segmentation.mask_selection import (
 from SECQUOIA.core.tracking.clt_io import CLTParser
 from SECQUOIA.core.tracking.numbering import _binary_tracknumbers
 from SECQUOIA.gui.curation_tree import update_list
-from SECQUOIA.utils.io_reload import read_with_reload, to_csv_with_reload
+from SECQUOIA.utils.io_reload import read_with_reload
 from SECQUOIA.utils.positions import (
     current_position_number,
     position_index_from_number,
@@ -47,7 +47,6 @@ from SECQUOIA.utils.timing import (
     ORIGINAL_T_COLUMN,
     apply_realtime,
     build_realtime_lookup,
-    with_original_t,
 )
 
 LOG = logging.getLogger(__name__)
@@ -856,41 +855,6 @@ def _position_csv_path(
         f"_m{main_window.n_masks}_ch{main_window.n_channels}.csv"
     )
     return os.path.join(save_folder, fname)
-
-
-def _cache_position_measurements(
-    main_window,
-    position: int,
-    t_file_min: int,
-    t_file_max: int,
-    *,
-    log_prefix: str = "csv-cache",
-) -> None:
-    """Load one position's cached measurements CSV, if it exists."""
-    df = getattr(main_window, "track_df", None)
-    if not isinstance(df, pd.DataFrame):
-        return
-
-    df_pos = df[df.get("Position", -1) == position].copy()
-    if df_pos.empty:
-        LOG.warning(
-            "[%s] No rows to save for Position %s.", log_prefix, position
-        )
-        return
-
-    path = _position_csv_path(main_window, position, t_file_min, t_file_max)
-    try:
-        to_csv_with_reload(
-            with_original_t(main_window, df_pos), path, index=False
-        )
-    except (OSError, ValueError, RuntimeError) as e:
-        LOG.error(
-            "[%s] Failed to save position CSV after reloading: %r",
-            log_prefix,
-            e,
-        )
-        return
-    LOG.info("[%s] Saved position CSV: %s", log_prefix, path)
 
 
 def _required_measurement_columns(main_window) -> list[str]:

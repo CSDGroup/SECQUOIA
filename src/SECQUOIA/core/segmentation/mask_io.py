@@ -5,6 +5,7 @@ import glob
 import logging
 import os
 import re
+import time
 
 import imageio.v2 as imageio
 import numpy as np
@@ -423,6 +424,7 @@ def save_masks_incremental(main_window) -> None:
         LOG.warning("position_selection not set; load data first.")
         return
 
+    started = time.perf_counter()
     pos = position_name(main_window)
     labels_container = getattr(main_window, "labels", None)
     n_masks = int(getattr(main_window, "n_masks", len(seg_dirs) or 1))
@@ -505,8 +507,9 @@ def save_masks_incremental(main_window) -> None:
             f"Status: Saved {saved} corrected slice(s), {errors} error(s)."
         )
     LOG.info(
-        "Done. Saved=%d, Errors=%d, Remaining corrected=%d",
+        "Done. Saved=%d, Errors=%d, Remaining corrected=%d (%.1f s)",
         saved,
         errors,
         len(getattr(main_window, "_corrected_slices", [])),
+        time.perf_counter() - started,
     )

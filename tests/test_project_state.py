@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import json
 import os
+import time
 
 import pandas as pd
 import pytest
@@ -119,6 +120,21 @@ class TestSaveTrackDf:
 
         assert "_t00001-00006_" in name
         assert "_m1_ch2" in name
+
+    def test_writes_the_current_time_range_file(self, saved_window):
+        """A newer file for another time range must not receive the rows."""
+        folder = os.path.dirname(saved_window.project_state_path)
+        other = os.path.join(folder, "SECQUOIA_p0001_t00002-00003_m1_ch2.csv")
+        pd.DataFrame({"Position": [1]}).to_csv(other, index=False)
+        os.utime(other, (time.time() + 60, time.time() + 60))
+
+        save_track_df(saved_window)
+
+        assert len(pd.read_csv(other)) == 1
+        current = os.path.join(
+            folder, "SECQUOIA_p0001_t00001-00006_m1_ch2.csv"
+        )
+        assert len(pd.read_csv(current)) == 2
 
     def test_warns_and_stops_without_a_loaded_folder(
         self, fake_main_window, silence_modals
