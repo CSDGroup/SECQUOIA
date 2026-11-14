@@ -46,6 +46,7 @@ The crop size section defines the dimensions and area of each image displayed.
 - Channel (CH:) – select the channel to display.
 - B/W Inspector – opens a GUI to adjust the black (B:) and white (W:) points of the selected channel.
 - Generations – opens a GUI to select specific generations to include in the export.
+- Show sisters – displays the sister of the followed cell after each division.
 
 ## Advanced Settings
 
@@ -53,10 +54,16 @@ The Advanced Settings section allows you to overlay masks and additional labels 
 
 ### Mask Overlay
 
-- Mask (M:) – choose which mask to overlay on the image.
+- Mask (M:) – choose the mask to edit. Check or uncheck the boxes in the dropdown to show or hide each mask.
+- Cell – choose the cell whose mask style is edited.
 - Mask opacity (M α:) – adjust the opacity of the mask.
 - Full mask – display the entire mask.
 - Contour – display the outline of the mask. The line thickness, opacity, and mask color can be set via a dropdown.
+
+### Cell Label
+
+- Enable `Show cell label` to display `Cell <track number>` above each cell.
+- Adjust the `font size` and `text color`.
 
 ### Time Indicator and Text
 
@@ -102,5 +109,6 @@ Click `Export` to export the selected format(s). The files are saved in the expe
 
 - Clicking `Save` stores the current layout and all associated parameters as a `.json` file.
 - To reload a layout, select a layout from the dropdown and click `Load` to restore the layout and all its saved settings.
+- The Tree-ID and the selected generations are not stored in a layout.
 
 ![Image and movie export window](images/image-movie-export.png)
