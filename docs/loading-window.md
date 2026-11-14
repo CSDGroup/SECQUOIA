@@ -63,7 +63,10 @@ Select the desired channels (`Channel Selection` tab) and segmentations (`Segmen
 The project loading window (`Ctrl+O` or `File → Open a project`) is used to reload a previously saved project.
 
 1. Select the `project_metadata.json` file from your project folder.
-2. Click `Run`. The progress bar indicates when the data have been reloaded.
-3. Close the window.
+2. Select the position under `Open at position`.
+   - ✓ (green) - `measured`
+   - ✗ (purple) - `not measured yet` - it is quantified, then opened for curation.
+   - – (grey) - `no tracking` - cannot be selected.
+3. Click `Run`. The progress bar indicates when the data have been reloaded.
 
 ![Load previous project](images/loading-reload_project.png)
