@@ -8,6 +8,7 @@ import os
 import re
 import time
 from contextlib import suppress
+from pathlib import Path, PureWindowsPath
 
 import pandas as pd
 from qtpy.QtWidgets import QLineEdit, QMessageBox
@@ -160,6 +161,62 @@ def _combo_text(main_window, combo_attr: str, fallback_attr: str):
     return getattr(main_window, fallback_attr, None)
 
 
+SCHEMA_VERSION = 2
+_PATH_KEYS = (
+    "tracking_path",
+    "background_correction_path",
+    "import_rt_path",
+    "track_df_csv_path",
+)
+
+
+def _to_portable(path, root):
+    """Return ``path`` relative to ``root`` with '/' separators, else as is."""
+    if not path:
+        return path
+    try:
+        rel = os.path.relpath(path, root)
+    except ValueError:
+        return path
+    return path if rel.startswith("..") else Path(rel).as_posix()
+
+
+def _to_local(stored, root, old_root=None):
+    """Turn a stored path into a path on this computer."""
+    if not stored:
+        return stored
+    if old_root:
+        parts = PureWindowsPath(stored).parts
+        old = PureWindowsPath(old_root).parts
+        if [p.lower() for p in parts[: len(old)]] == [o.lower() for o in old]:
+            return str(Path(root, *parts[len(old) :]))
+        return stored
+    if stored.startswith(("/", "\\")) or PureWindowsPath(stored).drive:
+        return stored
+    return str(Path(root, stored))
+
+
+def read_project_json(json_path) -> dict:
+    """Read ``project_metadata.json`` with its paths valid on this computer."""
+    with open(json_path, encoding="utf-8") as f:
+        s = json.load(f)
+
+    parents = Path(os.path.abspath(json_path)).parents
+    root = (
+        str(parents[3])
+        if len(parents) > 3 and parents[2].name == "Analysis"
+        else s.get("experiment_root")
+    )
+    old_root = None if s.get("schema_version") else s.get("experiment_root")
+    s["experiment_root"] = root
+    for k in _PATH_KEYS:
+        s[k] = _to_local(s.get(k), root, old_root)
+    s["segmentation_paths"] = [
+        _to_local(x, root, old_root) for x in s.get("segmentation_paths") or []
+    ]
+    return s
+
+
 def save_project_state(main_window) -> None:
     """Save the current project metadata to ``project_metadata.json``."""
     experiment_root = getattr(main_window, "folder", None)
@@ -182,6 +239,7 @@ def save_project_state(main_window) -> None:
     expected_track_csv = os.path.join(save_folder, "Updated_CSV_File.csv")
 
     state = {
+        "schema_version": SCHEMA_VERSION,
         "project_name": getattr(main_window, "project_name", None),
         "experiment_name": getattr(main_window, "experiment_name", None),
         "experiment_root": experiment_root,
@@ -243,6 +301,11 @@ def save_project_state(main_window) -> None:
         "user": getattr(main_window, "user", None),
         "saved_at": _dt.datetime.now().isoformat(timespec="seconds"),
     }
+    for k in _PATH_KEYS:
+        state[k] = _to_portable(state[k], experiment_root)
+    state["segmentation_paths"] = [
+        _to_portable(x, experiment_root) for x in state["segmentation_paths"]
+    ]
 
     json_path = os.path.join(save_folder, "project_metadata.json")
     try:
@@ -371,8 +434,7 @@ def load_project_state(main_window, json_path=None) -> bool:
     p = json_path or getattr(main_window, "project_state_path", None)
     if not p or not os.path.isfile(p):
         return False
-    with open(p, encoding="utf-8") as f:
-        s = json.load(f)
+    s = read_project_json(p)
 
     csv_path = s.get("track_df_csv_path")
     if not csv_path or not os.path.isfile(csv_path):
