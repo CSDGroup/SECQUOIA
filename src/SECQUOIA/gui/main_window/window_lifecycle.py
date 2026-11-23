@@ -8,16 +8,25 @@ import logging
 
 import pyqtgraph as pg
 import qtawesome as qta
-from qtpy.QtCore import Qt, QTimer
+from qtpy.QtCore import Qt, QTimer, Signal
 from qtpy.QtGui import QCloseEvent
 from qtpy.QtWidgets import (
     QAbstractButton,
     QApplication,
+    QCheckBox,
+    QDialog,
+    QDialogButtonBox,
+    QFormLayout,
+    QLabel,
+    QMenu,
     QMessageBox,
     QPushButton,
+    QSpinBox,
     QWidget,
+    QWidgetAction,
 )
 
+from SECQUOIA.config import IORELOAD, TOOLTIPSTEXT
 from SECQUOIA.core.memmap_store import cleanup_memmaps
 from SECQUOIA.core.project_state import save_project_state, save_track_df
 from SECQUOIA.core.segmentation.mask_io import save_masks_incremental
@@ -38,11 +47,44 @@ from SECQUOIA.gui.loading_pipeline import stop_position_preloader
 from SECQUOIA.gui.outlier.outlier_list import _update_outlier_list
 from SECQUOIA.gui.ttt_data_format_transformer import TttDataFormatTransformer
 from SECQUOIA.utils.helpers import update_time_marker
+from SECQUOIA.utils.io_reload import (
+    end_autosave_deadline,
+    start_autosave_deadline,
+)
 from SECQUOIA.utils.plotting import _clear_all_rows, _plot_counts
 from SECQUOIA.utils.positions import position_number_at_current_index
 from SECQUOIA.utils.timing import t_rebase_offset
 
 LOG = logging.getLogger(__name__)
+
+
+def _text_start(menu: QMenu, rect) -> int | None:
+    """x (in menu pixels) where the text of the menu row `rect` begins."""
+    img = menu.grab(rect).toImage()
+    dpr = img.devicePixelRatio() or 1.0
+    bg = img.pixelColor(1, img.height() // 2)
+    for x in range(img.width()):
+        for y in range(0, img.height(), 2):
+            c = img.pixelColor(x, y)
+            diff = (
+                abs(c.red() - bg.red())
+                + abs(c.green() - bg.green())
+                + abs(c.blue() - bg.blue())
+            )
+            if diff > 120:
+                return rect.x() + round(x / dpr)
+    return None
+
+
+class _ClickableLabel(QLabel):
+    """Label for a rich-text menu entry; a plain QLabel ignores clicks."""
+
+    clicked = Signal()
+
+    def mouseReleaseEvent(self, event) -> None:
+        if self.isEnabled() and event.button() == Qt.LeftButton:
+            self.clicked.emit()
+        super().mouseReleaseEvent(event)
 
 
 class WindowLifecycle:
@@ -219,7 +261,7 @@ class WindowLifecycle:
 
             save_masks_incremental(self)
 
-        except (RuntimeError, AttributeError, TypeError):
+        except (OSError, RuntimeError, AttributeError, TypeError):
             btn.setStyleSheet(
                 orig_ss
                 + "QPushButton { background-color: #e74c3c; color: white; }"
@@ -230,6 +272,171 @@ class WindowLifecycle:
             btn.setStyleSheet(orig_ss)
             btn.setIcon(orig_icon)
             btn.setEnabled(True)
+
+    def _setup_autosave(self, file_menu: QMenu) -> None:
+        """Add the File menu entry "Autosave: On/Off". Autosave starts off."""
+        self._autosave_on = False
+        self._autosave_minutes = 10
+        self._autosave_timer = QTimer(self)
+        self._autosave_timer.timeout.connect(self._autosave)
+        self._autosave_retry = QTimer(self)
+        self._autosave_retry.setSingleShot(True)
+        self._autosave_retry.setInterval(30_000)
+        self._autosave_retry.timeout.connect(self._autosave)
+
+        self._autosave_label = _ClickableLabel()
+        self._autosave_label.setToolTip(TOOLTIPSTEXT.AUTOSAVE_MENU)
+        self._autosave_label.setStyleSheet(
+            "QLabel:hover:enabled { background: palette(highlight);"
+            " color: palette(highlighted-text); }"
+        )
+        self._autosave_label.setContentsMargins(20, 0, 20, 0)
+        self._autosave_label.clicked.connect(file_menu.close)
+        self._autosave_label.clicked.connect(self._open_autosave_dialog)
+        action = QWidgetAction(self)
+        action.setDefaultWidget(self._autosave_label)
+        file_menu.addAction(action)
+        file_menu.aboutToShow.connect(self._update_autosave_entry)
+        file_menu.aboutToShow.connect(
+            lambda: self._align_autosave_entry(file_menu, action)
+        )
+        file_menu.setToolTipsVisible(True)
+        self._update_autosave_entry()
+
+    def _experiment_loaded(self) -> bool:
+        """True when an experiment is fully loaded in Curation Mode."""
+        return (
+            bool(getattr(self, "folder_list", None))
+            and getattr(self, "track_df", None) is not None
+            and getattr(self, "_viewers_dirty", False)
+            and not getattr(self, "_loading_in_progress", False)
+        )
+
+    def _update_autosave_entry(self) -> None:
+        """Show On/Off; the entry can only be used with an experiment loaded."""
+        with contextlib.suppress(RuntimeError, AttributeError):
+            state = (
+                '<span style="color:#2ecc71;">On</span>'
+                if self._autosave_on
+                else "Off"
+            )
+            self._autosave_label.setText(f"Autosave: {state}")
+            self._autosave_label.setEnabled(self._experiment_loaded())
+
+    def _align_autosave_entry(self, menu: QMenu, action) -> None:
+        """Line the Autosave text up with the other entries, in any style.
+
+        Each platform style (macOS, Windows) indents menu text differently,
+        so measure where a normal entry's text starts and match it once.
+        """
+        if getattr(self, "_autosave_aligned", False):
+            return
+        ref = next(
+            (
+                a
+                for a in menu.actions()
+                if a is not action and a.text() and not a.isSeparator()
+            ),
+            None,
+        )
+        if ref is None:
+            return
+        with contextlib.suppress(RuntimeError, AttributeError, ValueError):
+            menu.adjustSize()
+            ref_rect = menu.actionGeometry(ref)
+            own_rect = menu.actionGeometry(action)
+            ref_x = _text_start(menu, ref_rect)
+            own_x = _text_start(menu, own_rect)
+            if ref_x is None or own_x is None:
+                return
+            m = self._autosave_label.contentsMargins()
+            left = max(0, m.left() + ref_x - own_x)
+            self._autosave_label.setContentsMargins(left, 0, m.right(), 0)
+            self._autosave_label.setFixedHeight(ref_rect.height())
+            # make the menu lay out its rows again with the new height
+            action.setVisible(False)
+            action.setVisible(True)
+            menu.adjustSize()
+            self._autosave_aligned = True
+
+    def _autosave_busy(self) -> bool:
+        """True while saving now could clash with something else running."""
+        return (
+            not self.save_button.isEnabled()
+            or QApplication.activeModalWidget() is not None
+            or QApplication.activePopupWidget() is not None
+            or QApplication.mouseButtons() != Qt.NoButton
+            or getattr(self, "_switching_position", False)
+            or getattr(self, "_loading_in_progress", False)
+        )
+
+    def _autosave(self) -> None:
+        """Run the Ctrl+S save on the timer; retry in 30 s while busy."""
+        if not getattr(self, "_autosave_on", False):
+            return
+        if self._autosave_busy():
+            self._autosave_retry.start()
+            return
+        if (
+            not getattr(self, "folder_list", None)
+            or getattr(self, "track_df", None) is None
+        ):
+            self.stop_autosave()
+            return
+        self._autosave_retry.stop()
+        start_autosave_deadline(IORELOAD.AUTOSAVE_MAX_WAIT_S)
+        try:
+            self.on_save_clicked()
+            LOG.info("[autosave] saved")
+        except Exception:
+            LOG.exception("[autosave] save failed")
+        finally:
+            end_autosave_deadline()
+
+    def _open_autosave_dialog(self) -> None:
+        """Turn autosave on or off and set its interval."""
+        if not self._experiment_loaded():
+            return
+        dlg = QDialog(self)
+        dlg.setWindowTitle("Autosave")
+        on_box = QCheckBox("Turn on autosave")
+        on_box.setChecked(self._autosave_on)
+        on_box.setToolTip(TOOLTIPSTEXT.AUTOSAVE_ON)
+        minutes = QSpinBox()
+        minutes.setRange(1, 120)
+        minutes.setSuffix(" min")
+        minutes.setValue(self._autosave_minutes)
+        minutes.setToolTip(TOOLTIPSTEXT.AUTOSAVE_MINUTES)
+        buttons = QDialogButtonBox(
+            QDialogButtonBox.Ok | QDialogButtonBox.Cancel
+        )
+        buttons.accepted.connect(dlg.accept)
+        buttons.rejected.connect(dlg.reject)
+        form = QFormLayout(dlg)
+        form.addRow(on_box)
+        form.addRow("Save every", minutes)
+        form.addRow(buttons)
+        if not dlg.exec_():
+            return
+        self._autosave_minutes = minutes.value()
+        if on_box.isChecked() and self._experiment_loaded():
+            self._autosave_on = True
+            self._autosave_timer.start(self._autosave_minutes * 60_000)
+            self._update_autosave_entry()
+        else:
+            self.stop_autosave()
+
+    def stop_autosave(self) -> None:
+        """Turn autosave off (experiment change, Cytometric Analysis, close)."""
+        self._autosave_on = False
+        for timer in (
+            getattr(self, "_autosave_timer", None),
+            getattr(self, "_autosave_retry", None),
+        ):
+            if timer is not None:
+                with contextlib.suppress(RuntimeError):
+                    timer.stop()
+        self._update_autosave_entry()
 
     def open_cytometric_analysis(self) -> None:
         """Leave Curation Mode for Cytometric Analysis, guarding against data loss.
@@ -295,6 +502,7 @@ class WindowLifecycle:
                 return
 
         stop_position_preloader(self)
+        getattr(self, "stop_autosave", lambda: None)()
         self.track_df = None
         self.filtered_df = None
         self.df_subset = None
@@ -395,6 +603,7 @@ class WindowLifecycle:
         try:
             detach_cell_inspector(self)
             stop_position_preloader(self)
+            getattr(self, "stop_autosave", lambda: None)()
             cleanup_memmaps(self)
         except (RuntimeError, AttributeError, TypeError) as e:
             LOG.warning("[close] cleanup warning: %s", e)

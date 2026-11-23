@@ -27,6 +27,7 @@ class IORELOAD:
     MAX_WAIT_S: float = 3600.0
     BASE_DELAY_S: float = 2.0
     MAX_DELAY_S: float = 30.0
+    AUTOSAVE_MAX_WAIT_S: float = 120.0  # autosave stops retrying after this
 
 
 @dataclass(frozen=True)
@@ -245,6 +246,9 @@ class TOOLTIPSTEXT:
     MENUBAR_tTt: str = (
         "Open the tool to restructure/rename an experiment into the tTt folder format."
     )
+    AUTOSAVE_MENU: str = "Save automatically at a set interval."
+    AUTOSAVE_ON: str = "Turn automatic saving on or off."
+    AUTOSAVE_MINUTES: str = "Minutes between autosaves (1–120)."
     # Napari toolbar
     BTN_BRUSH: str = (
         "Select a specific mask (not ALL) to enable the Brush tool (or press 2)."

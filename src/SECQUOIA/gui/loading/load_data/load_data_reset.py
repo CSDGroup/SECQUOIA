@@ -22,6 +22,7 @@ def _reset_dataset_state(main_window):
 
 def _reset_loaded_experiment(main_window):
     """Discard everything produced by a previous load before loading a new experiment."""
+    getattr(main_window, "stop_autosave", lambda: None)()
     # image data
     main_window.images = {}
     main_window.corrected_images = None

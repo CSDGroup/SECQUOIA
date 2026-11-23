@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import json
 import logging
 import os
 from types import SimpleNamespace
@@ -32,6 +31,7 @@ from SECQUOIA.config import LINKS, TOOLTIPSTEXT
 from SECQUOIA.core.project_state import (
     _measurements_output_path,
     load_project_state,
+    read_project_json,
 )
 from SECQUOIA.gui.common.ui_utils import (
     add_progress_bar,
@@ -140,8 +140,7 @@ def _fill_project_positions(combo: QComboBox, json_path: str) -> None:
     """List a saved project's positions, marked by whether they are measured."""
     combo.clear()
     try:
-        with open(json_path, encoding="utf-8") as f:
-            s = SimpleNamespace(**json.load(f))
+        s = SimpleNamespace(**read_project_json(json_path))
         s.folder = s.experiment_root
         entries = parse_position_entries(os.listdir(s.folder))
         tracks = pd.read_csv(
@@ -259,6 +258,7 @@ def open_load_previous_project_gui(main_window: QWidget) -> None:
         """Load the selected project and bring its viewers and plots up."""
         try:
             drop_dead_widget_attrs(main_window)
+            getattr(main_window, "stop_autosave", lambda: None)()
             if not load_project_state(main_window, le.text().strip()):
                 return
             QApplication.setOverrideCursor(Qt.WaitCursor)

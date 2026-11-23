@@ -774,6 +774,7 @@ class MainWindow(
         Save_data_action = QAction("Save data (Ctrl+S)", self)
         Save_data_action.triggered.connect(self.on_save_clicked)
         file_menu.addAction(Save_data_action)
+        self._setup_autosave(file_menu)
 
         # Exit
         exit_action = QAction("Exit (Esc)", self)

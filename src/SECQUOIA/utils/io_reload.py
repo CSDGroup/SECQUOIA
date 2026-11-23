@@ -17,6 +17,18 @@ from SECQUOIA.config import IORELOAD
 
 LOG = logging.getLogger(__name__)
 
+_autosave_deadline = threading.local()
+
+
+def start_autosave_deadline(seconds: float) -> None:
+    """Stop reload waiting on this thread `seconds` from now (autosave only)."""
+    _autosave_deadline.at = time.monotonic() + seconds
+
+
+def end_autosave_deadline() -> None:
+    """Remove the autosave deadline from this thread."""
+    _autosave_deadline.at = None
+
 
 class LoadCancelled(Exception):
     """A background load was asked to stop."""
@@ -60,6 +72,9 @@ def read_with_reload(
         except (OSError, ValueError, RuntimeError) as exc:
             attempt += 1
             remaining = max_wait_s - (time.monotonic() - start)
+            deadline = getattr(_autosave_deadline, "at", None)
+            if deadline is not None:
+                remaining = min(remaining, deadline - time.monotonic())
             if remaining <= 0:
                 raise
             if on_reload is not None:
