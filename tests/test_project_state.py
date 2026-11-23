@@ -18,6 +18,7 @@ import pytest
 from SECQUOIA.core.project_state import (
     _measurements_output_path,
     load_project_state,
+    read_project_json,
     save_position_measurements,
     save_project_state,
     save_track_df,
@@ -202,8 +203,7 @@ class TestSaveProjectState:
         }
 
     def test_the_metadata_points_at_the_track_csv(self, saved_window):
-        with open(saved_window.project_state_path) as f:
-            state = json.load(f)
+        state = read_project_json(saved_window.project_state_path)
 
         assert os.path.isfile(state["track_df_csv_path"])
 
@@ -348,8 +348,7 @@ class TestLoadProjectState:
         self, fake_main_window, saved_window, silence_modals
     ):
         """Losing the CSV must be reported, not silently loaded as empty."""
-        with open(saved_window.project_state_path) as f:
-            state = json.load(f)
+        state = read_project_json(saved_window.project_state_path)
         os.remove(state["track_df_csv_path"])
 
         result = load_project_state(
