@@ -11,7 +11,11 @@ import imageio.v2 as imageio
 import numpy as np
 from skimage.measure import label
 
-from SECQUOIA.utils.io_reload import raise_if_cancelled, read_with_reload
+from SECQUOIA.utils.io_reload import (
+    READ_ERRORS,
+    raise_if_cancelled,
+    read_with_reload,
+)
 from SECQUOIA.utils.timing import current_t_range as _current_t_range
 from SECQUOIA.utils.timing import (
     filename_t_file_number as _filename_t_file_number,
@@ -143,7 +147,7 @@ def _plan_single_mask_stack(
         probe = _mask_to_2d(
             read_with_reload(read_fn, image_files[0], cancel=cancel), is_bgr
         )
-    except (OSError, ValueError, RuntimeError) as e:
+    except READ_ERRORS as e:
         LOG.error(
             "[%s] Giving up reading %s after reloading (%r); skipping this "
             "segmentation folder for this position.",
@@ -184,7 +188,7 @@ def _read_mask_into(
     raise_if_cancelled(cancel)
     try:
         img = _mask_to_2d(read_with_reload(read_fn, fp, cancel=cancel), is_bgr)
-    except (OSError, ValueError, RuntimeError) as e:
+    except READ_ERRORS as e:
         LOG.error(
             "Giving up on mask frame after reloading: %s (%r). Leaving this "
             "frame's mask empty.",

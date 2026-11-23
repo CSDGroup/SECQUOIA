@@ -17,6 +17,18 @@ from SECQUOIA.config import IORELOAD
 
 LOG = logging.getLogger(__name__)
 
+try:
+    from tifffile import TiffFileError
+except ImportError:
+    TiffFileError = ValueError
+
+READ_ERRORS: tuple[type[Exception], ...] = (
+    OSError,
+    ValueError,
+    RuntimeError,
+    TiffFileError,
+)
+
 _autosave_deadline = threading.local()
 
 
@@ -69,7 +81,7 @@ def read_with_reload(
     while True:
         try:
             return read_fn(fp)
-        except (OSError, ValueError, RuntimeError) as exc:
+        except READ_ERRORS as exc:
             attempt += 1
             remaining = max_wait_s - (time.monotonic() - start)
             deadline = getattr(_autosave_deadline, "at", None)

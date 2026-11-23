@@ -20,7 +20,7 @@ from SECQUOIA.core.basic_correction import apply_basic_correction
 from SECQUOIA.core.fluorescence_loading import load_fl_channels
 from SECQUOIA.core.memmap_store import cleanup_memmaps
 from SECQUOIA.core.quantification import sum_intensity
-from SECQUOIA.utils.io_reload import to_csv_with_reload
+from SECQUOIA.utils.io_reload import READ_ERRORS, to_csv_with_reload
 
 LOG = logging.getLogger(__name__)
 
@@ -203,7 +203,7 @@ def run_cytometric_analysis(main_window) -> None:
 
         try:
             load_fl_channels(main_window)
-        except (OSError, ValueError, RuntimeError) as e:
+        except READ_ERRORS as e:
             LOG.error("load_fl_channels failed: %s", e)
             to_csv_with_reload(pd.DataFrame(), out_csv, index=False)
             return
@@ -239,7 +239,7 @@ def run_cytometric_analysis(main_window) -> None:
                     getattr(main_window, "corrected_images_noratioflat", None)
                     or {}
                 )
-            except (OSError, ValueError, RuntimeError) as e:
+            except READ_ERRORS as e:
                 LOG.warning("BaSiC skipped: %s", e)
                 corr_ratio = corr_norf = None
 
@@ -497,7 +497,7 @@ def run_cytometric_analysis(main_window) -> None:
 
         try:
             quantify_one_position(pos_path, out_csv)
-        except (OSError, ValueError, RuntimeError) as e:
+        except READ_ERRORS as e:
             LOG.error(
                 "Giving up on position %s after reloading (%r); skipping it "
                 "and continuing with the rest.",

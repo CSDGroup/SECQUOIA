@@ -13,7 +13,11 @@ import imageio.v2 as imageio
 import numpy as np
 
 from SECQUOIA.core.memmap_store import ensure_memmap_dir
-from SECQUOIA.utils.io_reload import raise_if_cancelled, read_with_reload
+from SECQUOIA.utils.io_reload import (
+    READ_ERRORS,
+    raise_if_cancelled,
+    read_with_reload,
+)
 from SECQUOIA.utils.timing import current_t_range as _current_t_range
 from SECQUOIA.utils.timing import (
     filename_t_file_number as _filename_t_file_number,
@@ -214,7 +218,7 @@ def _prepare_channel(
             ),
             is_bgr,
         )
-    except (OSError, ValueError, RuntimeError) as e:
+    except READ_ERRORS as e:
         LOG.error(
             "FL channel %d (%s): giving up reading %s after reloading (%r); "
             "channel will be empty.",
@@ -263,7 +267,7 @@ def _decode_frames(
         raise_if_cancelled(cancel)
         try:
             arr = _to_2d(read_with_reload(read_fn, fp, cancel=cancel), is_bgr)
-        except (OSError, ValueError, RuntimeError) as e:
+        except READ_ERRORS as e:
             LOG.error(
                 "Giving up on FL frame after reloading: %s (%r). Leaving "
                 "frame blank/missing.",
