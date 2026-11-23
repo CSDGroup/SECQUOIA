@@ -206,6 +206,10 @@ To switch to a different position in an experiment, use one of the following opt
 
 After selecting an option, a loading window with a progress bar appears and indicates when the next position has finished loading.
 
+### Preload positions
+
+To switch positions faster, SECQUOIA can fetch one position in the background. After loading an experiment, a popup asks whether to preload the next position. The preload status is shown in the top right corner. By clicking on the progress bar, preloading can be turned on and off, and the position to be preloaded can be selected.
+
 ## Save and export data
 
 To save curated data, use one of the following options:
@@ -213,6 +217,7 @@ To save curated data, use one of the following options:
 - Click the `Save` button under the Tree-ID selector.
 - Press `Ctrl+S`.
 - Select `File → Save Data`.
+- Turn on `File → Autosave` to save automatically every 1–120 minutes (only while an experiment is loaded).
 
 SECQUOIA saves and exports all quantified and curated data to the experiment folder, including:
 
