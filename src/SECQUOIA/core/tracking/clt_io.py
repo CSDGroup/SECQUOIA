@@ -8,9 +8,11 @@ pixels.
 
 from __future__ import annotations
 
+import csv
 import logging
 import os
 import re
+import time
 from collections.abc import Callable, Iterator
 from typing import NamedTuple
 
@@ -30,13 +32,37 @@ __all__ = [
 LOG = logging.getLogger(__name__)
 
 
-def _as_scalar(val, default=None):
-    """Collapse an accidental series/array to a single value."""
-    if isinstance(val, pd.Series):
-        return val.iloc[0] if not val.empty else default
-    if isinstance(val, np.ndarray):
-        return val.flat[0] if val.size else default
-    return val
+def _int_column(df: pd.DataFrame, name: str, default: int) -> pd.Series:
+    if name not in df.columns:
+        return pd.Series(default, index=df.index, dtype=int)
+    values = pd.to_numeric(df[name], errors="coerce")
+    return values.fillna(default).astype(int)
+
+
+_SEMICOLON = "\x1f"
+
+
+def _text_cell(val) -> str:
+    """A non numeric column's cell as written to the CLT file."""
+    if pd.isna(val):
+        return "nan"
+    if isinstance(val, int | np.integer):
+        return str(int(val))
+    try:
+        return f"{float(val):.6g}"
+    except (TypeError, ValueError):
+        return str(val).replace(";", _SEMICOLON)
+
+
+def _data_column(col: pd.Series) -> pd.Series:
+    """Prepare one data column for `to_csv`, matching the CLT number format."""
+    if pd.api.types.is_bool_dtype(col):
+        return col.astype(int)
+    if pd.api.types.is_integer_dtype(col):
+        return col
+    if pd.api.types.is_float_dtype(col):
+        return col.astype("float64")
+    return col.map(_text_cell)
 
 
 class _ColumnSchema(NamedTuple):
@@ -188,7 +214,22 @@ class CLTParser:
         for name in data_cols:
             lines.append(f'\t\t\tdouble "{name}"')
 
-        #  One % Cell block per TrackNumber
+        t_num = pd.to_numeric(df_local["t"], errors="coerce")
+        df_local = df_local[t_num.notna()]
+        rows = pd.DataFrame(
+            {
+                "TimePoint": t_num[t_num.notna()].astype(int) + t_offset + 1,
+                "FieldOfView": _int_column(df_local, "Position", 0),
+                "ZIndex": _int_column(df_local, "ZIndex", default_zindex),
+                "ImagingChannel": _int_column(
+                    df_local, "ImagingChannel", imaging_channel
+                ),
+            },
+            index=df_local.index,
+        )
+        for name in data_cols:
+            rows[name] = _data_column(df_local[name])
+
         for track_number, df_track in df_local.groupby(
             "TrackNumber", sort=True
         ):
@@ -196,65 +237,21 @@ class CLTParser:
                 tn_int = int(track_number)
             except (TypeError, ValueError):
                 continue
-
+            order = df_track.sort_values(["t", "Position"]).index
+            text = rows.loc[order].to_csv(
+                sep=";",
+                header=False,
+                index=False,
+                float_format="%.6g",
+                na_rep="nan",
+                quoting=csv.QUOTE_NONE,
+                quotechar="\x07",
+                escapechar="\\",
+                lineterminator="\n",
+            )
+            text = text.replace(_SEMICOLON, ";")
             lines.append(f"\t% Cell id={tn_int}")
-            df_track_sorted = df_track.sort_values(["t", "Position"])
-
-            for _, row in df_track_sorted.iterrows():
-                # Time point (1-based)
-                try:
-                    timepoint = int(_as_scalar(row["t"])) + t_offset + 1
-                except (TypeError, ValueError):
-                    continue
-
-                # FieldOfView
-                try:
-                    field_of_view = int(_as_scalar(row["Position"]))
-                except (TypeError, ValueError):
-                    field_of_view = 0
-
-                #  Here default_zindex & imaging_channel are used
-                z_raw = (
-                    _as_scalar(row["ZIndex"])
-                    if "ZIndex" in row.index
-                    else None
-                )
-                if z_raw is not None and not pd.isna(z_raw):
-                    z_val = int(z_raw)
-                else:
-                    z_val = default_zindex
-
-                ch_raw = (
-                    _as_scalar(row["ImagingChannel"])
-                    if "ImagingChannel" in row.index
-                    else None
-                )
-                if ch_raw is not None and not pd.isna(ch_raw):
-                    im_ch = int(ch_raw)
-                else:
-                    im_ch = imaging_channel
-
-                values = [
-                    str(timepoint),
-                    str(field_of_view),
-                    str(z_val),
-                    str(im_ch),
-                ]
-
-                for name in data_cols:
-                    val = _as_scalar(row.get(name, np.nan), np.nan)
-                    if pd.isna(val):
-                        values.append("nan")
-                    elif isinstance(val, int | np.integer):
-                        values.append(str(int(val)))
-                    else:
-                        try:
-                            v_float = float(val)
-                            values.append(f"{v_float:.6g}")
-                        except (TypeError, ValueError):
-                            values.append(str(val))
-
-                lines.append("\t\t" + ";".join(values))
+            lines.extend("\t\t" + line for line in text.splitlines())
 
         return "\n".join(lines)
 
@@ -265,6 +262,67 @@ class CLTParser:
         posx, posy = self.tat.pos_map.get(int(position), (0.0, 0.0))
         um = self.tat.um_per_px
         return x_px * um + posx, y_px * um + posy
+
+    def _patch_tracking_xy(
+        self, text: str, df_ident: pd.DataFrame, t_offset: int = 0
+    ) -> str:
+        """Write corrected tracking points of `df_ident` into '%% TrackingData'."""
+        m = self._TRACKINGDATA_RE.search(text)
+        cols = ["TrackNumber", "t", "Position", "XMorphology", "YMorphology"]
+        if not m or not set(cols) <= set(df_ident.columns):
+            return text
+        schema = self._resolve_column_schema(m.group(0), "")
+        if schema.i_t is None:
+            return text
+        points = {
+            (int(tn), int(t) + t_offset + 1): (int(pos), float(x), float(y))
+            for tn, t, pos, x, y in df_ident[cols]
+            .dropna()
+            .itertuples(index=False)
+        }
+
+        cell_id = None
+        out = []
+        for line in m.group(0).splitlines(keepends=True):
+            cell = re.match(r"\s*%+\s*Cell\b(.*)", line)
+            if cell:
+                m_id = self._CELL_ID_RE.search(cell.group(1))
+                cell_id = int(m_id.group(1)) if m_id else None
+            parsed = self._parse_tracking_line(line, schema)
+            if parsed is not None:
+                point = points.get((cell_id, int(parsed[0]) + 1))
+                if point is not None and point[0] == parsed[1]:
+                    line = self._moved_line(line, schema, parsed, point)
+            out.append(line)
+        return text[: m.start()] + "".join(out) + text[m.end() :]
+
+    def _moved_line(self, line: str, schema, parsed, point) -> str:
+        """`line` with x and y set to `point`, unchanged if on the same pixel."""
+        pos, x_px, y_px = point
+        x_file, y_file = parsed[2], parsed[3]
+        if self.tat is not None:
+            if pos not in self.tat.pos_map:
+                return line
+            posx, posy = self.tat.pos_map[pos]
+            um = self.tat.um_per_px
+            x_file, y_file = (x_file - posx) / um, (y_file - posy) / um
+        if np.rint(x_file) == np.rint(x_px) and np.rint(y_file) == np.rint(
+            y_px
+        ):
+            return line
+
+        body = line.rstrip()
+        parts = body.split(";")
+        xg, yg = self._global_xy(pos, x_px, y_px)
+        parts[schema.i_x] = f"{xg:.10g}"
+        parts[schema.i_y] = f"{yg:.10g}"
+        new_body = ";".join(parts)
+        LOG.info(
+            "[CLT export] Moved tracking point: %s -> %s",
+            body.strip(),
+            new_body.strip(),
+        )
+        return new_body + line[len(body) :]
 
     def _build_trackingdata_block_from_df(
         self, df_ident: pd.DataFrame, t_offset: int = 0
@@ -694,11 +752,17 @@ class CLTParser:
         existing_text: str,
         quant_block: str,
         *,
+        df_ident: pd.DataFrame,
+        t_offset: int,
         overwrite_existing_quant: bool,
     ) -> str:
         """Append quant_block to existing_text, stripping prior SECQUOIA quantification
-        blocks first when overwrite_existing_quant is set."""
-        text = existing_text
+        blocks first when overwrite_existing_quant is set.
+
+        Tracking points corrected in `df_ident` are written into the
+        '%% TrackingData' block first.
+        """
+        text = self._patch_tracking_xy(existing_text, df_ident, t_offset)
         if overwrite_existing_quant:
             text = self._remove_secquoia_quant_blocks(
                 text, normalize_newline=True
@@ -768,6 +832,8 @@ class CLTParser:
             text = self._merge_quant_block(
                 existing_text,
                 quant_block,
+                df_ident=df_ident,
+                t_offset=t_offset,
                 overwrite_existing_quant=overwrite_existing_quant,
             )
             out_path = existing_path
@@ -785,6 +851,8 @@ class CLTParser:
                 text = self._merge_quant_block(
                     existing_text,
                     quant_block,
+                    df_ident=df_ident,
+                    t_offset=t_offset,
                     overwrite_existing_quant=overwrite_existing_quant,
                 )
             else:
@@ -826,6 +894,7 @@ class CLTParser:
             )
 
         new_root = output_root or self.folder_exp
+        started = time.perf_counter()
 
         if not self.clt_paths_by_ident:
             self._index_existing_clt_files()
@@ -860,3 +929,9 @@ class CLTParser:
 
             if progress_fun:
                 progress_fun(idx, total)
+
+        LOG.info(
+            "[CLT export] %d tree file(s) written in %.1f s",
+            total,
+            time.perf_counter() - started,
+        )

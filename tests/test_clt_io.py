@@ -13,7 +13,7 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from SECQUOIA.core.tracking.clt_io import CLTParser, _as_scalar
+from SECQUOIA.core.tracking.clt_io import CLTParser
 
 
 @pytest.fixture
@@ -52,24 +52,6 @@ def write_clt(tmp_path, parser: CLTParser, df: pd.DataFrame, ident: str):
     folder.mkdir(exist_ok=True)
     (folder / f"{ident}.clt").write_text(parser._new_clt_text(df, "tester"))
     return str(folder)
-
-
-# Small helpers
-class TestAsScalar:
-    def test_passes_a_plain_value_through(self):
-        assert _as_scalar(5) == 5
-
-    def test_takes_the_first_element_of_a_series(self):
-        assert _as_scalar(pd.Series([7, 8, 9])) == 7
-
-    def test_takes_the_first_element_of_an_array(self):
-        assert _as_scalar(np.array([[1, 2], [3, 4]])) == 1
-
-    def test_falls_back_to_the_default_for_an_empty_series(self):
-        assert _as_scalar(pd.Series(dtype=float), default=-1) == -1
-
-    def test_falls_back_to_the_default_for_an_empty_array(self):
-        assert _as_scalar(np.array([]), default=-1) == -1
 
 
 class TestIdentificationFromPath:
@@ -524,3 +506,171 @@ class TestCoordinateConversion:
         # (1005 - 1000) / 0.5 = 10 and (2010 - 2000) / 0.5 = 20.
         assert out["XMorphology"].tolist() == [10]
         assert out["YMorphology"].tolist() == [20]
+
+
+class TestQuantificationBlockText:
+    """The tTt quantification text must stay exactly as earlier versions wrote it."""
+
+    def test_matches_the_established_format(self):
+        """Sorting, frame columns, number format and text values."""
+        df = pd.DataFrame(
+            {
+                "Identification": "e-p0001-001",
+                "TrackNumber": [2.0, 1.0, 1.0, 3.5, 1.0],
+                "t": [1.0, 2.0, 0.0, 0.0, np.nan],
+                "Position": [1, 1, np.nan, 1, 1],
+                "ZIndex": [np.nan, 2, 1, 1, 1],
+                "Mean": [12.3456789, np.nan, 1e7, 0.5, 1.0],
+                "Count": [3, 4, 5, 6, 7],
+                "Flag": [True, False, True, True, True],
+                "Fate": ["Healthy", "x;y", 2.5, None, "z"],
+            }
+        )
+
+        text = CLTParser()._build_quantification_block_from_df(
+            df,
+            user="MA",
+            quant_name="Q",
+            software="S",
+            remark="",
+            imaging_channel=0,
+            default_zindex=1,
+            t_offset=10,
+        )
+
+        assert text == (
+            '%% Quantification Name="Q" User="MA" Software="S"\n'
+            "\t% Columns\n\t\t% Frame\n\t\t\tTimePoint\n\t\t\tFieldOfView\n"
+            "\t\t\tZIndex\n\t\t\tImagingChannel\n\t\t% Data\n"
+            '\t\t\tdouble "Mean"\n\t\t\tdouble "Count"\n'
+            '\t\t\tdouble "Flag"\n\t\t\tdouble "Fate"\n'
+            "\t% Cell id=1\n"
+            "\t\t11;0;1;0;1e+07;5;1;2.5\n"
+            "\t\t13;1;2;0;nan;4;0;x;y\n"
+            "\t% Cell id=2\n"
+            "\t\t12;1;1;0;12.3457;3;1;Healthy\n"
+            "\t% Cell id=3\n"
+            "\t\t11;1;1;0;0.5;6;1;nan"
+        )
+
+
+class TestCorrectedTrackingPointExport:
+    """Simulate a right-click correction, then the export that saves it."""
+
+    IDENT = "exp_p0002-001"
+
+    @staticmethod
+    def tracking_lines(folder, ident) -> list[str]:
+        text = (folder / f"{ident}.clt").read_text()
+        block = CLTParser._TRACKINGDATA_RE.search(text).group(0)
+        return [ln for ln in block.splitlines() if ";" in ln]
+
+    def load_correct_export(
+        self, tmp_path, clt_parser, moves, *, t_offset=0, file_df=None
+    ):
+        """Write a CLT, load it, move points as right-click does, export it."""
+        file_df = track_frame(self.IDENT) if file_df is None else file_df
+        folder = tmp_path / "experiment"
+        folder.mkdir(exist_ok=True)
+        (folder / f"{self.IDENT}.clt").write_text(
+            clt_parser._new_clt_text(file_df, "tester")
+        )
+        df = clt_parser.load_folder(str(folder), str(folder), False)
+        df = df[df["t"] >= t_offset].assign(t=lambda d: d["t"] - t_offset)
+        for (track, t), (x, y) in moves.items():
+            row = (df["TrackNumber"] == track) & (df["t"] == t)
+            df.loc[row, ["XMorphology", "YMorphology"]] = (float(x), float(y))
+
+        clt_parser.export_quantifications_to_clt(
+            df, user="tester", t_offset=t_offset
+        )
+        reloaded = CLTParser(None)
+        reloaded.tat = clt_parser.tat
+        return folder, reloaded.load_folder(str(folder), str(folder), False)
+
+    @staticmethod
+    def point(df, track, t):
+        row = df[(df["TrackNumber"] == track) & (df["t"] == t)].iloc[0]
+        return row["XMorphology"], row["YMorphology"]
+
+    def test_an_export_without_corrections_leaves_tracking_untouched(
+        self, tmp_path, tat_parser
+    ):
+        folder = tmp_path / "experiment"
+        folder.mkdir()
+        (folder / f"{self.IDENT}.clt").write_text(
+            tat_parser._new_clt_text(track_frame(self.IDENT), "tester")
+        )
+        before = self.tracking_lines(folder, self.IDENT)
+
+        self.load_correct_export(tmp_path, tat_parser, {})
+
+        assert self.tracking_lines(folder, self.IDENT) == before
+
+    def test_the_corrected_point_is_loaded_back(self, tmp_path, tat_parser):
+        _, out = self.load_correct_export(
+            tmp_path, tat_parser, {(2, 3): (37, 41)}
+        )
+
+        assert self.point(out, 2, 3) == (37, 41)
+
+    def test_only_the_corrected_line_changes(self, tmp_path, tat_parser):
+        folder = tmp_path / "experiment"
+        folder.mkdir()
+        (folder / f"{self.IDENT}.clt").write_text(
+            tat_parser._new_clt_text(track_frame(self.IDENT), "tester")
+        )
+        before = self.tracking_lines(folder, self.IDENT)
+
+        self.load_correct_export(tmp_path, tat_parser, {(2, 3): (37, 41)})
+
+        after = self.tracking_lines(folder, self.IDENT)
+        changed = [
+            (b, a) for b, a in zip(before, after, strict=True) if b != a
+        ]
+        assert changed == [
+            ("\t\t4;2;1;0;1065;2107.5", "\t\t4;2;1;0;1018.5;2020.5")
+        ]
+
+    def test_a_rebased_interval_patches_the_right_time_point(
+        self, tmp_path, tat_parser
+    ):
+        """Loaded from frame 2 on, rebased t=0 is file TimePoint 3."""
+        folder, out = self.load_correct_export(
+            tmp_path, tat_parser, {(1, 0): (5, 6)}, t_offset=2
+        )
+
+        assert self.point(out, 1, 2) == (5, 6)
+        assert self.point(out, 1, 0) == (100, 200)
+        assert "\t\t3;2;1;0;1002.5;2003" in self.tracking_lines(
+            folder, self.IDENT
+        )
+
+    def test_without_tat_the_pixels_are_written_as_they_are(
+        self, tmp_path, parser
+    ):
+        _, out = self.load_correct_export(tmp_path, parser, {(3, 4): (7, 8)})
+
+        assert self.point(out, 3, 4) == (7, 8)
+
+    def test_large_stage_coordinates_keep_the_exact_pixel(self, tmp_path):
+        """Global values above 100000 um need more than six digits."""
+        xml = TAT_XML.replace('value="0.5"', 'value="0.6455"').replace(
+            'posX="1000" posY="2000"', 'posX="123456.789" posY="98765.4321"'
+        )
+        (tmp_path / "TATexp.xml").write_text(xml)
+        clt_parser = CLTParser(str(tmp_path / "TATexp.xml"))
+        moves = {(1, 0): (1, 79), (1, 1): (99, 2), (2, 4): (57, 33)}
+
+        _, out = self.load_correct_export(tmp_path, clt_parser, moves)
+
+        for (track, t), xy in moves.items():
+            assert self.point(out, track, t) == xy
+
+    def test_a_row_missing_from_the_file_adds_no_line(self, tat_parser):
+        df = track_frame(self.IDENT)
+        gap = (df["TrackNumber"] == 1) & (df["t"] == 1)
+        text = tat_parser._new_clt_text(df[~gap], "tester")
+        df.loc[gap, ["XMorphology", "YMorphology"]] = (9.0, 9.0)
+
+        assert tat_parser._patch_tracking_xy(text, df) == text
