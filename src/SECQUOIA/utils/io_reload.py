@@ -19,7 +19,7 @@ LOG = logging.getLogger(__name__)
 
 try:
     from tifffile import TiffFileError
-except ImportError:
+except ImportError:  # pragma: no cover
     TiffFileError = ValueError
 
 READ_ERRORS: tuple[type[Exception], ...] = (

@@ -342,6 +342,22 @@ class TestUnreadableFrames:
         assert [p.endswith("mask_t00002.tif") for p in failed] == [True]
         assert stack[1].max() == 0
 
+    def test_an_unreadable_first_mask_skips_the_folder(
+        self, tmp_path, monkeypatch
+    ):
+        from SECQUOIA.core.segmentation import mask_io
+
+        monkeypatch.setattr(
+            mask_io,
+            "read_with_reload",
+            lambda fn, fp, **kw: read_with_reload(fn, fp, max_wait_s=0, **kw),
+        )
+        masks = tmp_path / "Segmentation" / "exp_p0001"
+        masks.mkdir(parents=True)
+        (masks / "mask_t00001.tif").write_bytes(b"not an image")
+
+        assert load_masks(str(masks.parent), "exp_p0001", "tif") is None
+
     @pytest.fixture
     def preloaded(self, tmp_path, monkeypatch):
         """A finished preload of a one-frame position with one mask."""

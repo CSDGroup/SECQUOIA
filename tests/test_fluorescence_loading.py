@@ -118,6 +118,35 @@ def test_zero_length_t_range_marks_all_channels_empty(tmp_path, monkeypatch):
     assert main_window.image_present["w01"].shape == (0,)
 
 
+@pytest.mark.parametrize(
+    ("bad_t", "present"), [(1, None), (3, [True, False, False])]
+)
+def test_unreadable_frames_are_left_empty(
+    tmp_path, monkeypatch, bad_t, present
+):
+    import SECQUOIA.core.fluorescence_loading as fluorescence_loading
+    from SECQUOIA.utils.io_reload import read_with_reload
+
+    monkeypatch.setattr(
+        fluorescence_loading,
+        "read_with_reload",
+        lambda fn, fp, **kw: read_with_reload(fn, fp, max_wait_s=0, **kw),
+    )
+    main_window = make_fake_main_window(tmp_path)
+    (tmp_path / "fake_p0001" / f"img_t0000{bad_t}_w01.png").write_bytes(
+        b"not an image"
+    )
+
+    load_fl_channels(main_window)
+
+    if present is None:
+        assert main_window.images["w01"] is None
+    else:
+        np.testing.assert_array_equal(
+            main_window.image_present["w01"], present
+        )
+
+
 def test_progress_callback_reaches_completion(tmp_path):
     main_window = make_fake_main_window(tmp_path)
     calls = []
